@@ -157,10 +157,15 @@ When a new phrase is proposed, check it against both lists before it ships.
   macOS installers and the macOS Gatekeeper bypass.
 - “Source-available” means FSL-1.1-MIT, not OSI-approved open source. Each
   release converts to MIT after two years under the license terms.
-- “No generative AI on your work” means there is no text-to-image generation
-  layer over the canvas and no model training on user content. Assistive
-  on-device models (tracing, enhancement, background removal, object
-  selection, depth, palette) exist and download only when requested.
+- Optional model tools run locally, and Varve does not train models on user
+  documents. Assistive tracing, enhancement, background removal, selection,
+  depth and palette tools coexist with explicit mask-guided Fill/Remove and
+  bounded desktop promptless Expand. Model downloads require the user's
+  choice. Prompt-conditioned generation remains gated, and browser AI-quality
+  Expand is implemented but pending qualification; there is no shipped hosted
+  text-to-image service. Link the
+  [generative capability boundary](../architecture/generative-editing-system.md#current-capability-boundary)
+  when discussing these features.
 - “No telemetry by default” means no analytics or crash reporting is sent
   unless the user opts in; name the opt-in aggregate measurement and what it
   transmits rather than claiming zero.
@@ -192,6 +197,8 @@ When a new phrase is proposed, check it against both lists before it ships.
 - “Zero telemetry” or unconditional “no telemetry”; an opt-in aggregate
   measurement path exists.
 - “AI-free”, “no AI”, or “100% AI-free”; on-device model features ship today.
+- “No generative AI on your work”; local generative editing is an explicit
+  opt-in workflow, so that blanket promise contradicts the implemented features.
 - “Fully accessible”, “WCAG 2.2 AA compliant”, or screen-reader claims for the
   canvas. The token contrast gate is not a product-conformance audit, and the
   canvas screen-reader gap is published on `/support/known-issues`.

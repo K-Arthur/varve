@@ -27,7 +27,8 @@ import {
   SegmentedControl,
   type SegmentedOption,
 } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { scheduleInitialNameSelection } from './initialNameSelection';
 import { TemplatesGallery } from './TemplatesGallery';
 
 export interface NewDesignDialogProps {
@@ -142,9 +143,9 @@ export function NewDesignDialog({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
-  // Reset per-open state, remembering the previously focused element so we
-  // can restore focus when the dialog closes (native <dialog> does not).
-  useEffect(() => {
+  // Commit the suggested name before paint so the opening frame sees its
+  // actual DOM value. Remember the invoker before the native dialog takes focus.
+  useLayoutEffect(() => {
     if (open) {
       restoreFocusRef.current = document.activeElement as HTMLElement | null;
       setName(defaultName ?? '');
@@ -160,8 +161,11 @@ export function NewDesignDialog({
       setPresentationCustomH(1080);
       setBleed(3);
       setDpi(300);
-      // Let the native dialog finish mounting before focusing the name field.
-      requestAnimationFrame(() => nameInputRef.current?.select());
+      // Let the native dialog mount, but never select over typing or another
+      // control interaction that happens before its first animation frame.
+      if (nameInputRef.current) {
+        return scheduleInitialNameSelection(nameInputRef.current, defaultName ?? '');
+      }
     } else if (restoreFocusRef.current) {
       restoreFocusRef.current.focus?.();
       restoreFocusRef.current = null;

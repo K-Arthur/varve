@@ -323,3 +323,99 @@ Their comparison found 80 comparable cases and one difference in
 `workspace/customization.spec.ts`, with zero malformed receipts. That confirms
 the comparison can expose the observed problem; it does not certify the later
 panel or harness repairs.
+
+## First-attempt failures and controlled time (October 7)
+
+The next full integration at `b906ecd1d491ef11c49c3e18083d2609f17ea597`
+exposed two further failure classes. Its unit lane reported 22,079 passing
+cases, one failed document-name case, and 23 existing skips. The failed name
+was `y Свадебный Альбом` instead of `My Свадебный Альбом`. A controlled delayed
+opening frame reproduced that exact loss even though the unchanged dialog
+file passed in a separate local run. Initial selection was scheduled after
+input began, so the next character replaced the selected first character.
+Browser tracing of the guarded repair also caught an earlier frame: the input
+still contained an empty string before React committed the suggestion. The
+per-open state reset now runs in a layout effect before paint. The dialog
+cancels pending selection on user interaction and lifecycle
+cleanup, and guards the callback against changed text or a closed/detached
+dialog. The untouched suggestion still receives focus and selection.
+
+Shard 20 failed its repeated-letter menu case. Its immutable trace showed
+210.494 ms between the starts of two key commands while the test had reduced
+the application's typing reset window to 200 ms. This is consistent with
+timeout expiry; command start times do not establish the precise event
+delivery times. Timing-sensitive menu cases now install the
+[Playwright clock](https://playwright.dev/docs/clock) before navigation,
+pause it after opening the menu, and advance a known 16 ms focus frame after
+each key. The reset case checks 199 ms before expiry and 201 ms after a renewed
+window. Real keyboard events, focus assertions and expected menu items remain
+required. A first local clock experiment froze focus effects and failed; it
+is diagnostic evidence, not an accepted test result.
+
+The same hosted unit log contained `retry x1` for the font-download queue's
+concurrency case. The root Vitest configuration had automatically retried node
+project failures in CI; the standalone DOM project did not inherit that
+setting. [Vitest retry](https://vitest.dev/config/retry) permits a subsequent
+attempt to pass after a failure. Root and both projects now explicitly use
+zero retries, with a policy regression checking each configuration.
+
+The font test fixture left managers running across tests, retained global
+fetch replacements and used a fixed 200 ms sleep. A controlled two-manager
+experiment reproduced an apparent peak of three: the new global counter
+included a third request owned by the older manager. That demonstrates the
+isolation defect; the retried hosted log does not retain its original assertion
+details, so this is not proof of that attempt's exact scheduling. Fixtures now
+cancel every created manager, restore globals and provide a rejecting default
+fetch rather than performing real network requests. The concurrency case
+releases two controlled batches, observes the two-request ceiling and requires
+all four correctly typed mock fonts to complete without failed jobs. It cannot
+pass before downloads occur or merely because validation rejects them.
+
+These changes do not waive complete hosted certification, label every
+inconsistency a harmless flake, or permit adoption across different source or
+policy identities. Runner-configuration changes require a new full release
+checkpoint. Targeted failed experiments remain in the execution log.
+
+The same integration's shard 5 rejected a halftone gesture ending at canvas
+coordinate `(700, 250)` when the owned canvas was only 688.89 CSS pixels wide.
+The bounds guard stopped this before document mutation. The authored halftone
+fixture now declares a 1440-by-1000 viewport; responsive layouts remain covered
+by their own explicit viewport cases. Its three-shape case requires each
+created layer and both ink and paper pixels in each shape, rather than sampling
+only the first rectangle. The complete file, including decoded PNG/JPEG and
+embedded SVG image checks, must pass at the changed viewport.
+
+Menu keyboard and halftone cases each create their own page and editor in
+`beforeEach`; they do not share a preceding case's document or browser clock.
+Their former serial grouping suppressed 12 and 9 following cases after the
+observed failures. These two independent groups now use default test mode so
+triage can collect downstream results. Browser worker and failure bounds stay
+unchanged; genuinely dependent scenarios elsewhere are not reclassified.
+The changed sharding granularity still requires the canonical complete hosted
+inventory. No shorter run time is claimed until that checkpoint is measured.
+
+## Export acceptance beyond file presence (October 7)
+
+The stronger halftone SVG acceptance check exposed a product defect after the
+old check had passed: the file contained a valid SVG element and embedded PNG,
+but every pixel of that PNG was transparent. PNG and JPEG exports of the same
+authored fixture contained artwork. This is a genuine conversion failure;
+retries or a longer timeout cannot make an incorrectly cropped image correct.
+
+Structural raster fallback cropped node-local bounds while replay used world
+coordinates. Frame backgrounds and clipping were also absent from its child
+union. Export now uses canonical world geometry and ancestor transforms,
+retains each clipped frame's rectangle, and includes unclipped overflow. A
+single parent index is shared across boundary discovery, rather than rebuilding
+it for every fallback. Raster placement compensates for its emitted parent so
+world-cropped pixels are not transformed twice.
+
+Acceptance retains the real downloaded SVG, PNG and JPEG. It decodes the SVG's
+embedded raster and then the whole SVG, requiring ink and paper inside the
+serialized viewBox. The whole-file decoded image is retained for visual review.
+Public compositor regressions cover frame clipping, nested placement and a
+rotated parent. These checks complement the
+[blank PDF complaint follow-up](../research/design-tool-failure-modes-2026-10-02.md#pdf-export-acceptance-follow-up-2026-10-06):
+valid headers and success messages are insufficient evidence of useful artwork.
+That is an acceptance lesson, not a claim that another product shares this
+coordinate defect.

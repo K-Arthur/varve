@@ -56,6 +56,8 @@ marked.
 - **Mockups and exports** — Folded-mesh mockups join planar, perspective, and
   cylindrical surfaces. SVG and PDF export preserve more supported artwork;
   unsupported content can still use raster fallbacks or documented warnings.
+  SVG raster fallbacks retain artwork inside positioned frames and groups,
+  including frame backgrounds, clipping and transformed ancestor placement.
 - **PDF artwork and dimensions** — Desktop PDF exports retain embedded images
   instead of placeholder artwork. Quick screen-PDF output preserves authored
   dimensions after switching from a scaled raster export. Native PDF/X export
@@ -75,6 +77,10 @@ marked.
 - **Responsive and accessible controls** — Workspace panels, menus, touch
   targets, focus handling, home-screen reflow, group dragging, and enlarged-text
   layouts have been refined across compact, tablet, and desktop widths.
+  Color-model labels wrap within narrow pickers instead of overlapping.
+- **Document name entry** — Initial selection of a suggested name yields to
+  typing and other dialog interactions, preserving entered text when the
+  opening animation frame arrives late.
 - **Clearer selection and import feedback** — Spacing labels avoid selected
   artwork, and missing-font recovery opens after the import summary is closed.
 - **Bounded browser demo** — `/try/` remains a sample-document experience with

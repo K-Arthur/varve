@@ -36,9 +36,14 @@ consequences are recorded in the
    promise.
 2. **“There is no server to be down.”** The strongest true local-first
    claim; guard it by under-claiming the browser demo's storage.
-3. **No-generative-AI, no-training, stated precisely.** Say “no generative AI
-   is layered over your canvas; assist runs locally; cloud steps are named”,
-   never “AI-free”.
+3. **Optional local assistance, with generation named precisely.** Varve does
+   not train models on user documents. Assistive tools coexist with explicit
+   mask-guided Fill/Remove and bounded desktop promptless Expand; model
+   downloads require the user's choice. Prompt-conditioned generation remains
+   gated, browser AI-quality Expand is pending qualification, and there is no
+   shipped hosted text-to-image service. Avoid “AI-free” and blanket
+   “no generative AI on your work” promises. See the
+   [current capability boundary](../architecture/generative-editing-system.md#current-capability-boundary).
 4. **No nags, no forced updates, no silent pings.** Distinguish “none by
    default” from “zero”.
 5. **Linux genuinely first-class, paired with honest signing status.**

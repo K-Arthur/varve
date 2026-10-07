@@ -39,6 +39,7 @@ import {
   selectPushValidation,
 } from '../../scripts/quality/validation-policy.mjs';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
+import vitestConfig from '../../vitest.config.mts';
 
 const ROOT = process.cwd();
 
@@ -358,6 +359,16 @@ describe('validation infrastructure presence', () => {
   it('worktrees are excluded from test discovery', () => {
     const vitest = readFileSync(join(ROOT, 'vitest.config.mts'), 'utf-8');
     expect(vitest).toMatch(/\.worktrees/);
+  });
+
+  it('unit certification exposes first-attempt failures in every project', () => {
+    expect(vitestConfig.test?.retry).toBe(0);
+    const projects = vitestConfig.test?.projects ?? [];
+    expect(projects).toHaveLength(2);
+    for (const project of projects) {
+      expect(typeof project).toBe('object');
+      expect((project as { test?: { retry?: number } }).test?.retry).toBe(0);
+    }
   });
 });
 

@@ -47,7 +47,6 @@ import {
   type SceneNode,
   type ShapeNode,
   subtreeEffectPaddingAccumulated,
-  textNodeLocalBounds,
 } from '@varve/scene';
 import {
   hasPotentialStandardLigatureSequence,
@@ -62,6 +61,7 @@ import {
 } from '../render/mockup/mockupExport';
 import { replayStructuredScene } from '../render/replayScene';
 import { collectMaskSourceDependencies, flattenSceneToEngine } from '../render/sceneToEngine';
+import { rasterBoundaryBounds } from './rasterBounds';
 import { settleEngineImageResources } from './resourceReadiness';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -693,177 +693,13 @@ export function assessNodeCapability(
 
 // ── Tree walking: find flatten boundaries ─────────────────────────────────────
 
-/**
- * Compute the axis-aligned bounding box of a node in world coordinates.
- */
-function computeNodeBounds(
-  node: SceneNode,
-  doc: Document,
-): { x: number; y: number; w: number; h: number } {
-  const tx = node.transform[4] ?? 0;
-  const ty = node.transform[5] ?? 0;
-
-  if (node.kind === 'shape') {
-    const s = (node as ShapeNode).shape;
-    switch (s.kind) {
-      case 'rect':
-        return { x: tx + s.x, y: ty + s.y, w: s.w, h: s.h };
-      case 'ellipse':
-        return { x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 };
-      case 'circle':
-        return { x: tx + s.cx - s.r, y: ty + s.cy - s.r, w: s.r * 2, h: s.r * 2 };
-      case 'line':
-      case 'arrow': {
-        const minX = Math.min(s.from[0], s.to[0]);
-        const minY = Math.min(s.from[1], s.to[1]);
-        return {
-          x: tx + minX,
-          y: ty + minY,
-          w: Math.abs(s.to[0] - s.from[0]) || 1,
-          h: Math.abs(s.to[1] - s.from[1]) || 1,
-        };
-      }
-      case 'polygon':
-        return {
-          x: tx + s.cx - s.radius,
-          y: ty + s.cy - s.radius,
-          w: s.radius * 2,
-          h: s.radius * 2,
-        };
-      case 'star':
-        return {
-          x: tx + s.cx - s.outerRadius,
-          y: ty + s.cy - s.outerRadius,
-          w: s.outerRadius * 2,
-          h: s.outerRadius * 2,
-        };
-      case 'path': {
-        if (s.points.length === 0) return { x: tx, y: ty, w: 1, h: 1 };
-        const xs = s.points.map((p: { x: number }) => p.x);
-        const ys = s.points.map((p: { y: number }) => p.y);
-        const minX = Math.min(...xs);
-        const minY = Math.min(...ys);
-        return {
-          x: tx + minX,
-          y: ty + minY,
-          w: Math.max(...xs) - minX || 1,
-          h: Math.max(...ys) - minY || 1,
-        };
-      }
-      default:
-        return { x: tx, y: ty, w: 200, h: 160 };
-    }
-  }
-
-  if (node.kind === 'rasterLayer') {
-    // Raster pixels occupy the node-local rectangle. Their transform can
-    // include translation, scale, rotation, or skew, so transform all four
-    // corners before cropping a structural export fallback. Treating this as
-    // a generic 200×160 node at its translation silently moves clipped paint
-    // assets to the document origin and can crop their rendered pixels.
-    const [a, b, c, d, e, f] = node.transform;
-    const corners = [
-      [0, 0],
-      [node.width, 0],
-      [node.width, node.height],
-      [0, node.height],
-    ] as const;
-    const xs = corners.map(([x, y]) => a * x + c * y + e);
-    const ys = corners.map(([x, y]) => b * x + d * y + f);
-    const minX = Math.min(...xs);
-    const minY = Math.min(...ys);
-    return {
-      x: minX,
-      y: minY,
-      w: Math.max(...xs) - minX,
-      h: Math.max(...ys) - minY,
-    };
-  }
-
-  if (node.kind === 'text') {
-    // Export must crop to the same rectangle the canvas draws into. A
-    // character-count estimate with a single line's height cut multi-line text
-    // off at the first line and mis-sized every non-average face.
-    const bounds = textNodeLocalBounds(node);
-    return { x: tx, y: ty, w: bounds.w, h: bounds.h };
-  }
-
-  if (node.kind === 'frame' || node.kind === 'group') {
-    const children = (node.children ?? [])
-      .map((cid: string) => doc.nodes[cid])
-      .filter(Boolean) as SceneNode[];
-    if (children.length === 0)
-      return {
-        x: tx,
-        y: ty,
-        w: (node as unknown as { w?: number }).w ?? 200,
-        h: (node as unknown as { h?: number }).h ?? 160,
-      };
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const child of children) {
-      const b = computeNodeBounds(child, doc);
-      minX = Math.min(minX, b.x);
-      minY = Math.min(minY, b.y);
-      maxX = Math.max(maxX, b.x + b.w);
-      maxY = Math.max(maxY, b.y + b.h);
-    }
-    if (!Number.isFinite(minX)) return { x: tx, y: ty, w: 200, h: 160 };
-    return { x: minX, y: minY, w: Math.max(maxX - minX, 1), h: Math.max(maxY - minY, 1) };
-  }
-
-  if (node.kind === 'adjustment') {
-    // For adjustment nodes, compute bounds from their scope targets
-    const scope = (
-      node as unknown as {
-        scope?: { mode: string; targetNodeId?: string; targetNodeIds?: string[] };
-      }
-    ).scope;
-    if (scope?.mode === 'image-local' && scope.targetNodeId) {
-      const target = doc.nodes[scope.targetNodeId];
-      if (target) return computeNodeBounds(target, doc);
-    }
-    if (scope?.mode === 'explicit-targets' && scope.targetNodeIds?.length) {
-      let minX2 = Infinity;
-      let minY2 = Infinity;
-      let maxX2 = -Infinity;
-      let maxY2 = -Infinity;
-      for (const tid of scope.targetNodeIds) {
-        const t = doc.nodes[tid];
-        if (t) {
-          const b = computeNodeBounds(t, doc);
-          minX2 = Math.min(minX2, b.x);
-          minY2 = Math.min(minY2, b.y);
-          maxX2 = Math.max(maxX2, b.x + b.w);
-          maxY2 = Math.max(maxY2, b.y + b.h);
-        }
-      }
-      if (Number.isFinite(minX2)) return { x: minX2, y: minY2, w: maxX2 - minX2, h: maxY2 - minY2 };
-    }
-    // Fallback: use the node's own transform
-    return { x: tx, y: ty, w: 200, h: 160 };
-  }
-
-  return { x: tx, y: ty, w: 200, h: 160 };
-}
-
 function worldRasterPlacementTransform(
   node: SceneNode,
   doc: Document,
   bounds: { x: number; y: number },
   parentIndex: Map<NodeId, NodeId>,
 ): RasterAsset['placementTransform'] {
-  if (
-    (node.kind !== 'group' && node.kind !== 'frame') ||
-    node.mask?.matteSource?.kind !== 'scene-node'
-  ) {
-    return undefined;
-  }
-
-  // The fallback surface is cropped in world coordinates. SVG normally emits
+  // Every fallback surface is cropped in world coordinates. SVG normally emits
   // the boundary node's own transform, which would place those already-world
   // pixels twice. Express the world-space crop origin in the emitted parent's
   // local coordinates and let the serializer use that transform instead.
@@ -932,6 +768,7 @@ export function findFlattenBoundaries(
   if (target === 'raster') return []; // raster supports everything
 
   const result: FlattenBoundaryEntry[] = [];
+  const parentIndex = buildParentIndexMap(doc);
 
   /**
    * Walk a container's children and collect flatten boundaries.
@@ -970,7 +807,7 @@ export function findFlattenBoundaries(
             nodeId: child.id,
             boundary: 'group',
             node: child,
-            bounds: computeNodeBounds(child, doc),
+            bounds: rasterBoundaryBounds(child, doc, parentIndex),
             hasAdjustmentFilters: subtreeHasAdjustmentFilters(child, doc),
           });
         } else {
@@ -982,7 +819,7 @@ export function findFlattenBoundaries(
               nodeId: child.id,
               boundary: 'group',
               node: child,
-              bounds: computeNodeBounds(child, doc),
+              bounds: rasterBoundaryBounds(child, doc, parentIndex),
               hasAdjustmentFilters: subtreeHasAdjustmentFilters(child, doc),
             });
           }
@@ -994,7 +831,7 @@ export function findFlattenBoundaries(
           nodeId: child.id,
           boundary: 'node',
           node: child,
-          bounds: computeNodeBounds(child, doc),
+          bounds: rasterBoundaryBounds(child, doc, parentIndex),
           hasAdjustmentFilters: subtreeHasAdjustmentFilters(child, doc),
         });
       }
@@ -1027,7 +864,7 @@ export function findFlattenBoundaries(
             nodeId: rootNode.id,
             boundary: 'group',
             node: rootNode,
-            bounds: computeNodeBounds(rootNode, doc),
+            bounds: rasterBoundaryBounds(rootNode, doc, parentIndex),
             hasAdjustmentFilters: subtreeHasAdjustmentFilters(rootNode, doc),
           });
         } else {
@@ -1037,7 +874,7 @@ export function findFlattenBoundaries(
               nodeId: rootNode.id,
               boundary: 'group',
               node: rootNode,
-              bounds: computeNodeBounds(rootNode, doc),
+              bounds: rasterBoundaryBounds(rootNode, doc, parentIndex),
               hasAdjustmentFilters: subtreeHasAdjustmentFilters(rootNode, doc),
             });
           }
@@ -1048,7 +885,7 @@ export function findFlattenBoundaries(
           nodeId: rootNode.id,
           boundary: 'node',
           node: rootNode,
-          bounds: computeNodeBounds(rootNode, doc),
+          bounds: rasterBoundaryBounds(rootNode, doc, parentIndex),
           hasAdjustmentFilters: subtreeHasAdjustmentFilters(rootNode, doc),
         });
       }
@@ -1060,14 +897,14 @@ export function findFlattenBoundaries(
           nodeId: rootNode.id,
           boundary: 'group',
           node: rootNode,
-          bounds: computeNodeBounds(rootNode, doc),
+          bounds: rasterBoundaryBounds(rootNode, doc, parentIndex),
           hasAdjustmentFilters: subtreeHasAdjustmentFilters(rootNode, doc),
         });
       }
     }
   }
 
-  return widenAdjustmentBoundaries(result, doc);
+  return widenAdjustmentBoundaries(result, doc, parentIndex);
 }
 
 /**
@@ -1088,6 +925,7 @@ export function findFlattenBoundaries(
 function widenAdjustmentBoundaries(
   entries: FlattenBoundaryEntry[],
   doc: Document,
+  parentIndex: Map<NodeId, NodeId>,
 ): FlattenBoundaryEntry[] {
   if (entries.every((e) => e.node.kind !== 'adjustment')) return entries;
 
@@ -1127,7 +965,7 @@ function widenAdjustmentBoundaries(
       nodeId: id,
       boundary: 'group',
       node,
-      bounds: computeNodeBounds(node, doc),
+      bounds: rasterBoundaryBounds(node, doc, parentIndex),
       hasAdjustmentFilters: subtreeHasAdjustmentFilters(node, doc),
     });
   }

@@ -11,7 +11,7 @@
  * Screenshots for every state are saved to test-results/halftone-visual/
  * for manual visual review.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { dragOnCanvas } from '../shared';
 
@@ -123,6 +123,41 @@ function exportFormatOption(page: Page, format: 'PNG' | 'SVG' | 'JPEG') {
   return page
     .getByRole('radiogroup', { name: 'Export format' })
     .getByRole('radio', { name: format, exact: true });
+}
+
+async function inspectRasterExport(page: Page, dataUrl: string, includePreview = false) {
+  return page.evaluate(
+    async ({ source, includePreview }) => {
+      const img = new Image();
+      img.src = source;
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('no 2d context');
+      // Composite transparency over paper before measuring the downloaded artwork.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let dark = 0;
+      let light = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        const gray = 0.299 * pixels[i]! + 0.587 * pixels[i + 1]! + 0.114 * pixels[i + 2]!;
+        if (gray < 110) dark++;
+        else if (gray > 200) light++;
+      }
+      return {
+        width: canvas.width,
+        height: canvas.height,
+        dark,
+        light,
+        preview: includePreview ? canvas.toDataURL('image/png') : undefined,
+      };
+    },
+    { source: dataUrl, includePreview },
+  );
 }
 
 /**
@@ -332,7 +367,11 @@ async function scanlineTransitions(
 // ── Specs ──────────────────────────────────────────────────────────────
 
 test.describe('Halftone visual verification', () => {
-  test.describe.configure({ mode: 'serial', timeout: 300000 });
+  // Fresh editor per case: retain downstream failure evidence during triage.
+  test.describe.configure({ mode: 'default', timeout: 300000 });
+  // Authored artwork reaches x=700 and y=500; keep it inside the real canvas
+  // with room for both docked panels, rather than drawing over the Inspector.
+  test.use({ viewport: { width: 1440, height: 1000 } });
 
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
@@ -482,13 +521,53 @@ test.describe('Halftone visual verification', () => {
 
     await expect(page.locator('text=Ink Color').first()).toBeVisible();
     await expect(page.locator('text=Paper Color').first()).toBeVisible();
+    const spaces = page
+      .locator('.color-picker__format-bar [role="radiogroup"][aria-label="Color space"]')
+      .first();
+    await expect(spaces).toBeVisible();
+    const labels = await spaces.locator('button').evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const range = document.createRange();
+        range.selectNodeContents(button);
+        const style = getComputedStyle(button);
+        const contentWidth =
+          button.clientWidth -
+          Number.parseFloat(style.paddingLeft) -
+          Number.parseFloat(style.paddingRight);
+        return {
+          label: button.textContent,
+          textWidth: range.getBoundingClientRect().width,
+          contentWidth,
+        };
+      }),
+    );
+    expect(labels).toHaveLength(6);
+    for (const label of labels) {
+      expect(
+        label.textWidth,
+        `${label.label} must fit inside its own color-space control`,
+      ).toBeLessThanOrEqual(label.contentWidth + 1);
+    }
+    await spaces.getByRole('radio', { name: 'Grayscale', exact: true }).click();
+    await expect(spaces.getByRole('radio', { name: 'Grayscale', exact: true })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await spaces.getByRole('radio', { name: 'RGB', exact: true }).click();
+    await expect(spaces.getByRole('radio', { name: 'RGB', exact: true })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     await page.screenshot({ path: `${SHOT_DIR}/15-color-pickers.png` });
   });
 
   test('09 - halftone across multiple shapes', async ({ page }) => {
     await drawRect(page, 50, 50, 350, 250);
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
     await drawEllipse(page, 400, 50, 700, 250);
+    await expect(page.getByRole('treeitem')).toHaveCount(2);
     await drawRect(page, 50, 300, 350, 500);
+    await expect(page.getByRole('treeitem')).toHaveCount(3);
 
     // Select everything, then create the adjustment layer (scoped to targets)
     await page.keyboard.press('Control+a');
@@ -498,6 +577,16 @@ test.describe('Halftone visual verification', () => {
     await page.screenshot({ path: `${SHOT_DIR}/16-multi-shape-halftone.png` });
     const dots = await sampleRect(page, 100, 100, 200, 100);
     expect(dots.darkCount, 'dots must appear on the first rect').toBeGreaterThan(0);
+    expect(dots.lightCount, 'paper must appear between dots on the first rect').toBeGreaterThan(0);
+    const ellipse = await sampleRect(page, 490, 100, 120, 100);
+    expect(ellipse.darkCount, 'dots must appear on the ellipse').toBeGreaterThan(0);
+    expect(ellipse.lightCount, 'paper must appear between dots on the ellipse').toBeGreaterThan(0);
+    const lowerRect = await sampleRect(page, 100, 350, 200, 100);
+    expect(lowerRect.darkCount, 'dots must appear on the lower rect').toBeGreaterThan(0);
+    expect(
+      lowerRect.lightCount,
+      'paper must appear between dots on the lower rect',
+    ).toBeGreaterThan(0);
   });
 
   test('10 - PNG export with halftone succeeds (parity smoke)', async ({ page }) => {
@@ -532,31 +621,9 @@ test.describe('Halftone visual verification', () => {
     // ink and paper pixels (a nonempty file is not proof of a halftone).
     const downloadPath = await download.path();
     expect(downloadPath).toBeTruthy();
+    await download.saveAs(`${SHOT_DIR}/export-halftone.png`);
     const base64 = readFileSync(downloadPath as string).toString('base64');
-    const stats = await page.evaluate(async (data) => {
-      const img = new Image();
-      img.src = `data:image/png;base64,${data}`;
-      await img.decode();
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('no 2d context');
-      // The document is exported on transparency; composite over white paper
-      // so the paper regions are measurable instead of decoding as black.
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      let dark = 0;
-      let light = 0;
-      for (let i = 0; i < px.length; i += 4) {
-        const gray = 0.299 * px[i]! + 0.587 * px[i + 1]! + 0.114 * px[i + 2]!;
-        if (gray < 110) dark++;
-        else if (gray > 200) light++;
-      }
-      return { width: canvas.width, height: canvas.height, dark, light };
-    }, base64);
+    const stats = await inspectRasterExport(page, `data:image/png;base64,${base64}`);
     expect(stats.width).toBeGreaterThan(0);
     expect(stats.height).toBeGreaterThan(0);
     expect(stats.dark, 'exported PNG must contain ink pixels').toBeGreaterThan(0);
@@ -771,9 +838,28 @@ test.describe('Halftone visual verification', () => {
     // silently dropping the effect.
     const svgPath = await svgDownload.path();
     expect(svgPath).toBeTruthy();
+    await svgDownload.saveAs(`${SHOT_DIR}/export-halftone.svg`);
     const svg = readFileSync(svgPath as string, 'utf-8');
     expect(svg).toContain('<svg');
-    expect(svg).toContain('data:image/png;base64,');
+    const embeddedRaster = svg.match(/data:image\/png;base64,[A-Za-z0-9+/=]+/)?.[0];
+    expect(embeddedRaster, 'SVG must retain the effect raster').toBeTruthy();
+    const stats = await inspectRasterExport(page, embeddedRaster ?? '');
+    expect(stats.width).toBeGreaterThan(0);
+    expect(stats.height).toBeGreaterThan(0);
+    expect(stats.dark, 'SVG effect raster must contain ink pixels').toBeGreaterThan(0);
+    expect(stats.light, 'SVG effect raster must contain paper pixels').toBeGreaterThan(0);
+    const rendered = await inspectRasterExport(
+      page,
+      `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
+      true,
+    );
+    expect(rendered.dark, 'decoded SVG must place the ink inside its viewBox').toBeGreaterThan(0);
+    expect(rendered.light, 'decoded SVG must retain paper pixels').toBeGreaterThan(0);
+    expect(rendered.preview).toBeTruthy();
+    writeFileSync(
+      `${SHOT_DIR}/export-halftone-svg-decoded.png`,
+      Buffer.from(rendered.preview!.split(',')[1]!, 'base64'),
+    );
   });
 
   test('14 - JPEG export with halftone succeeds', async ({ page }) => {
@@ -802,30 +888,11 @@ test.describe('Halftone visual verification', () => {
 
     const jpegPath = await jpegDownload.path();
     expect(jpegPath).toBeTruthy();
+    await jpegDownload.saveAs(`${SHOT_DIR}/export-halftone.jpg`);
     const jpegBase64 = readFileSync(jpegPath as string).toString('base64');
-    const jpegStats = await page.evaluate(async (data) => {
-      const img = new Image();
-      img.src = `data:image/jpeg;base64,${data}`;
-      await img.decode();
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('no 2d context');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      let dark = 0;
-      let light = 0;
-      for (let i = 0; i < px.length; i += 4) {
-        const gray = 0.299 * px[i]! + 0.587 * px[i + 1]! + 0.114 * px[i + 2]!;
-        if (gray < 110) dark++;
-        else if (gray > 200) light++;
-      }
-      return { width: canvas.width, height: canvas.height, dark, light };
-    }, jpegBase64);
+    const jpegStats = await inspectRasterExport(page, `data:image/jpeg;base64,${jpegBase64}`);
     expect(jpegStats.width).toBeGreaterThan(0);
+    expect(jpegStats.height).toBeGreaterThan(0);
     expect(jpegStats.dark, 'exported JPEG must contain ink pixels').toBeGreaterThan(0);
     expect(jpegStats.light, 'exported JPEG must contain paper pixels').toBeGreaterThan(0);
   });

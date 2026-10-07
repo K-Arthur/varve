@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import {
   assertActiveElementRole,
   assertFocusNotOnBody,
@@ -12,16 +12,33 @@ import {
 } from '../helpers/menu-helpers';
 import { navigateToEditor, seedLayers } from '../shared';
 
-test.describe.configure({ mode: 'serial' });
+// Every case owns a fresh page/editor; a failure must not suppress unrelated cases.
+test.describe.configure({ mode: 'default' });
+
+async function openTypeAheadMenu(page: Page, name: string) {
+  await openMenu(page, name);
+  // Keep the browser's timeout independent of assertion/transport latency.
+  // Clock installation happens before navigation, while boot still uses time.
+  const now = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(now + 1000);
+}
+
+async function pressTypeAheadKey(page: Page, key: string) {
+  await page.keyboard.press(key);
+  // Let the real focus/render effects run for one browser frame, while the
+  // type-ahead timer advances by a known amount rather than wall-clock time.
+  await page.clock.runFor(16);
+}
 
 test.describe('Menu keyboard navigation', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    if (testInfo.title.startsWith('type-ahead:')) await page.clock.install();
     await navigateToEditor(page);
     await setTypeAheadTimeout(page, 200);
   });
 
-  test.afterEach(async () => {
-    resetTypeAheadTimeout;
+  test.afterEach(async ({ page }) => {
+    await resetTypeAheadTimeout(page);
   });
 
   // ─── Top-level menubar navigation ───────────────────────────────
@@ -246,60 +263,63 @@ test.describe('Menu keyboard navigation', () => {
   // ─── Type-ahead ─────────────────────────────────────────────────
 
   test('type-ahead: single char matches item', async ({ page }) => {
-    await openMenu(page, 'File');
-    await page.keyboard.press('s');
+    await openTypeAheadMenu(page, 'File');
+    await pressTypeAheadKey(page, 's');
     const focused = await getFocusedMenuItem(page);
     await expect(focused).toContainText('Save');
   });
 
   test('type-ahead: buffer accumulation matches longer prefix', async ({ page }) => {
-    await openMenu(page, 'File');
-    await page.keyboard.press('e');
-    await page.keyboard.press('x');
+    await openTypeAheadMenu(page, 'File');
+    await pressTypeAheadKey(page, 'e');
+    await pressTypeAheadKey(page, 'x');
     const focused = await getFocusedMenuItem(page);
     await expect(focused).toContainText('Export\u2026');
   });
 
   test('type-ahead: repeated same char cycles through matches', async ({ page }) => {
-    await openMenu(page, 'File');
-    await page.keyboard.press('s');
+    await openTypeAheadMenu(page, 'File');
+    await pressTypeAheadKey(page, 's');
     let focused = await getFocusedMenuItem(page);
     await expect(focused).toContainText('Save');
 
-    await page.keyboard.press('s');
+    await pressTypeAheadKey(page, 's');
     focused = await getFocusedMenuItem(page);
     await expect(focused).toContainText('Save As\u2026');
   });
 
   test('type-ahead: no match does not move focus', async ({ page }) => {
-    await openMenu(page, 'File');
+    await openTypeAheadMenu(page, 'File');
     const firstLabel = await page.locator('[role="menu"] [role="menuitem"]').first().textContent();
 
-    await page.keyboard.press('z');
+    await pressTypeAheadKey(page, 'z');
     const focused = await page.evaluate(() => document.activeElement?.textContent ?? '');
     expect(focused).toBe(firstLabel);
   });
 
   test('type-ahead: buffer timeout resets after configured delay', async ({ page }) => {
-    await openMenu(page, 'File');
+    await openTypeAheadMenu(page, 'File');
 
-    await page.keyboard.press('s');
+    await pressTypeAheadKey(page, 's');
     let focused = await getFocusedMenuItem(page);
     await expect(focused).toContainText('Save');
 
-    // Past the configured 200ms reset: the buffer is empty again, so 'a'
-    // alone matches nothing and focus stays on the previous match.
-    await page.waitForTimeout(250);
+    // Including the 16ms focus frame, 183ms reaches 199ms: still before expiry. After the
+    // renewed window reaches 201ms (16 + 185), the letter starts at the first match.
+    await page.clock.runFor(183);
+    await pressTypeAheadKey(page, 's');
+    await expect(await getFocusedMenuItem(page)).toContainText('Save As\u2026');
+    await page.clock.runFor(185);
 
-    await page.keyboard.press('a');
+    await pressTypeAheadKey(page, 's');
     focused = await getFocusedMenuItem(page);
     await expect(focused).toContainText('Save');
   });
 
   test('type-ahead: arrow keys reset buffer', async ({ page }) => {
-    await openMenu(page, 'File');
+    await openTypeAheadMenu(page, 'File');
 
-    await page.keyboard.press('s');
+    await pressTypeAheadKey(page, 's');
     let focused = await getFocusedMenuItem(page);
     await expect(focused).toContainText('Save');
 
@@ -308,16 +328,16 @@ test.describe('Menu keyboard navigation', () => {
     // type-ahead contract starts a new search from the top of the list —
     // landing back on Save. (Without the reset, the buffer would accumulate
     // to "ss", which matches nothing, so focus would stay on Save As.)
-    await page.keyboard.press('ArrowDown');
+    await pressTypeAheadKey(page, 'ArrowDown');
 
-    await page.keyboard.press('s');
+    await pressTypeAheadKey(page, 's');
     focused = await getFocusedMenuItem(page);
     await expect(focused).toContainText('Save');
   });
 
   test('type-ahead: diacritic-insensitive matching', async ({ page }) => {
-    await openMenu(page, 'Edit');
-    await page.keyboard.press('u');
+    await openTypeAheadMenu(page, 'Edit');
+    await pressTypeAheadKey(page, 'u');
     const focused = await getFocusedMenuItem(page);
     await expect(focused).toContainText('Undo');
   });

@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FontDownloadManager } from './fontDownloadManager';
+import {
+  type DownloadManagerConfig,
+  type DownloadManagerEvents,
+  FontDownloadManager,
+} from './fontDownloadManager';
 import { parseFontData } from './fontParser';
 
 // Mock parseFontData so validation doesn't fail on synthetic buffers
@@ -70,6 +74,14 @@ function makeEvents() {
   };
 }
 
+const managers = new Set<FontDownloadManager>();
+
+function makeManager(config?: DownloadManagerConfig, events?: DownloadManagerEvents) {
+  const manager = new FontDownloadManager(config, events);
+  managers.add(manager);
+  return manager;
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('FontDownloadManager', () => {
@@ -77,14 +89,20 @@ describe('FontDownloadManager', () => {
   let events: ReturnType<typeof makeEvents>;
 
   beforeEach(() => {
+    // A queue bookkeeping test must never start a real request or leave a
+    // previous manager using the next test's replacement fetch implementation.
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('No test response configured')));
     events = makeEvents();
-    manager = new FontDownloadManager(
+    manager = makeManager(
       { maxConcurrent: 3, validateIntegrity: false, allowedHosts: ['example.com'] },
       events,
     );
   });
 
   afterEach(() => {
+    for (const manager of managers) manager.cancelAll();
+    managers.clear();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -154,35 +172,49 @@ describe('FontDownloadManager', () => {
   it('processQueue respects maxConcurrent', async () => {
     let activeCount = 0;
     let maxActive = 0;
+    const releases: Array<() => void> = [];
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      activeCount++;
+      maxActive = Math.max(maxActive, activeCount);
+      await new Promise<void>((resolve) => releases.push(resolve));
+      activeCount--;
+      return makeFetchResponse(new ArrayBuffer(100));
+    });
+    vi.stubGlobal('fetch', fetchMock);
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockImplementation(async () => {
-        activeCount++;
-        maxActive = Math.max(maxActive, activeCount);
-        await new Promise((r) => setTimeout(r, 20));
-        activeCount--;
-        return makeFetchResponse(new ArrayBuffer(100));
-      }),
-    );
-
-    const mgr = new FontDownloadManager(
-      { maxConcurrent: 2, allowedHosts: ['example.com'] },
-      events,
-    );
-    mgr.addJob('https://example.com/a.ttf', 'A');
+    const mgr = makeManager({ maxConcurrent: 2, allowedHosts: ['example.com'] }, events);
+    mgr.addJob('https://example.com/a.woff2', 'A');
     mgr.addJob('https://example.com/b.woff2', 'B');
-    mgr.addJob('https://example.com/c.otf', 'C');
-    mgr.addJob('https://example.com/d.ttf', 'D');
+    mgr.addJob('https://example.com/c.woff2', 'C');
+    mgr.addJob('https://example.com/d.woff2', 'D');
 
-    // Wait for all to complete
-    await new Promise((r) => setTimeout(r, 200));
-
-    expect(maxActive).toBeLessThanOrEqual(2);
+    try {
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+      expect(activeCount).toBe(2);
+      expect(maxActive).toBe(2);
+      for (const release of releases.splice(0)) release();
+      await vi.waitFor(() => expect(events.onJobComplete).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+      expect(activeCount).toBe(2);
+      expect(maxActive).toBe(2);
+      for (const release of releases.splice(0)) release();
+      await vi.waitFor(() => expect(events.onJobComplete).toHaveBeenCalledTimes(4));
+      expect(mgr.getAllJobs().map((job) => job.status)).toEqual([
+        'complete',
+        'complete',
+        'complete',
+        'complete',
+      ]);
+      expect(activeCount).toBe(0);
+      expect(events.onJobFailed).not.toHaveBeenCalled();
+    } finally {
+      mgr.cancelAll();
+      for (const release of releases) release();
+    }
   });
 
   it('validateFont rejects oversized files', async () => {
-    const mgr = new FontDownloadManager(
+    const mgr = makeManager(
       { maxFileSize: 100, validateIntegrity: false, allowedHosts: ['example.com'] },
       events,
     );
@@ -245,7 +277,7 @@ describe('FontDownloadManager', () => {
     );
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeFetchResponse(new ArrayBuffer(100))));
 
-    const singleSlot = new FontDownloadManager(
+    const singleSlot = makeManager(
       { maxConcurrent: 1, validateIntegrity: false, allowedHosts: ['example.com'] },
       events,
     );
@@ -270,7 +302,7 @@ describe('FontDownloadManager', () => {
     view[2] = 0x44; // D
     view[3] = 0x46; // F
 
-    const mgr = new FontDownloadManager(
+    const mgr = makeManager(
       { allowedFormats: ['ttf', 'otf', 'woff', 'woff2'], allowedHosts: ['example.com'] },
       events,
     );
@@ -372,7 +404,7 @@ describe('FontDownloadManager', () => {
     // Force the job to process
     manager.cancelAll();
 
-    const mgr = new FontDownloadManager(
+    const mgr = makeManager(
       { maxConcurrent: 1, validateIntegrity: false, allowedHosts: ['example.com'] },
       events,
     );

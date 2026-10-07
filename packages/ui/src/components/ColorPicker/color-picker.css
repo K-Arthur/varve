@@ -299,10 +299,12 @@
 }
 .color-picker__format-bar .color-fields__mode-group {
   width: 100%;
+  flex-wrap: wrap;
 }
 .color-picker__format-bar .color-fields__mode-btn {
-  flex: 1;
-  min-width: 0;
+  /* Keep full model names readable when the picker is embedded in an inspector. */
+  flex: 1 0 auto;
+  min-width: max-content;
   padding-inline: var(--space-1);
   font-weight: var(--font-weight-medium);
 }

@@ -65,13 +65,13 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     include: INCLUDE,
     exclude: EXCLUDE,
-    // Timeout/retry defaults: the suite contains a few long-running
+    // Timeout defaults: the suite contains a few long-running
     // integration files (workloadCorpus, directPreviewDownscale) that can
     // exceed the default 5s under parallel load; give them headroom and
-    // retry flaky jsdom timing tests once instead of failing full runs.
+    // Certification must expose first-attempt failures in every project.
     testTimeout: 30000,
     hookTimeout: 30000,
-    retry: process.env.CI ? 1 : 0,
+    retry: 0,
     // `vitest bench` does NOT read `test.include`/`test.exclude` — it reads
     // `test.benchmark.*`, whose defaults exclude only node_modules/dist/.git.
     // Without this block a `pnpm bench` run discovers every `.bench.ts` inside
@@ -103,6 +103,7 @@ export default defineConfig({
         test: {
           name: 'jsdom',
           environment: 'jsdom',
+          retry: 0,
           testTimeout: 30000,
           hookTimeout: 30000,
           setupFiles: ['./vitest.setup.ts'],
@@ -120,6 +121,7 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
+          retry: 0,
           include: INCLUDE,
           exclude: [...EXCLUDE, ...JS_DOM_INCLUDE],
         },

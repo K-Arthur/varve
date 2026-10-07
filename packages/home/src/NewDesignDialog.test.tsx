@@ -1,13 +1,16 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { TemplateLibrary } from '@varve/platform';
 import type { CustomPreset } from '@varve/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NewDesignDialog } from './NewDesignDialog';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const customPreset: CustomPreset = {
   id: 'custom-1',
@@ -109,6 +112,29 @@ describe('NewDesignDialog', () => {
     const nameInput = screen.getByLabelText('Document name');
     await user.clear(nameInput);
     await user.type(nameInput, 'My Свадебный Альбом');
+    await user.click(screen.getByTestId('create-design-button'));
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ documentName: 'My Свадебный Альбом' }),
+    );
+  });
+
+  it('keeps the first typed character when initial selection is delayed', async () => {
+    let openingFrame: FrameRequestCallback | undefined;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      openingFrame = callback;
+      return 1;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(<NewDesignDialog open onClose={vi.fn()} onCreate={onCreate} defaultName="Untitled 1" />);
+    const nameInput = screen.getByLabelText('Document name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'M');
+    expect(nameInput).toHaveValue('M');
+    expect(openingFrame).toBeTypeOf('function');
+    act(() => openingFrame?.(100));
+    await user.type(nameInput, 'y Свадебный Альбом', { skipClick: true });
     await user.click(screen.getByTestId('create-design-button'));
     expect(onCreate).toHaveBeenCalledWith(
       expect.objectContaining({ documentName: 'My Свадебный Альбом' }),

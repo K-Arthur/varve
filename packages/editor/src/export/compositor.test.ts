@@ -879,6 +879,66 @@ describe('assessNodeCapability', () => {
 });
 
 describe('findFlattenBoundaries', () => {
+  it('keeps the positioned frame background when widening an adjustment boundary', () => {
+    const rect = makeShapeNode(
+      'rect',
+      { kind: 'rect', w: 320, h: 220 },
+      {
+        transform: [1, 0, 0, 1, 30, 42],
+      },
+    );
+    const adjustment = makeAdjustmentNode('adjustment', {
+      scope: { mode: 'explicit-targets', targetNodeIds: ['rect'] },
+    });
+    const frame = _makeFrameNode('frame', ['rect', 'adjustment'], {
+      transform: [1, 0, 0, 1, 432.5, 100],
+      clipContent: true,
+    });
+    const doc = makeDoc({ rect, adjustment, frame }, ['frame']);
+
+    expect(findFlattenBoundaries([frame], doc, 'svg')).toMatchObject([
+      { nodeId: 'frame', bounds: { x: 432.5, y: 100, w: 400, h: 300 } },
+    ]);
+  });
+
+  it.each([true, false])(
+    'respects frame clipping=%s when cropping an unsupported subtree',
+    (clip) => {
+      const rect = makeShapeNode(
+        'rect',
+        { kind: 'rect', w: 500, h: 100 },
+        {
+          transform: [1, 0, 0, 1, -50, 40],
+        },
+      );
+      const frame = _makeFrameNode('frame', ['rect'], {
+        transform: [1, 0, 0, 1, 300, 20],
+        clipContent: clip,
+        effects: [{ type: 'layerBlur', visible: true, radius: 5 }],
+      });
+      const doc = makeDoc({ rect, frame }, ['frame']);
+      const [boundary] = findFlattenBoundaries([frame], doc, 'svg');
+
+      expect(boundary.bounds).toEqual({ x: clip ? 300 : 250, y: 20, w: clip ? 400 : 500, h: 300 });
+    },
+  );
+
+  it('includes ancestor placement in a nested frame crop', () => {
+    const frame = _makeFrameNode('frame', [], {
+      transform: [1, 0, 0, 1, 120, 30],
+      effects: [{ type: 'layerBlur', visible: true, radius: 5 }],
+    });
+    const sibling = makeShapeNode('sibling', { kind: 'rect' });
+    const group = makeGroupNode('group', ['frame', 'sibling'], {
+      transform: [1, 0, 0, 1, 900, 40],
+    });
+    const doc = makeDoc({ frame, sibling, group }, ['group']);
+
+    expect(findFlattenBoundaries([group], doc, 'svg')).toMatchObject([
+      { nodeId: 'frame', bounds: { x: 1020, y: 70, w: 400, h: 300 } },
+    ]);
+  });
+
   it('returns empty for raster target', () => {
     const node = makeShapeNode(
       's1',
@@ -1046,6 +1106,30 @@ describe('findFlattenBoundaries', () => {
 describe('composeFlattenedExportSnapshot', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('places a world-cropped leaf once inside a rotated parent', async () => {
+    const rect = makeShapeNode(
+      'rect',
+      { kind: 'rect' },
+      {
+        transform: [1, 0, 0, 1, 20, 30],
+        effects: [{ type: 'layerBlur', visible: true, radius: 5 }],
+      },
+    );
+    const sibling = makeShapeNode('sibling', { kind: 'rect' });
+    const group = makeGroupNode('group', ['rect', 'sibling'], {
+      transform: [0, 1, -1, 0, 300, 100],
+    });
+    const doc = makeDoc({ rect, sibling, group }, ['group']);
+    const result = await composeFlattenedExportSnapshot(doc, ['svg'], { scale: 1, dpi: 96 });
+
+    expect(result.svg.rasterAssets.rect).toMatchObject({
+      cssWidth: 80,
+      cssHeight: 100,
+      placementTransform: [0, -1, 1, 0, 20, 110],
+    });
+    expect(result.svg.rasterAssets.sibling).toBeUndefined();
   });
 
   it('produces raster assets for unsupported nodes', async () => {
