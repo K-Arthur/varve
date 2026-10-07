@@ -135,7 +135,14 @@ jobs:
           node scripts/secret-scan.mjs --dir apps/website/dist-pages --canary "$VARVE_PRIVATE_TEST_CANARY"
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 8
+        run: |
+          # Keep mirror failover bounded even when the hosted image has older
+          # or overridden apt defaults (runner-images issue 14594).
+          printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' \
+            | sudo tee /etc/apt/apt.conf.d/zz-varve-network-bounds >/dev/null
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          pnpm exec playwright install --with-deps chromium
 
       - name: Discover complete website case inventory
         run: >-
@@ -342,7 +349,14 @@ jobs:
         run: node scripts/website/demo-dist-validation.mjs prepare
 
       - name: Install built-demo Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 8
+        run: |
+          # Keep mirror failover bounded even when the hosted image has older
+          # or overridden apt defaults (runner-images issue 14594).
+          printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' \
+            | sudo tee /etc/apt/apt.conf.d/zz-varve-network-bounds >/dev/null
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          pnpm exec playwright install --with-deps chromium
 
       - name: List all built-demo owning cases
         id: demo-list

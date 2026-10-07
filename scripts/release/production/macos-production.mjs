@@ -233,6 +233,16 @@ async function launch() {
   await (await until(() => one('Fill', ['XCUIElementTypeMenuItem']))).click();
   await evidence('native-ready');
 }
+async function createDocumentFromHome() {
+  await click('New');
+  await click(['Create', 'Create design']);
+  await evidence('native-new');
+  const welcome = await hittableElements(
+    "amType == 'XCUIElementTypeButton' AND (label == 'Get started' OR title == 'Get started')",
+  );
+  assert.ok(welcome.length <= 1, 'First-editor welcome control must be unambiguous');
+  if (welcome.length) await click('Close dialog');
+}
 async function open(path) {
   // Select the actual in-window action once. Application-wide Command-O can
   // also activate a native Open panel, obscuring the webview's native sheet.
@@ -240,8 +250,14 @@ async function open(path) {
     "amType == 'XCUIElementTypeButton' AND (label == 'Open…' OR title == 'Open…')",
   );
   assert.ok(homeOpen.length <= 1, 'Home Open action must be unambiguous');
-  if (homeOpen.length) await homeOpen[0].click();
+  if (homeOpen.length && !v.seed) await pointerClick(homeOpen[0]);
   else {
+    // Published 0.2.1 Home expects an object-array dialog result, although the
+    // actual native picker returns a path string. Enter its real editor and
+    // use File > Open, as in the initial baseline seed. Current 0.5.0 still
+    // qualifies its Home action, and both versions must reopen the saved disk
+    // file, retain its artwork, and use the same native profile.
+    if (homeOpen.length) await createDocumentFromHome();
     await click('File');
     await click('Open…', true);
   }
@@ -288,14 +304,7 @@ async function quit() {
 try {
   await launch();
   // Genuine New/Create controls provide UI evidence before opening the migration fixture.
-  await click('New');
-  await click(['Create', 'Create design']);
-  await evidence('native-new');
-  const welcome = await hittableElements(
-    "amType == 'XCUIElementTypeButton' AND (label == 'Get started' OR title == 'Get started')",
-  );
-  assert.ok(welcome.length <= 1, 'First-editor welcome control must be unambiguous');
-  if (welcome.length) await click('Close dialog');
+  await createDocumentFromHome();
   await open(input);
   await click('File');
   await click('Save As…', true);

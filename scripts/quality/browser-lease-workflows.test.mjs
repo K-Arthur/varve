@@ -131,6 +131,45 @@ test('browser installation and the already leased lane runner stay outside addit
   );
 });
 
+function boundedBrowserSetup(workflow) {
+  const installs = Object.values(workflow.jobs)
+    .flatMap((job) => job.steps ?? [])
+    .filter((step) => step.run?.includes('pnpm exec playwright install --with-deps chromium'));
+  assert.ok(installs.length > 0);
+  for (const step of installs) {
+    assert.equal(step['timeout-minutes'], 8, 'Browser setup cannot consume the shard deadline');
+    assert.match(step.run, /Acquire::Retries "1";/);
+    assert.match(step.run, /Acquire::http::Timeout "15";/);
+    assert.match(step.run, /Acquire::https::Timeout "15";/);
+    assert.doesNotMatch(step.run, /APT::Acquire|continue-on-error|\|\|\s*(?:true|echo)/);
+    assert.equal(step['continue-on-error'], undefined, 'Dependency setup failure remains fatal');
+    const config = step.run.indexOf('/etc/apt/apt.conf.d/zz-varve-network-bounds');
+    const diagnostic = step.run.indexOf('apt-config dump');
+    const install = step.run.indexOf('pnpm exec playwright install');
+    assert.ok(config >= 0 && config < diagnostic && diagnostic < install);
+  }
+}
+
+test('browser setup records effective mirror bounds and fails before the whole shard expires', () => {
+  for (const workflow of [
+    ...workflows,
+    yaml.load(readFileSync(resolve(root, '.github/workflows/website-deploy.yml'), 'utf8')),
+  ])
+    boundedBrowserSetup(workflow);
+});
+
+test('negative control: missing setup deadline and the ineffective APT acquire key are rejected', () => {
+  const unbounded = structuredClone(workflows[0]);
+  const step = Object.values(unbounded.jobs)
+    .flatMap((job) => job.steps ?? [])
+    .find((step) => step.run?.includes('pnpm exec playwright install --with-deps chromium'));
+  delete step['timeout-minutes'];
+  assert.throws(() => boundedBrowserSetup(unbounded), /cannot consume/);
+  step['timeout-minutes'] = 8;
+  step.run = step.run.replace('Acquire::Retries', 'APT::Acquire::Retries');
+  assert.throws(() => boundedBrowserSetup(unbounded));
+});
+
 function nativeLinuxRoutes(workflow, candidate) {
   const steps = workflow.jobs['desktop-e2e'].steps;
   const setup = steps.find((step) => step.name === 'Install Linux system deps (Tauri + WebKitGTK)');

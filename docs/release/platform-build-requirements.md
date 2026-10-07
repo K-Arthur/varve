@@ -31,6 +31,15 @@ offline Rust linker probe in the production Bash environment.
 
 ## Pinned tooling and dependency ownership
 
+The published 0.2.1 macOS upgrade seed must reopen through its real editor
+File > Open action. Its Home handler assumes an object-array result from
+`plugin:dialog|open`, although the native picker returns a path string, so that
+old Home action closes the panel without loading the file. The qualification
+adapter creates a real editor after baseline restart and opens its unchanged
+saved file through the native panel. Current 0.5.0 must still pass Home opening,
+native save/reopen, artwork retention, history, exports and profile continuity.
+This baseline compatibility path changes no application or installer bytes.
+
 | Dependency | Release contract |
 |---|---|
 | Node | `26.10.0` in integration, candidate, build, release and website workflows; verify both version and native architecture before packaging. |
@@ -80,6 +89,24 @@ belong to GitHub startup; compiler/SDK failures belong to build setup; missing
 native dependencies belong to the test runtime; an incorrect saved/exported
 document belongs to product qualification. Do not change E2E expectations for
 a job that never started.
+
+Browser setup has its own eight-minute step deadline. Before Playwright asks
+APT to install Linux browser dependencies, a final `zz-varve-network-bounds`
+configuration sets `Acquire::Retries` to one and HTTP/HTTPS timeouts to 15
+seconds, then records the effective values. These browser jobs use Ubuntu x64;
+the settings follow the runner image's current x64 policy, not its distinct
+ARM64 package-source policy. Configuration ordering matters: an earlier
+numbered file can be overridden. Dependency failures remain fatal.
+
+The [runner-image mirror report](https://github.com/actions/runner-images/issues/14594)
+describes intermittent Azure mirror stalls before tests, including successful
+and stalled jobs on the same revision. Our integration shard 18 showed that
+same pattern: browser dependency installation consumed almost 40 minutes and
+no E2E case executed. The bounded configuration follows the image's
+[APT setup](https://github.com/actions/runner-images/blob/main/images/ubuntu/scripts/build/configure-apt.sh)
+and [APT configuration ordering](https://manpages.ubuntu.com/manpages/noble/man5/apt.conf.5.html).
+This distinguishes setup outages from product test failures without accepting
+an incomplete shard.
 
 ## Native controls, runtime distribution and visual evidence
 

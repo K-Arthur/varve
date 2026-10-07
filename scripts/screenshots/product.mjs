@@ -1434,13 +1434,16 @@ const SCENES = [
       await dialog.locator('.insp-picker-dialog__body').evaluate((element) => {
         element.scrollTop = 0;
       });
-      // Both stop handles and the edited Hex field fit in the bounded
-      // scroll body when it is framed to the field's bottom edge. Keeping
-      // scrollTop at zero clips Hex despite the control being usable.
+      // Frame to the Hex field's bottom edge, rounding up because scrollTop
+      // uses whole pixels while DOM bounds can be fractional. Extra padding
+      // scrolls the first stop above the body; keep both controls fully visible.
       const hex = dialog.getByRole('textbox', { name: 'Hex color' });
       const hexBottom = await hex.evaluate((element) => element.getBoundingClientRect().bottom);
       await dialog.locator('.insp-picker-dialog__body').evaluate((element, bottom) => {
-        element.scrollTop += Math.max(0, bottom - element.getBoundingClientRect().bottom + 8);
+        element.scrollTop += Math.max(
+          0,
+          Math.ceil(bottom - element.getBoundingClientRect().bottom),
+        );
       }, hexBottom);
       await expect(firstStop).toBeInViewport({ ratio: 1 });
       await expect(dialog.getByRole('button', { name: /^Stop 2 at.*e28c3c/i })).toBeInViewport({

@@ -487,7 +487,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 8
+        run: |
+          # Keep mirror failover bounded even when the hosted image has older
+          # or overridden apt defaults (runner-images issue 14594).
+          printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' \
+            | sudo tee /etc/apt/apt.conf.d/zz-varve-network-bounds >/dev/null
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          pnpm exec playwright install --with-deps chromium
       - name: Discover complete website case inventory
         env:
           VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}
@@ -572,7 +579,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 8
+        run: |
+          # Keep mirror failover bounded even when the hosted image has older
+          # or overridden apt defaults (runner-images issue 14594).
+          printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' \
+            | sudo tee /etc/apt/apt.conf.d/zz-varve-network-bounds >/dev/null
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          pnpm exec playwright install --with-deps chromium
       - name: Download canonical CI plan
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
@@ -709,7 +723,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 8
+        run: |
+          # Keep mirror failover bounded even when the hosted image has older
+          # or overridden apt defaults (runner-images issue 14594).
+          printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' \
+            | sudo tee /etc/apt/apt.conf.d/zz-varve-network-bounds >/dev/null
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          pnpm exec playwright install --with-deps chromium
       - name: Discover CPU visual case inventory
         env:
           VARVE_CI_COMMIT_SHA: ${{ needs.changes.outputs.commit_sha }}

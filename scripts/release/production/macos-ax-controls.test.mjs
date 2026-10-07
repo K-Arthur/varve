@@ -228,8 +228,46 @@ assert.doesNotMatch(
   /keys\('o'/,
   'Open is selected once through the actual home or in-window menu action',
 );
-assert.match(openAction, /homeOpen\[0\]\.click\(\)/);
+assert.match(openAction, /homeOpen.length && !v.seed/);
+assert.match(openAction, /pointerClick\(homeOpen\[0\]\)/);
 assert.match(openAction, /await click\('File'\);\s+await click\('Open…', true\)/);
+const openHelper = source.slice(
+  source.indexOf('async function open('),
+  source.indexOf('async function layerLabel('),
+);
+const homeControls = [{ elementId: 'home-open' }];
+const openCalls = [];
+const openContext = vm.createContext({
+  assert,
+  v: { seed: false },
+  hittableElements: async () => homeControls,
+  pointerClick: async (element) => openCalls.push(['pointer', element.elementId]),
+  createDocumentFromHome: async () => openCalls.push(['new-editor']),
+  click: async (...args) => openCalls.push(['click', ...args]),
+  panelPath: async (...args) => openCalls.push(['native-panel', ...args]),
+  until: async (fn) => fn(),
+  one: async (...args) => openCalls.push(['ready', ...args]),
+});
+vm.runInContext(`${openHelper}; globalThis.open = open;`, openContext);
+await openContext.open('/actual/Migrated save β.varve');
+assert.deepEqual(openCalls.slice(0, 2), [
+  ['pointer', 'home-open'],
+  ['native-panel', '/actual/Migrated save β.varve', 'Open'],
+]);
+openCalls.length = 0;
+openContext.v.seed = true;
+await openContext.open('/actual/Migrated save β.varve');
+assert.deepEqual(openCalls.slice(0, 4), [
+  ['new-editor'],
+  ['click', 'File'],
+  ['click', 'Open…', true],
+  ['native-panel', '/actual/Migrated save β.varve', 'Open'],
+]);
+assert.equal(openCalls.at(-1)[1], 'Fit all to viewport');
+homeControls.push({ elementId: 'duplicate-open' });
+openCalls.length = 0;
+await assert.rejects(openContext.open('/actual/file.varve'), /must be unambiguous/);
+assert.equal(openCalls.length, 0, 'Ambiguous Home controls never trigger a native open');
 assert.doesNotMatch(
   source,
   /keys\('s', COMMAND \| SHIFT\)/,
