@@ -112,6 +112,12 @@ for (const name of ['macos-production', 'macos-ax-probe']) {
   assert.equal(captured.capabilities['appium:showServerLogs'], true);
   assert.equal(captured.hostname, '127.0.0.1');
   assert.equal(captured.capabilities['appium:appPath'], '/Applications/Varve.app');
+  assert.equal(captured.capabilities['appium:noReset'], true);
+  assert.equal(
+    captured.capabilities['appium:skipAppKill'],
+    true,
+    'Session deletion must preserve the probe handoff and never stand in for real Quit',
+  );
 }
 console.log(
   'Both actual Mac2 clients retain zero retries, bounded driver startup and XCTest logs.',

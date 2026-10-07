@@ -32,6 +32,18 @@ const receipt = {
   startedAt: new Date().toISOString(),
 };
 let driver;
+async function waitForWebviewControls() {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const controls = await driver.findElements(
+      'predicate string',
+      '(amType == "XCUIElementTypeButton" AND (title == "New" OR label == "New")) OR (amType == "XCUIElementTypeGroup" AND (title == "Layers" OR label == "Layers"))',
+    );
+    if (controls.length) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error('Actual webview Home or Layers controls never became available');
+}
 try {
   driver = await remote({
     hostname: url.hostname,
@@ -46,24 +58,27 @@ try {
       'appium:bundleId': 'dev.varve.desktop',
       'appium:appPath': resolve(values.app),
       'appium:noReset': true,
+      // noReset controls session startup; skipAppKill controls deletion.
+      // The following production session must attach to this same live app.
+      'appium:skipAppKill': true,
       'appium:serverStartupTimeout': 120_000,
       'appium:showServerLogs': true,
     },
   });
-  const source = await driver.getPageSource();
-  writeFileSync(join(out, 'actual-production-ax.xml'), source);
-  assert.match(
-    source,
-    /New|File|Layers/,
-    'Actual webview UI semantics must be exposed, not just a live process',
-  );
-  await driver.saveScreenshot(join(out, 'actual-production-ax.png'));
+  await waitForWebviewControls();
   receipt.passed = true;
 } catch (error) {
   receipt.error = error.stack ?? String(error);
   process.exitCode = 1;
 } finally {
-  if (driver) await driver.deleteSession().catch(() => {});
+  if (driver) {
+    await driver
+      .getPageSource()
+      .then((source) => writeFileSync(join(out, 'actual-production-ax.xml'), source))
+      .catch(() => {});
+    await driver.saveScreenshot(join(out, 'actual-production-ax.png')).catch(() => {});
+    await driver.deleteSession().catch(() => {});
+  }
   receipt.finishedAt = new Date().toISOString();
   writeFileSync(join(out, 'ax-probe.json'), JSON.stringify(receipt, null, 2) + '\n');
 }

@@ -236,6 +236,8 @@ async function launch() {
       'appium:bundleId': 'dev.varve.desktop',
       'appium:appPath': app,
       'appium:noReset': true,
+      // Session disposal must not substitute for the genuine Quit below.
+      'appium:skipAppKill': true,
       'appium:serverStartupTimeout': 120_000,
       'appium:showServerLogs': true,
     },

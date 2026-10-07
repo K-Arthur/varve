@@ -4,6 +4,45 @@ import { basename } from 'node:path';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('./macos-production.mjs', import.meta.url), 'utf8');
+const probeSource = readFileSync(new URL('./macos-ax-probe.mjs', import.meta.url), 'utf8');
+const probeWait = probeSource.slice(
+  probeSource.indexOf('async function waitForWebviewControls('),
+  probeSource.indexOf('\ntry {'),
+);
+let probeTime = 0;
+let probeRequests = 0;
+let webviewReady = false;
+const probeContext = vm.createContext({
+  Date: { now: () => probeTime },
+  setTimeout: (resolve, milliseconds) => {
+    probeTime += milliseconds;
+    resolve();
+  },
+  driver: {
+    findElements: async (using, predicate) => {
+      probeRequests++;
+      assert.equal(using, 'predicate string');
+      assert.match(predicate, /amType == "XCUIElementTypeButton"/);
+      assert.match(predicate, /title == "New"/);
+      assert.match(predicate, /amType == "XCUIElementTypeGroup"/);
+      assert.match(predicate, /title == "Layers"/);
+      assert.doesNotMatch(predicate, /File|MenuBar|MenuItem/);
+      return webviewReady && probeRequests > 2 ? [{ elementId: 'home-new' }] : [];
+    },
+  },
+});
+vm.runInContext(
+  `${probeWait}; globalThis.waitForWebviewControls = waitForWebviewControls;`,
+  probeContext,
+);
+await assert.rejects(probeContext.waitForWebviewControls(), /webview Home or Layers/);
+assert.equal(probeTime, 20_000, 'Native menus and an empty webview exhaust the bounded probe');
+probeTime = 0;
+probeRequests = 0;
+webviewReady = true;
+await probeContext.waitForWebviewControls();
+assert.equal(probeRequests, 3, 'The probe waits for genuine rendered webview controls');
+assert.equal(probeTime, 500);
 const helper = source.slice(source.indexOf('function literal('), source.indexOf('const buttons ='));
 let controls = [],
   requests = [];

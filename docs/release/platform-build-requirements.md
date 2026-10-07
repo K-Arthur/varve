@@ -141,6 +141,15 @@ native contracts, not browser DOM mocks. See [Mac2 attributes](https://appium.gi
 [key/pointer methods](https://appium.github.io/appium-mac2-driver/v4/reference/execute-methods/)
 and [Xcode/Accessibility requirements](https://appium.github.io/appium-mac2-driver/v4/getting-started/).
 
+Mac2 `noReset: true` only prevents a relaunch at session startup. Both the
+capability probe and production driver also require `skipAppKill: true`:
+otherwise deleting the probe session terminates Varve and contaminates the
+preserved upgrade profile with an abnormal exit. Probe readiness requires
+actual webview New or Layers controls; a native File menu alone does not prove
+the webview loaded. Production still requires real Quit and observed process
+exit before session deletion. These are separate contracts in the
+[Mac2 capability reference](https://appium.github.io/appium-mac2-driver/latest/reference/capabilities/).
+
 Windows packages use the Evergreen bootstrapper, which chooses the device's
 runtime architecture and requires a network connection when WebView2 is
 missing. Offline first installation requires an explicitly delivered offline
