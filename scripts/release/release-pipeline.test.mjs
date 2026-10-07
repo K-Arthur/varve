@@ -55,6 +55,81 @@ const integrationWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 const verifierSource = readFileSync('scripts/quality/verify.mjs', 'utf8');
 const strictBrowserFlags = STRICT_BROWSER_FLAGS;
 
+// Execute the actual early native dependency probe: wrong architectures and
+// runtime versions must fail before producing an acceptance receipt.
+{
+  const release = load(releaseWorkflow);
+  const contracts = release.jobs['native-contracts'];
+  assert.ok(release.jobs.bundle.needs.includes('native-contracts'));
+  assert.equal(contracts.strategy['fail-fast'], false);
+  assert.equal(contracts.strategy.matrix.include.length, 5);
+  for (const workflow of [
+    releaseWorkflow,
+    candidateWorkflow,
+    websiteWorkflow,
+    integrationWorkflow,
+    readFileSync('.github/workflows/build.yml', 'utf8'),
+  ]) {
+    const config = load(workflow);
+    for (const job of Object.values(config.jobs)) {
+      for (const step of job.steps ?? []) {
+        if (step.uses?.startsWith('actions/setup-node@')) {
+          assert.equal(
+            step.with['node-version'] === `\${{ env.NODE_VERSION }}`
+              ? config.env.NODE_VERSION
+              : step.with['node-version'],
+            '26.10.0',
+          );
+        }
+      }
+    }
+  }
+  const step = contracts.steps.find(
+    (step) => step.name === 'Record and verify actual native runtime',
+  );
+  const probe = step.run.split("<<'NODE'\n")[1].split('\nNODE')[0];
+  const temporary = mkdtempSync(join(tmpdir(), 'varve-native-contract-'));
+  const output = join(temporary, 'native-runtime.json');
+  const env = {
+    ...process.env,
+    NODE_VERSION: process.versions.node,
+    EXPECTED_NODE_ARCH: process.arch,
+    PRODUCT_SHA: 'a'.repeat(40),
+    WORKFLOW_SHA: 'b'.repeat(40),
+    NATIVE_RUNTIME_OUTPUT: output,
+  };
+  try {
+    execFileSync(process.execPath, ['--input-type=module', '-e', probe], {
+      env,
+      timeout: 60000,
+      stdio: 'pipe',
+    });
+    const receipt = JSON.parse(readFileSync(output));
+    assert.equal(receipt.arch, process.arch);
+    assert.equal(receipt.node, process.versions.node);
+    assert.equal(receipt.productSha, env.PRODUCT_SHA);
+    assert.match(receipt.canvas, /^\d+\.\d+\.\d+$/);
+    rmSync(output);
+    for (const invalid of [
+      { EXPECTED_NODE_ARCH: 'wrong-architecture' },
+      { NODE_VERSION: '0.0.0' },
+    ]) {
+      assert.throws(
+        () =>
+          execFileSync(process.execPath, ['--input-type=module', '-e', probe], {
+            env: { ...env, ...invalid },
+            timeout: 60000,
+            stdio: 'pipe',
+          }),
+        /Command failed/,
+      );
+      assert.equal(existsSync(output), false, 'Rejected runtime cannot leave a passing receipt');
+    }
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
 // Exercise CMake's real cache precedence: CC/CXX cannot override the native
 // dependency's explicit cl.exe defaults. The toolchain must do so before project().
 {

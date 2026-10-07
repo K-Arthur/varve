@@ -15,6 +15,7 @@ product tag, remote evidence, pipeline recovery and remaining publication checks
 |---|---|---|
 | [release-readiness-audit.md](release-readiness-audit.md) | Can this repository ship today? Evidence-backed findings, severity scorecard, and Phase 1 command results |
 | [platform-support-matrix.md](platform-support-matrix.md) | Which OSes and architectures we actually support, and which we only claim to |
+| [platform-build-requirements.md](platform-build-requirements.md) | Native build/runtime packages, exact tooling pins, dependency ownership and early five-platform contracts |
 | [native-acceleration-support.md](native-acceleration-support.md) | Which GPU/NPU workload routes are implemented, verified, experimental, or unavailable |
 | [chromeos-linux.md](chromeos-linux.md) | ChromeOS Linux (Crostini) ARM64/x86_64 install, update, uninstall, and hardware-check contract, with the Stage 5 artifact evidence |
 | [distribution-decision-matrix.md](distribution-decision-matrix.md) | Which channels to use now, later, and never — scored, with reasons |
@@ -82,6 +83,7 @@ freeze exact master SHA
    ├── candidate           extended exact-SHA matrix + policy-bound evidence
    ├── tag preflight       tag == version == changelog + exact certifications, or stop
    ├── signing-preflight  resolve signed or manual-download contingency
+   ├── native-contracts   exact native Node/dependency probes on all five targets
    ├── bundle             native runners; sign when configured; verify the
    │                      artifact bytes (signing-report-*.json); collect; hash;
    │                      report installer size (Windows, gate v. baseline)

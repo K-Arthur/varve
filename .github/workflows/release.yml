@@ -95,7 +95,7 @@ permissions:
 
 env:
   PNPM_VERSION: '11.9.0'
-  NODE_VERSION: '26'
+  NODE_VERSION: '26.10.0'
 
 jobs:
   # ── 1. Preflight: refuse to build the wrong thing ───────────────────────────
@@ -393,10 +393,130 @@ jobs:
             echo "Tauri updater signing key present (value never printed)."
           fi
 
+  # Contracts use the tagged lockfile on every native architecture BEFORE
+  # compilation/reuse. A harness dependency failure must not consume a build.
+  native-contracts:
+    name: Native dependency contracts (${{ matrix.name }})
+    needs: [preflight, gate, signing-preflight]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            node_arch: x64
+            enabled: true
+          - name: linux-aarch64
+            os: ubuntu-22.04-arm
+            node_arch: arm64
+            enabled: true
+          - name: windows-x86_64
+            os: windows-latest
+            node_arch: x64
+            enabled: ${{ needs.preflight.outputs.build_windows == 'true' }}
+          - name: windows-aarch64
+            os: windows-11-arm
+            node_arch: arm64
+            enabled: ${{ needs.preflight.outputs.build_windows == 'true' }}
+          - name: macos-aarch64
+            os: macos-latest
+            node_arch: arm64
+            enabled: ${{ needs.preflight.outputs.build_macos == 'true' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        if: matrix.enabled
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+          persist-credentials: false
+      - name: Checkout workflow-pinned native qualification tooling
+        if: matrix.enabled
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: release-qualification-tooling
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.github/workflows/release.yml
+            /scripts/release/production/
+            /scripts/release/targets.mjs
+            /scripts/release/verify-release-data.mjs
+            /scripts/is-main-module.mjs
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        if: matrix.enabled
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        if: matrix.enabled
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install native qualification tooling dependencies
+        if: matrix.enabled
+        run: pnpm install --frozen-lockfile
+      - name: Record and verify actual native runtime
+        if: matrix.enabled
+        shell: bash
+        env:
+          EXPECTED_NODE_ARCH: ${{ matrix.node_arch }}
+          PRODUCT_SHA: ${{ needs.preflight.outputs.tag_sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          NATIVE_RUNTIME_OUTPUT: ${{ runner.temp }}/native-runtime.json
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { createRequire } from 'node:module';
+          import { writeFileSync } from 'node:fs';
+          import { release } from 'node:os';
+          import { resolve } from 'node:path';
+          assert.equal(process.arch, process.env.EXPECTED_NODE_ARCH, 'Native Node architecture');
+          assert.equal(process.versions.node, process.env.NODE_VERSION, 'Exact qualification Node');
+          const owner = createRequire(resolve('packages/import/package.json'));
+          const pdfOwner = createRequire(owner.resolve('pdfjs-dist/legacy/build/pdf.mjs'));
+          const canvas = pdfOwner('@napi-rs/canvas');
+          assert.ok(canvas.createCanvas(2, 2).toBuffer('image/png').length > 0, 'Actual native canvas binary');
+          writeFileSync(process.env.NATIVE_RUNTIME_OUTPUT, JSON.stringify({
+            productSha: process.env.PRODUCT_SHA, workflowSha: process.env.WORKFLOW_SHA,
+            node: process.versions.node, platform: process.platform, arch: process.arch,
+            osRelease: release(), runnerImage: process.env.ImageOS ?? null,
+            runnerImageVersion: process.env.ImageVersion ?? null,
+            pdfjs: owner('pdfjs-dist/package.json').version,
+            canvas: pdfOwner('@napi-rs/canvas/package.json').version,
+          }, null, 2) + '\n');
+          NODE
+      - name: Native qualification adapter contracts
+        if: matrix.enabled
+        shell: bash
+        env:
+          VARVE_NATIVE_WORKFLOW_FIXTURE: release-qualification-tooling/.github/workflows/release.yml
+        run: |
+          node release-qualification-tooling/scripts/release/production/dialog-forwarding.test.mjs
+          node release-qualification-tooling/scripts/release/production/webdriver-dom.test.mjs
+          node release-qualification-tooling/scripts/release/production/native-quit.test.mjs
+          node release-qualification-tooling/scripts/release/production/native-export-controls.test.mjs
+          node release-qualification-tooling/scripts/release/production/native-pdf.test.mjs
+          node release-qualification-tooling/scripts/release/production/retained-document.test.mjs
+          node release-qualification-tooling/scripts/release/production/macos-ax-controls.test.mjs
+          node release-qualification-tooling/scripts/release/production/published-upgrade.test.mjs
+          node release-qualification-tooling/scripts/release/production/workflow.test.mjs
+          node release-qualification-tooling/scripts/release/production/session-options.test.mjs
+      - name: Preserve native runtime identity
+        if: always() && matrix.enabled
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: native-contract-${{ matrix.name }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/native-runtime.json
+          if-no-files-found: warn
+          retention-days: 14
+
   # ── 3. Platform bundles on native runners ───────────────────────────────────
   bundle:
     name: Bundle (${{ matrix.name }})
-    needs: [preflight, gate, signing-preflight]
+    needs: [preflight, gate, signing-preflight, native-contracts]
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     timeout-minutes: 90
     strategy:
@@ -1028,12 +1148,13 @@ jobs:
   # gates between "built" and "draft" for the Linux platform.
   package-smoke:
     name: Linux package smoke (${{ matrix.name }})
-    needs: [preflight, bundle]
+    needs: [preflight, bundle, native-contracts]
     # A failed target must not hide qualification failures on successful ones.
     # Each cell's strict artifact selector rejects a failed/missing producer;
     # the final trust gate still requires the complete bundle and smoke jobs.
     if: >-
       always() && !cancelled() && needs.preflight.result == 'success' &&
+      needs.native-contracts.result == 'success' &&
       (github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes')
     runs-on: ${{ matrix.os }}
     # Driver install (8m) + old/new production flows (9m each), plus existing package checks.
@@ -1252,9 +1373,10 @@ jobs:
 
   platform-smoke:
     name: ${{ matrix.name }} runner smoke
-    needs: [preflight, bundle]
+    needs: [preflight, bundle, native-contracts]
     if: >-
       always() && !cancelled() && needs.preflight.result == 'success' &&
+      needs.native-contracts.result == 'success' &&
       (github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes')
     runs-on: ${{ matrix.os }}
     # Pinned driver setup + old/new bounded production GUI/disk flows and existing smoke.

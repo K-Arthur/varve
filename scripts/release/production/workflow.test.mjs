@@ -13,7 +13,27 @@ function job(id) {
 }
 const linux = job('package-smoke'),
   native = job('platform-smoke'),
+  contracts = job('native-contracts'),
   verify = job('verify');
+assert.match(job('bundle'), /needs: \[preflight, gate, signing-preflight, native-contracts\]/);
+assert.match(contracts, /node-version: \$\{\{ env\.NODE_VERSION \}\}/);
+assert.match(contracts, /assert\.equal\(process\.arch, process\.env\.EXPECTED_NODE_ARCH/);
+assert.match(contracts, /pdfOwner\('@napi-rs\/canvas'\)/);
+assert.match(contracts, /createCanvas\(2, 2\)\.toBuffer\('image\/png'\)/);
+assert.doesNotMatch(contracts, /continue-on-error:/);
+assert.ok(
+  contracts.indexOf('pnpm install --frozen-lockfile') <
+    contracts.indexOf('Native qualification adapter contracts'),
+);
+for (const target of [
+  'linux-x86_64',
+  'linux-aarch64',
+  'windows-x86_64',
+  'windows-aarch64',
+  'macos-aarch64',
+]) {
+  assert.match(contracts, new RegExp(`name: ${target}\\n`));
+}
 assert.match(linux, /production\/appimage-extraction\.test\.mjs/);
 assert.doesNotMatch(native, /production\/appimage-extraction\.test\.mjs/);
 assert.match(
@@ -22,6 +42,11 @@ assert.match(
   'Both owning native gates remain prerequisites for draft bytes',
 );
 for (const slice of [linux, native]) {
+  assert.match(
+    slice,
+    /needs\.native-contracts\.result == 'success'/,
+    'Failed early contracts do not launch installed sessions',
+  );
   assert.match(
     slice,
     /name: Native qualification adapter contracts\n\s+if: matrix.enabled\n\s+shell: bash/,

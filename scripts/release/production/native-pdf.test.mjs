@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import vm from 'node:vm';
 import { assertNativePdfArtwork } from './native-pdf.mjs';
 
@@ -49,11 +49,6 @@ await assertNativePdfArtwork(nativeBytes, png);
 // they additionally misread the drive letter as a URL protocol.
 const urlFixture = mkdtempSync(join(tmpdir(), 'varve-native-pdf # url-'));
 try {
-  symlinkSync(
-    resolve('node_modules/.pnpm/node_modules'),
-    join(urlFixture, 'node_modules'),
-    'junction',
-  );
   for (const name of ['import', 'engine']) {
     const directory = join(urlFixture, 'packages', name);
     mkdirSync(directory, { recursive: true });
@@ -68,6 +63,26 @@ try {
   );
   mkdirSync(rendererDirectory, { recursive: true });
   const rendererRequire = createRequire(resolve('packages/import/package.json'));
+  const actualRenderer = rendererRequire.resolve('pdfjs-dist/legacy/build/pdf.mjs');
+  // A copied renderer no longer inherits its pnpm owner's optional dependencies.
+  // Resolve the real native canvas from that owner, retaining canonical paths
+  // across Windows drives without depending on workspace hoisting.
+  const canvasOwner = createRequire(actualRenderer);
+  const nativeScope = join(urlFixture, 'packages/import/node_modules/@napi-rs');
+  mkdirSync(nativeScope, { recursive: true });
+  symlinkSync(
+    dirname(canvasOwner.resolve('@napi-rs/canvas/package.json')),
+    join(nativeScope, 'canvas'),
+    'junction',
+  );
+  const engineDependencies = join(urlFixture, 'packages/engine/node_modules');
+  mkdirSync(engineDependencies, { recursive: true });
+  const engineOwner = createRequire(resolve('packages/engine/package.json'));
+  symlinkSync(
+    dirname(engineOwner.resolve('pngjs/package.json')),
+    join(engineDependencies, 'pngjs'),
+    'junction',
+  );
   for (const name of ['pdf.mjs', 'pdf.worker.mjs']) {
     copyFileSync(
       rendererRequire.resolve(`pdfjs-dist/legacy/build/${name}`),

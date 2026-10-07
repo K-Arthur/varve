@@ -285,7 +285,7 @@ jobs:
           version: 11.9.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: 26
+          node-version: '26.10.0'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies (frozen)
@@ -418,7 +418,7 @@ jobs:
           version: 11.9.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: 26
+          node-version: '26.10.0'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies
@@ -459,7 +459,7 @@ jobs:
           version: 11.9.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: 26
+          node-version: '26.10.0'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies
@@ -552,7 +552,7 @@ jobs:
           version: 11.9.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: 26
+          node-version: '26.10.0'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies
@@ -689,7 +689,7 @@ jobs:
           version: 11.9.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: 26
+          node-version: '26.10.0'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies
@@ -810,7 +810,7 @@ jobs:
           version: 11.9.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: 26
+          node-version: '26.10.0'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies
@@ -878,7 +878,7 @@ jobs:
           version: 11.9.0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: 26
+          node-version: '26.10.0'
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile

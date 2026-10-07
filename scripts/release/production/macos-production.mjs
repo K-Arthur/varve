@@ -142,6 +142,9 @@ const buttons = [
 ];
 async function click(name, starts = false, scope = null) {
   const element = await until(() => one(name, buttons, starts, scope));
+  await pointerClick(element);
+}
+async function pointerClick(element) {
   const rect = await driver.getElementRect(element.elementId);
   assert.ok(
     [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) &&
@@ -245,23 +248,25 @@ async function open(path) {
   await panelPath(path, 'Open');
   await until(() => one('Fit all to viewport', ['XCUIElementTypeButton']));
 }
-async function selectImage() {
-  const types = [
-    'XCUIElementTypeOutlineRow',
-    'XCUIElementTypeCell',
-    'XCUIElementTypeOther',
-    'XCUIElementTypeButton',
-  ];
-  // No DOM-id assumptions. Missing/ambiguous AX rows fail with retained source.
-  const refs = await hittableElements(
-    "label BEGINSWITH 'Published embedded image' OR title BEGINSWITH 'Published embedded image'",
+async function layerLabel(name) {
+  const trees = await driver.findElements(
+    'predicate string',
+    'amType IN {"XCUIElementTypeGroup"} AND (label == "Layers" OR title == "Layers")',
   );
-  if (!refs.length) {
-    const poster = await one('Poster — A3', types, true);
-    const expand = await one('Expand', ['XCUIElementTypeButton'], false, poster);
-    await expand.click();
-  }
-  await (await until(() => one('Published embedded image', types, true))).click();
+  assert.equal(trees.length, 1, 'Exactly one actual native Layers tree');
+  const tree = await driver.$(trees[0]);
+  // WebKit exposes visible layer names as StaticText.value, with empty
+  // label/title. Canvas accessibility groups also name nodes, so scope this
+  // exact, hittable text lookup to the actual Layers tree.
+  const labels = await hittableElements(
+    `amType IN {"XCUIElementTypeStaticText"} AND value == ${literal(name)}`,
+    tree,
+  );
+  assert.equal(labels.length, 1, `Exactly one hittable native layer label: ${name}`);
+  return labels[0];
+}
+async function selectImage() {
+  await pointerClick(await until(() => layerLabel('Published embedded image')));
 }
 async function diskSave(predicate = () => true) {
   await keys('s', COMMAND);
@@ -301,13 +306,20 @@ try {
   if (!v.seed) {
     const x = await one(
       ['X (px)', 'X (AB) (px)'],
-      ['XCUIElementTypeTextField', 'XCUIElementTypeTextView', 'XCUIElementTypeOther'],
+      [
+        'XCUIElementTypeTextField',
+        'XCUIElementTypeTextView',
+        'XCUIElementTypeStepper',
+        'XCUIElementTypeOther',
+      ],
     );
     const value = Number(await x.getAttribute('value'));
     assert.ok(Number.isFinite(value));
-    await x.click();
+    await pointerClick(x);
     await keys('a', COMMAND);
-    await x.setValue(String(value + 1));
+    // WebKit number inputs have the native Stepper role. Type through XCTest
+    // into the focused control rather than assuming a TextField setValue API.
+    await driver.execute('macos: keys', { keys: [...String(value + 1)] });
     await keys('XCUIKeyboardKeyReturn');
     const changed = await diskSave(
       (d) =>
@@ -413,5 +425,5 @@ try {
     await driver.deleteSession().catch(() => {});
   }
   receipt.finishedAt = new Date().toISOString();
-  writeFileSync(join(out, 'qualification.json'), JSON.stringify(receipt, null, 2) + '\n');
+  writeFileSync(join(out, 'qualification.json'), `${JSON.stringify(receipt, null, 2)}\n`);
 }

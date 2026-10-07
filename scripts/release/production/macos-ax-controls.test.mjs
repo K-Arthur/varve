@@ -15,7 +15,9 @@ function matches(predicate, parent) {
   );
   assert.doesNotMatch(predicate, /\bhittable\b/, 'Mac2 rejects hittable snapshot predicate paths');
   const named = [
-    ...predicate.matchAll(/\b(label|title|identifier|amText) (==|BEGINSWITH) ("(?:[^"\\]|\\.)*")/g),
+    ...predicate.matchAll(
+      /\b(label|title|value|identifier|amText) (==|BEGINSWITH) ("(?:[^"\\]|\\.)*")/g,
+    ),
   ].map((m) => ({ field: m[1], starts: m[2] === 'BEGINSWITH', value: JSON.parse(m[3]) }));
   const types = JSON.parse(`[${/amType IN \{([^}]*)\}/.exec(predicate)[1]}]`);
   return controls.filter(
@@ -46,7 +48,7 @@ const driver = {
   }),
 };
 const context = vm.createContext({ assert, driver });
-vm.runInContext(helper + '; globalThis.one = one;', context);
+vm.runInContext(`${helper}; globalThis.one = one;`, context);
 const clickHelper = source.slice(
   source.indexOf('async function click('),
   source.indexOf('async function keys('),
@@ -67,6 +69,11 @@ const panelHelper = source.slice(
   source.indexOf('async function panelPath('),
 );
 vm.runInContext(`${panelHelper}; globalThis.filePanels = filePanels;`, context);
+const layerHelper = source.slice(
+  source.indexOf('async function layerLabel('),
+  source.indexOf('async function selectImage('),
+);
+vm.runInContext(`${layerHelper}; globalThis.layerLabel = layerLabel;`, context);
 function control(label, amType = 'XCUIElementTypeButton', other = {}) {
   return { elementId: label, label, amText: label, amType, hittable: true, ...other };
 }
@@ -84,6 +91,30 @@ for (const rect of [
 }
 assert.equal(pointerCalls.length, 1, 'Invalid rectangles must not send a pointer gesture');
 controls = [];
+// Actual 0.2.1 native snapshot from release run 37655874917: visible layer
+// text has an empty title/label, while the canvas has similarly named groups.
+controls = [
+  control('Layers', 'XCUIElementTypeGroup', { elementId: 'layers-tree' }),
+  control('', 'XCUIElementTypeStaticText', {
+    elementId: 'image-label',
+    value: 'Published embedded image',
+    parent: 'layers-tree',
+  }),
+  control('Published embedded image, shape, at (658, 68), 104 x 80', 'XCUIElementTypeGroup'),
+  control('', 'XCUIElementTypeStaticText', {
+    value: 'Published embedded image',
+    parent: 'inspector',
+  }),
+];
+assert.equal((await context.layerLabel('Published embedded image')).elementId, 'image-label');
+assert.equal(requests.at(-1).id, 'layers-tree');
+controls[1].hittable = false;
+await assert.rejects(context.layerLabel('Published embedded image'), /hittable native layer label/);
+controls[1].hittable = true;
+controls.push({ ...controls[1], elementId: 'duplicate-label' });
+await assert.rejects(context.layerLabel('Published embedded image'), /hittable native layer label/);
+controls = [];
+await assert.rejects(context.layerLabel('Published embedded image'), /actual native Layers tree/);
 for (const type of ['XCUIElementTypeDialog', 'XCUIElementTypeSheet']) {
   controls = [
     control('', type, { elementId: 'native-open', identifier: 'open-panel', title: 'Open' }),
@@ -118,7 +149,7 @@ await context.one('Expand', ['XCUIElementTypeButton'], false, { elementId: 'actu
 assert.equal(requests.at(-1).id, 'actual-poster-row');
 assert.equal(requests.at(-1).using, 'predicate string');
 const names = ['X (px)', 'X (AB) (px)'],
-  fields = ['XCUIElementTypeTextField'];
+  fields = ['XCUIElementTypeTextField', 'XCUIElementTypeStepper'];
 for (const name of names) {
   controls = [
     control(name, fields[0]),
@@ -132,6 +163,8 @@ for (const name of names) {
     'Exact canonical coordinate field, not another axis/type',
   );
 }
+controls = [control('X (px)', 'XCUIElementTypeStepper', { value: '658' })];
+assert.equal((await context.one(names, fields)).amType, 'XCUIElementTypeStepper');
 controls = [
   control('X (ab) (px)', fields[0]),
   control('X', fields[0]),
@@ -204,7 +237,15 @@ assert.doesNotMatch(
 );
 assert.match(source, /await click\('File'\);\s+await click\('Save As…', true\)/);
 assert.match(source, /await click\('More inspector tabs', true\);\s+await click\('Export'\)/);
-assert.match(source, /OR title BEGINSWITH 'Published embedded image'/);
+assert.match(
+  source,
+  /pointerClick\(await until\(\(\) => layerLabel\('Published embedded image'\)\)\)/,
+);
+assert.match(
+  source,
+  /driver\.execute\('macos: keys', \{ keys: \[\.\.\.String\(value \+ 1\)\] \}\)/,
+);
+assert.doesNotMatch(source, /x\.setValue\(/, 'Native Stepper editing uses physical keys');
 assert.doesNotMatch(source, /AND hittable == true/);
 assert.match(source, /title == 'Not now'/, 'actual first-run update dialog has an explicit choice');
 assert.match(

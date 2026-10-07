@@ -27,7 +27,7 @@ concurrency:
 
 env:
   PNPM_VERSION: '11.9.0'
-  NODE_VERSION: '26'
+  NODE_VERSION: '26.10.0'
   VARVE_CI_CANDIDATE_MODE: ${{ inputs.mode }}
 
 jobs:
