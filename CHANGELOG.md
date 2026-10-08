@@ -74,6 +74,10 @@ marked.
   save by its successful destination write before closing important work.
   Buffered text edits and formatting now replay through undo/redo with exact
   grapheme boundaries, including emoji and combining characters.
+  Home Open and Import consume the native picker's selected path correctly,
+  including Unicode filenames; Open retains the disk path for subsequent Save.
+  The macOS editor's application menu Quit action now runs the shared save
+  and termination coordinator before exiting.
 - **Responsive and accessible controls** — Workspace panels, menus, touch
   targets, focus handling, home-screen reflow, group dragging, and enlarged-text
   layouts have been refined across compact, tablet, and desktop widths.

@@ -1,7 +1,76 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
-import { nativeSmokePlan } from './native-smoke.mjs';
+import { nativeSmokePlan, runNativeDesktopCommand } from './native-smoke.mjs';
+
+function stopFixtureRenderer(pidFile) {
+  try {
+    const pid = Number(readFileSync(pidFile));
+    if (Number.isSafeInteger(pid) && pid > 0) process.kill(pid, 'SIGTERM');
+  } catch (error) {
+    if (!['ENOENT', 'ESRCH'].includes(error.code)) throw error;
+  }
+}
+
+async function withLingeringRenderer(exitCode, assertion) {
+  const directory = mkdtempSync(join(tmpdir(), 'varve-native-smoke-shutdown-'));
+  const pidFile = join(directory, 'renderer.pid');
+  const launcher = join(directory, 'launcher.cjs');
+  writeFileSync(
+    launcher,
+    `const { spawn } = require('node:child_process');
+const child = spawn(process.execPath, ['-e',
+  'setInterval(() => {}, 1000); process.send(process.pid);'
+], { detached: true, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+child.once('message', pid => {
+  require('node:fs').writeFileSync(process.argv[2], String(pid));
+  setTimeout(() => process.exit(${exitCode}), 500);
+});
+`,
+  );
+  try {
+    await assertion([process.execPath, launcher, pidFile], () => Number(readFileSync(pidFile)));
+  } finally {
+    // A failed cleanup assertion must not leave this test's controlled helper alive.
+    stopFixtureRenderer(pidFile);
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+function assertRendererStopped(pid) {
+  // A reparented zombie has already exited; its OS reaper owns its final entry.
+  if (process.platform === 'linux') {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      assert.equal(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[0], 'Z');
+      return;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+}
+
+test('native smoke awaits cleanup of a real renderer outliving a successful launcher', {
+  skip: process.platform === 'win32',
+}, async () => {
+  await withLingeringRenderer(0, async (argv, rendererPid) => {
+    await runNativeDesktopCommand(argv);
+    assertRendererStopped(rendererPid());
+  });
+});
+
+test('native smoke preserves a launcher failure while cleaning up its real renderer', {
+  skip: process.platform === 'win32',
+}, async () => {
+  await withLingeringRenderer(7, async (argv, rendererPid) => {
+    await assert.rejects(runNativeDesktopCommand(argv), /failed with exit code 7/);
+    assertRendererStopped(rendererPid());
+  });
+});
 
 test('windows native smoke builds the real binary without the incompatible test plugin', () => {
   const plan = nativeSmokePlan({ platform: 'win32' });

@@ -240,7 +240,9 @@ function buildAppMenuSpec(formatLabel?: (key: string) => string): NativeSubmenuS
     { kind: 'predefined', id: 'hide_others', itemType: 'hide_others' },
     { kind: 'predefined', id: 'show_all', itemType: 'show_all' },
     { kind: 'separator', id: 'sep-app-4' },
-    { kind: 'predefined', id: 'quit', itemType: 'quit' },
+    // AppKit's predefined terminate: bypasses the guarded Tauri exit request.
+    // Forward the ordinary menu action through the same coordinator as File/Quit.
+    { kind: 'item', id: 'quitApp', label: 'Quit Varve', accelerator: 'CmdOrCtrl+Q' },
   ];
 
   const appName = 'Varve';

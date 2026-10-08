@@ -607,13 +607,13 @@ export function createTauriPlatform(): Platform {
             multiple: false,
             filters: [{ name: 'Varve document', extensions: ['varve', 'strata'] }],
           },
-        })) as Array<{ path?: string; name?: string; content?: string }> | null;
-        const first = picked?.[0];
-        if (!first?.path) return null;
+        })) as string | null;
+        if (!picked) return null;
         const text = (await c.invoke('home_read_text_file_approved', {
-          path: first.path,
+          path: picked,
         })) as string;
-        return ingest(first.name ?? 'untitled.varve', text, first.path);
+        const name = picked.split(/[\\/]/).pop() ?? 'untitled.varve';
+        return ingest(name, text, picked);
       });
     },
 
@@ -637,19 +637,19 @@ export function createTauriPlatform(): Platform {
             multiple: false,
             filters: [{ name: 'Import', extensions: extensions.map((e) => e.replace(/^\./, '')) }],
           },
-        })) as Array<{ path?: string; name?: string }> | null;
-        const first = picked?.[0];
-        if (!first?.path || !first.name) return { result: null, unsupported: false };
-        const kind = detectFileKind(first.name);
+        })) as string | null;
+        if (!picked) return { result: null, unsupported: false };
+        const name = picked.split(/[\\/]/).pop() ?? '';
+        const kind = detectFileKind(name);
         if (kind === 'unknown') return { result: null, unsupported: true };
         const text = (await c.invoke('home_read_text_file_approved', {
-          path: first.path,
+          path: picked,
         })) as string;
         if (kind !== 'strata') {
-          const entry = capture(first.name, text, kind);
+          const entry = capture(name, text, kind);
           return { result: { entry, documentJson: text }, unsupported: false };
         }
-        return { result: ingest(first.name, text), unsupported: false };
+        return { result: ingest(name, text), unsupported: false };
       });
     },
 

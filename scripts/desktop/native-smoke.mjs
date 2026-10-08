@@ -21,6 +21,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { observeValidationChild } from '../quality/heavy-lease.mjs';
 
 const REPO_ROOT = resolve(import.meta.dirname, '..', '..');
 const DESKTOP_DIR = resolve(REPO_ROOT, 'apps', 'desktop');
@@ -66,6 +67,30 @@ function runPnpm(args, extraEnv = {}) {
   });
   if (result.status !== 0) {
     throw new Error(`pnpm ${args.join(' ')} failed with exit code ${result.status ?? 'null'}`);
+  }
+}
+
+/** WDIO can return before its WebKit renderer exits. Own that tree until
+ * cleanup completes; a successful test must not leave a native helper alive. */
+export async function runNativeDesktopCommand(argv, { cwd = REPO_ROOT, env = process.env } = {}) {
+  const child = spawn(argv[0], argv.slice(1), {
+    cwd,
+    env,
+    stdio: 'inherit',
+    detached: process.platform !== 'win32',
+  });
+  const stop = observeValidationChild(child);
+  try {
+    const status = await new Promise((resolveExit, reject) => {
+      child.once('error', reject);
+      child.once('exit', (code, signal) => {
+        if (signal) reject(new Error(`Native desktop command terminated by ${signal}`));
+        else resolveExit(code);
+      });
+    });
+    if (status !== 0) throw new Error(`Native desktop command failed with exit code ${status}`);
+  } finally {
+    await stop();
   }
 }
 
@@ -123,7 +148,7 @@ async function main() {
   console.log(`native desktop smoke: ${plan.mode} (${process.platform})`);
   runPnpm(['--dir', DESKTOP_DIR, ...plan.buildArgs]);
   if (plan.mode === 'wdio') {
-    runPnpm(plan.wdioArgs);
+    await runNativeDesktopCommand(['pnpm', ...plan.wdioArgs]);
     return;
   }
   await launchSmoke(plan);

@@ -109,4 +109,13 @@ describe('menu command integrity', () => {
     dispatchNativeMenuAction('undo', (id) => dispatched.push(id));
     expect(dispatched).toEqual(['settings', 'registry:undo']);
   });
+
+  it('dispatches the native quitApp ID to the registered guarded action exactly once', () => {
+    const dispatched: string[] = [];
+    getActionRegistry().register({ id: 'quitApp', label: 'Quit Varve', category: 'file' }, () =>
+      dispatched.push('guarded:quitApp'),
+    );
+    dispatchNativeMenuAction('quitApp', (id) => dispatched.push(id));
+    expect(dispatched).toEqual(['guarded:quitApp']);
+  });
 });

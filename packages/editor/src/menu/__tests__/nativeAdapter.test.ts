@@ -109,12 +109,24 @@ describe('buildNativeMenuSpec — App menu (macOS)', () => {
       'predefined',
       'predefined',
       'separator',
-      'predefined',
+      'item',
     ]);
     const settingsItem = appMenu!.items.find((i) => i.id === 'settings');
     expect(settingsItem).toBeTruthy();
     expect(settingsItem!.accelerator).toBe('CmdOrCtrl+,');
     expect(settingsItem!.label).toContain('Settings');
+  });
+
+  it('routes native Quit through the guarded quitApp action instead of AppKit termination', () => {
+    const spec = buildNativeMenuSpec(getDefs(), buildCtx(TEST_SELECTION, 'design'), 'mac');
+    const appMenu = spec.submenus.find((s) => s.id === 'app')!;
+    expect(appMenu.items.at(-1)).toEqual({
+      kind: 'item',
+      id: 'quitApp',
+      label: 'Quit Varve',
+      accelerator: 'CmdOrCtrl+Q',
+    });
+    expect(appMenu.items.some((item) => item.itemType === 'quit')).toBe(false);
   });
 });
 

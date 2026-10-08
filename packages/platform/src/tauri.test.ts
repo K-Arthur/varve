@@ -134,7 +134,7 @@ describe('createTauriPlatform', () => {
 
   it('wraps plugin:dialog|open arguments in options key', async () => {
     const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
-      if (cmd === 'plugin:dialog|open') return [{ path: '/tmp/test.strata', name: 'test.strata' }];
+      if (cmd === 'plugin:dialog|open') return '/tmp/test.strata';
       if (cmd === 'home_read_text_file_approved') return '{"nodes":{}}';
       return null;
     });
@@ -144,12 +144,75 @@ describe('createTauriPlatform', () => {
     };
 
     const platform = createTauriPlatform();
-    await platform.openDocumentFromDisk();
+    expect(await platform.openDocumentFromDisk()).toMatchObject({
+      entry: { name: 'test', filePath: '/tmp/test.strata' },
+      documentJson: '{"nodes":{}}',
+      filePath: '/tmp/test.strata',
+    });
+    expect(invoke).toHaveBeenCalledWith('home_read_text_file_approved', {
+      path: '/tmp/test.strata',
+    });
     const openCall = invoke.mock.calls.find(([cmd]) => cmd === 'plugin:dialog|open');
     if (!openCall) throw new Error('Expected plugin:dialog|open invoke');
     const openArgs = openCall[1] as { options?: Record<string, unknown> };
     expect(openArgs.options).toBeDefined();
     expect((openArgs.options as Record<string, unknown>).multiple).toBe(false);
+  });
+
+  it.each([
+    '/Users/runner/Designs/Migrated save β.varve',
+    'C:\\Users\\designer\\Designs\\Migrated save β.varve',
+  ])('retains the native selected path and basename: %s', async (path) => {
+    const invoke = vi.fn(async (cmd: string) => {
+      if (cmd === 'plugin:dialog|open') return path;
+      if (cmd === 'home_read_text_file_approved') return '{"nodes":{}}';
+      return null;
+    });
+    globalWithTauri.__TAURI__ = { core: { invoke } };
+    expect(await createTauriPlatform().openDocumentFromDisk()).toMatchObject({
+      entry: { name: 'Migrated save β', filePath: path },
+      filePath: path,
+      documentJson: '{"nodes":{}}',
+    });
+  });
+
+  it('does not read or ingest a document after the native picker is cancelled', async () => {
+    const invoke = vi.fn(async () => null);
+    globalWithTauri.__TAURI__ = { core: { invoke } };
+    expect(await createTauriPlatform().openDocumentFromDisk()).toBeNull();
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledWith('plugin:dialog|open', expect.any(Object));
+  });
+
+  it.each([
+    ['/tmp/Imported mark β.svg', 'image'],
+    ['C:\\Designs\\Legacy poster.strata', 'strata'],
+  ])('imports the native selected path: %s', async (path, kind) => {
+    const contents = kind === 'image' ? '<svg />' : '{"nodes":{}}';
+    const invoke = vi.fn(async (cmd: string) => {
+      if (cmd === 'plugin:dialog|open') return path;
+      if (cmd === 'home_read_text_file_approved') return contents;
+      return null;
+    });
+    globalWithTauri.__TAURI__ = { core: { invoke } };
+    expect(await createTauriPlatform().importDocumentFromDisk(['.svg', '.strata'])).toMatchObject({
+      result: { entry: { kind }, documentJson: contents },
+      unsupported: false,
+    });
+    expect(invoke).toHaveBeenCalledWith('home_read_text_file_approved', { path });
+  });
+
+  it.each([
+    [null, false],
+    ['/tmp/unsupported.xyz', true],
+  ])('does not read cancelled or unsupported native imports: %s', async (path, unsupported) => {
+    const invoke = vi.fn(async () => path);
+    globalWithTauri.__TAURI__ = { core: { invoke } };
+    expect(await createTauriPlatform().importDocumentFromDisk(['.svg'])).toEqual({
+      result: null,
+      unsupported,
+    });
+    expect(invoke).toHaveBeenCalledTimes(1);
   });
 
   it('wraps plugin:dialog|save arguments in options key for document save', async () => {
