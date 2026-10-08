@@ -1,11 +1,21 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, win32 } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
+import {
+  canonicalEvidencePath,
   nativeRuntimePaths,
   nativeWorkflowContract,
   selectNativeArtifact,
@@ -16,6 +26,14 @@ import {
 import { nativeReuseInputs } from '../select-run-artifacts.mjs';
 
 const target = 'windows-x86_64';
+assert.equal(
+  canonicalEvidencePath('D:\\a\\varve\\retained-native\\current-document\\Migrated save β.varve'),
+  'D:/a/varve/retained-native/current-document/Migrated save β.varve',
+);
+assert.equal(
+  canonicalEvidencePath('D:\\a\\varve\\retained-platform-source-windows-x86_64.json'),
+  'D:/a/varve/retained-platform-source-windows-x86_64.json',
+);
 assert.deepEqual(nativeReuseInputs({}), { runId: '', targets: [] });
 const input = { runId: '37', targets: target, bundleRunId: '37', bundleTargets: [target] };
 assert.deepEqual(nativeReuseInputs(input), { runId: '37', targets: [target] });
@@ -130,6 +148,40 @@ for (const mutant of [
 assert.throws(() => selectNativeArtifact({ ...evidence, artifacts: [artifact, artifact] }, target));
 const dir = mkdtempSync(join(tmpdir(), 'varve-native-retention-'));
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+// Execute the actual readers with Windows path construction over real fixture
+// files, even on Linux. Reinstating the observed missing normalization fails.
+const readerSource = readFileSync(
+  new URL('../native-qualification-reuse.mjs', import.meta.url),
+  'utf8',
+);
+function windowsReaders(normalize = true) {
+  let code = readerSource.slice(
+    readerSource.indexOf('function files('),
+    readerSource.indexOf('async function select('),
+  );
+  code += readerSource.slice(
+    readerSource.indexOf('export function verifyInstallerSource('),
+    readerSource.indexOf('async function main('),
+  );
+  code = code.replaceAll('export function', 'function');
+  if (!normalize)
+    code = code.replace('canonicalEvidencePath(join(dir, entry.name))', 'join(dir, entry.name)');
+  const context = {
+    assert,
+    hash,
+    canonicalEvidencePath,
+    join: win32.join,
+    resolve: win32.resolve,
+    readdirSync: (path, options) => readdirSync(canonicalEvidencePath(path), options),
+    readFileSync: (path) => readFileSync(canonicalEvidencePath(path)),
+    lstatSync: (path) => lstatSync(canonicalEvidencePath(path)),
+  };
+  vm.runInNewContext(
+    `${code}; globalThis.installer = verifyInstallerSource; globalThis.reports = verifyNativeReports;`,
+    context,
+  );
+  return context;
+}
 try {
   const output = join(dir, 'actual-cli-output');
   const env = {
@@ -180,6 +232,8 @@ try {
   const sourcePath = join(nested, name);
   writeFileSync(sourcePath, JSON.stringify(source));
   verifyInstallerSource(installerDir, selection);
+  windowsReaders().installer(installerDir, selection);
+  assert.throws(() => windowsReaders(false).installer(installerDir, selection), /One original/);
   for (const mutant of [
     { runId: 38 },
     { runSha: 'c'.repeat(40) },
@@ -223,6 +277,13 @@ try {
   const currentPath = join(currentDir, 'qualification.json');
   writeFileSync(currentPath, JSON.stringify(current));
   assert.ok(verifyNativeReports(dir, { sourceSha: sha, version: '0.5.0' }).currentReportSha256);
+  assert.ok(
+    windowsReaders().reports(dir, { sourceSha: sha, version: '0.5.0' }).currentReportSha256,
+  );
+  assert.throws(
+    () => windowsReaders(false).reports(dir, { sourceSha: sha, version: '0.5.0' }),
+    /One baseline/,
+  );
   for (const mutant of [
     { passed: false },
     { sourceSha: 'c'.repeat(40) },

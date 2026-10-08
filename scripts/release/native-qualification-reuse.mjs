@@ -187,11 +187,16 @@ function fingerprint(sha, target) {
   return hash(JSON.stringify({ blobs, workflow }));
 }
 
+/** Forward slashes are accepted by all three hosts and keep evidence matching portable. */
+export function canonicalEvidencePath(path) {
+  return path.replaceAll('\\', '/');
+}
+
 function files(dir, depth = 0) {
   assert.ok(depth < 32, 'Native evidence exceeds directory depth bound');
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     assert.ok(!entry.isSymbolicLink(), 'Native evidence may not contain links');
-    const path = join(dir, entry.name);
+    const path = canonicalEvidencePath(join(dir, entry.name));
     return entry.isDirectory() ? files(path, depth + 1) : [path];
   });
 }
