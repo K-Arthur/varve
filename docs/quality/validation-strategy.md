@@ -380,6 +380,25 @@ the measured excess before enabling their enforcement. Keep the committed
 ceilings unchanged; this finding does not grant a baseline increase or a
 release-certification exemption.
 
+The local 0.5.0 checkpoint on 2026-10-08 also exposed an analyzer timeout and
+leftover children. The previous unused-export command downloaded an unpinned
+`ts-prune`, passed the error-mode flag as though it were an ignore pattern,
+discarded stderr, and accepted nonzero exits as empty output. Its parser also
+missed normal `file:line - export` records. Earlier zero-unused-export reports
+therefore cannot establish that the workspace had no unused exports.
+
+The audit now resolves locked `ts-prune` 0.10.3 directly, uses its ignore flag,
+captures complete output through files, and shares bounded process ownership
+with other validation commands. Analyzer failure, unexpected diagnostics,
+malformed output, signal termination and timeout fail closed. Regressions cover
+the previous false-clean parser result, both path styles, the actual installed
+CLI contract, cancellation/failure paths and real detached-child cleanup.
+The analyzer's per-project results are potentially unused exports, including
+public barrels; they require consumer review before removal. Its bundled
+TypeScript analysis is separate from the workspace TypeScript compiler checks.
+This repair leaves the committed architecture ceilings and enforcement scope
+unchanged.
+
 ## Multi-agent coordination
 
 Heavy tasks (full vitest, Playwright, cargo workspace tests, desktop
@@ -516,6 +535,52 @@ Every Varve agent MUST:
 
 Skipping affected tests is prohibited. Running unrelated tests is
 discouraged: it consumes shared developer resources and delays feedback.
+
+## User workflow coverage and native boundary fidelity
+
+The 0.5.0 release exposed false positives in tests for real user workflows.
+Home Open mocked a single-file dialog result as an object array and asserted
+only the invocation. Native macOS Quit used AppKit termination without passing
+through the save coordinator. Native smoke assertions passed while a renderer
+remained running. A large green unit suite did not prove these outcomes.
+
+For current release repairs and later changes, select tests by the workflow
+and the boundary affected:
+
+| Changed behavior | Required outcome evidence before claiming verification |
+|---|---|
+| Open/import or native file dialogs | Use the documented result shape; assert the selected path, read bytes and opened/imported document. Cover cancellation and Unicode/spaced Windows and macOS paths. |
+| Save, recovery or Quit | Edit, save and reopen the document; verify disk content and clean shutdown/recovery state. Exercise the actual menu/action registration path and failure/cancellation behavior. |
+| Canvas, Inspector or page fitting | Drive real DOM pointer/keyboard interactions; assert scene state and computed viewport/layout. Keep Publishing Page fitting distinct from Design Canvas fitting. |
+| Export | Inspect the actual output bytes and embedded content for the affected format; render PNG/PDF output for visual review. Opening the export dialog alone does not verify an export. |
+| Native test harness or process lifecycle | Preserve launcher errors, await cleanup of owned descendants and prove success/failure cleanup with real child processes. |
+| Installer, upgrade or platform dependency | Qualify the actual produced package on its target OS, including same-profile migration and saved-document reopen. Browser or source smoke results cannot substitute for installed-package evidence. |
+
+A regression for an observed defect must fail against the previous behavior.
+Mocks must reflect the installed dependency's public contract and assert returned
+results and state changes, including negative paths. Source-model/native adapter
+checks must read the production configuration rather than repeat a separate
+copy of the intended configuration. Use browser/native integration when real
+DOM events, OS menus, permissions, webview APIs or process ownership decide the
+outcome. Document platform execution gaps explicitly; a mock cannot establish
+that an OS interaction passed.
+
+When a release lane fails, review the complete affected workflow and its
+adjacent boundaries before restarting a broad gate. Collect the bounded failure
+set, inspect actual logs/screenshots/output bytes, and cover missing cancellation,
+invalid-input, permission, timing, persistence and platform cases where relevant.
+Run the affected compiler, exact failing spec and direct regressions after each
+repair. A retry alone is not a repair; preserve successful lanes and record the
+remaining execution gaps. This applies to the active 0.5.0 qualification too.
+
+The Open/Import, native Quit registration and smoke cleanup regressions were
+added during 0.5.0 repair. Full native menu, disk-save/reopen, export and profile
+qualification still requires successful execution on the actual release targets.
+Future UI and persistence work must extend its owning workflow test before
+packaging, then run the existing affected planner and selected checks. Record
+exact command, source identity, environment and output evidence. Keep broader
+integration and installer qualification at the frozen release checkpoint; retain
+already-green lanes during a repair batch as described below.
 
 ## Failure-resolution and release-candidate loop
 

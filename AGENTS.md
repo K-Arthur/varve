@@ -51,6 +51,13 @@ infrastructure (`tests/e2e/shared.ts`,
 `tests/e2e/helpers/**`, and fixtures), runner configuration, renderer, and
 other integration surfaces deliberately retain broad validation scope.
 
+Before restarting a failed release lane, review its complete affected
+workflow and adjacent boundaries. Add missing regressions for relevant
+cancellation, invalid-input, permission, timing, persistence and platform
+cases; an observed defect's regression must fail against the previous behavior.
+Assert actual outcomes and use production contracts/configuration in mocks.
+See `docs/quality/validation-strategy.md` → user workflow coverage.
+
 Skipping affected tests is prohibited. Running unrelated tests is
 discouraged — it consumes shared developer resources and delays feedback.
 

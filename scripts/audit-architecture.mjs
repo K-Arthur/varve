@@ -22,7 +22,7 @@
  *   node scripts/audit-architecture.mjs --ci             # CI mode (fail on new issues)
  */
 
-import { execSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import {
   closeSync,
   existsSync,
@@ -37,6 +37,8 @@ import {
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+
+import { runUnusedExportCommand, unusedExportArgv } from './architecture-unused-exports.mjs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const BASELINE_PATH = `${ROOT}.architecture-baseline.json`;
@@ -78,17 +80,6 @@ const PACKAGES = {
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────
-
-function run(cmd, opts = {}) {
-  try {
-    return execSync(cmd, { cwd: ROOT, encoding: 'utf-8', maxBuffer: 16 * 1024 * 1024, ...opts });
-  } catch (e) {
-    if (e.killed || e.signal) {
-      throw new Error(`Command terminated before completing: ${cmd}`, { cause: e });
-    }
-    return e.stdout || '';
-  }
-}
 
 /**
  * Madge's CLI writes the JSON graph asynchronously and exits before a pipe
@@ -381,33 +372,14 @@ async function checkDeadCode() {
       continue;
     }
 
-    // Use relative path from ROOT; npx ts-prune resolves extends relative to -p location
+    // Resolve the locked analyzer directly. Its --error flag is not an ignore
+    // pattern; findings remain advisory while analyzer failures fail closed.
     const relTsconfig = `${pkg.path}/tsconfig.json`;
-    const out = run(
-      `npx ts-prune -p "${relTsconfig}" -e "(node_modules|__tests__|.test.|.d.ts|.spec.)" 2>/dev/null`,
-      { timeout: 60000 },
-    );
-
-    const lines = out
-      .trim()
-      .split('\n')
-      .filter((l) => l.trim());
-    const unused = [];
-
-    for (const line of lines) {
-      // Format: "path/file.ts:1 - someExport"  or "path/file.ts:1: someExport"
-      const match = line.match(/^(.+?\.(?:ts|tsx)):\d+(?::| - ) (.+)$/);
-      if (match) {
-        const filePath = match[1];
-        const symbol = match[2];
-        if (filePath.includes('node_modules')) continue;
-        unused.push({ file: filePath, symbol });
-      }
-    }
+    const unused = await runUnusedExportCommand(unusedExportArgv(relTsconfig), { cwd: ROOT });
 
     if (unused.length > 0) {
       results[name] = unused;
-      console.log(`  ✖ ${name}: ${unused.length} unused export(s)`);
+      console.log(`  ✖ ${name}: ${unused.length} potentially unused export(s) (project scope)`);
       unused.slice(0, 10).forEach((u) => {
         console.log(`    ${u.file}: ${u.symbol}`);
       });
