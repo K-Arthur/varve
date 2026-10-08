@@ -201,10 +201,24 @@ const saveContext = vm.createContext({
 vm.runInContext(`${saveHelper};globalThis.diskSave=diskSave;`, saveContext);
 await saveContext.diskSave((d) => d.saved);
 assert.deepEqual(
-  saveClicks,
-  [['File'], ['Save', true]],
+  JSON.parse(JSON.stringify(saveClicks)),
+  [['File'], [['Save', 'SaveCtrl+S', 'Save⌘S']]],
   'A genuine menu click commits the numeric edit before saving',
 );
+for (const title of saveClicks[1][0]) {
+  controls = [
+    control(title, 'XCUIElementTypeButton', { elementId: 'actual-save' }),
+    control('Save As…⌘⇧S', 'XCUIElementTypeButton'),
+    control('Save a Copy…', 'XCUIElementTypeButton'),
+  ];
+  assert.equal(
+    (await context.one(saveClicks[1][0], ['XCUIElementTypeButton'])).elementId,
+    'actual-save',
+  );
+  await assert.rejects(context.one('Save', ['XCUIElementTypeButton'], true), /got 3/);
+}
+controls = [control('Save As…', 'XCUIElementTypeButton')];
+await assert.rejects(context.one(saveClicks[1][0], ['XCUIElementTypeButton']), /got 0/);
 
 const clickHelper = source.slice(
   source.indexOf('async function click('),
@@ -598,10 +612,14 @@ function saveQuitCase({
     },
     one: async () => ({ click: async () => events.push('app-menu') }),
     click: async (name, starts = false) => {
+      if (Array.isArray(name)) {
+        assert.deepEqual(JSON.parse(JSON.stringify(name)), ['Save', 'SaveCtrl+S', 'Save⌘S']);
+        name = 'Save';
+      }
       assert.ok(['File', 'Save', 'Close Window', 'Quit Varve'].includes(name));
       if (name === 'Save') {
         assert.equal(seed, false);
-        assert.equal(starts, true);
+        assert.equal(starts, false);
         saved = true;
       }
       if (name === 'Close Window') {

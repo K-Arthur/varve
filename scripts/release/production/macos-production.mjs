@@ -339,7 +339,7 @@ async function diskSave(predicate = () => true) {
   else {
     // Leave the numeric input through the genuine menu so its edit commits.
     await click('File');
-    await click('Save', true);
+    await click(['Save', 'SaveCtrl+S', 'Save⌘S']);
   }
   if (v.seed) {
     // Published 0.2.1 loses its native save path when reopening. Its actual
