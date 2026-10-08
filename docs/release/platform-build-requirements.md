@@ -211,23 +211,3 @@ Marketing producer receipts retain their real capture revision and image
 hash; promotion does not relabel earlier pixels as a fresh capture. Refresh
 affected scenes when visible controls change, and inspect the newly captured
 pixels before publication.
-
-## Retaining unchanged installed qualification
-
-A workflow-only repair can retain explicit original native targets through
-`native_reuse_run_id` and `native_reuse_targets`. Installer reuse must select
-the same run and include those targets. Runtime/common harness files, pinned
-JS inputs, fixture bytes and native runner/step contracts must match at both
-exact workflow revisions. The newest native producer must succeed and have
-one unexpired digest-bound original upload; newer failures prohibit fallback.
-Only original qualifications completed within 24 hours are retained. The current
-hosted runner image version must equal the original job log's image version;
-unavailable metadata or changed images require fresh qualification.
-
-Adoption checks old/current reports, the unchanged profile, schema and actual
-save/export hashes. Mac also requires its actual current clean-exit diagnostic.
-The new installer source receipt must identify the exact original bundle
-artifact. Original native reports/captures are preserved, with a separate
-retention receipt and `native-retained` artifact. Changed platforms run actual
-installed qualification. A successful retained job is evidence adoption, not
-a claim that the original GUI ran again at the consumer workflow revision.

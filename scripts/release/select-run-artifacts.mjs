@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Select verified release artifacts from explicit successful workflow producers. */
-import { appendFileSync, lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { collectResumableArtifacts, RELEASE_TARGETS } from './resume.mjs';
@@ -26,25 +26,6 @@ export function resolveReuseInputs({ runId = '', targets = '', windows = 'true',
   if (selected.some((target) => !enabled.includes(target)))
     throw new Error('Reuse targets must belong to this requested platform selection');
   return { runId: String(id), targets: selected };
-}
-
-export function nativeReuseInputs({
-  runId = '',
-  targets = '',
-  bundleRunId = '',
-  bundleTargets = [],
-  windows = 'true',
-  macos = 'true',
-}) {
-  if (!runId && !targets) return { runId: '', targets: [] };
-  positiveInteger(runId, 'native retention run ID');
-  const selected = requestedTargets(targets, { windows, macos });
-  const enabled = requestedTargets('all', { windows, macos });
-  if (String(runId) !== String(bundleRunId))
-    throw new Error('Native and installer retention must use the same producer run');
-  if (!selected.every((t) => enabled.includes(t) && bundleTargets.includes(t)))
-    throw new Error('Retained native targets require the same retained installers');
-  return { runId: String(runId), targets: selected };
 }
 
 /** Explicit adoption preserves bytes, not trust in a mutable cache or branch. */
@@ -304,7 +285,6 @@ function parseArgs(args) {
     'attempt',
     'source-sha',
     'expected-artifact-id',
-    'record-source',
   ]);
   for (let index = 0; index < args.length; index += 2) {
     const key = args[index]?.replace(/^--/, '');
@@ -324,20 +304,6 @@ function parseArgs(args) {
 async function main() {
   const [mode, ...argv] = process.argv.slice(2);
   const args = parseArgs(argv);
-  if (mode === 'native-reuse-inputs') {
-    const reuse = nativeReuseInputs({
-      runId: process.env.VARVE_NATIVE_REUSE_RUN_ID,
-      targets: process.env.VARVE_NATIVE_REUSE_TARGETS,
-      bundleRunId: process.env.VARVE_REUSE_RUN_ID,
-      bundleTargets: JSON.parse(process.env.VARVE_REUSE_TARGETS_JSON),
-      windows: args.windows ?? 'true',
-      macos: args.macos ?? 'true',
-    });
-    const outputs = `native_reuse_run_id=${reuse.runId}\nnative_reuse_targets=${JSON.stringify(reuse.targets)}\n`;
-    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, outputs);
-    else process.stdout.write(outputs);
-    return;
-  }
   if (mode === 'reuse-inputs') {
     const reuse = resolveReuseInputs({
       runId: process.env.VARVE_REUSE_RUN_ID,
@@ -394,27 +360,6 @@ async function main() {
     throw new Error(
       'Reuse producer changed while downloading; select its latest successful bytes again',
     );
-  if (args['record-source']) {
-    if (mode !== 'select-reuse' || selected.length !== 1)
-      throw new Error('Source receipt requires one retained platform');
-    const artifact = evidence.artifacts.find((entry) => entry.id === selected[0].id);
-    if (!/^sha256:[a-f0-9]{64}$/.test(artifact.digest ?? ''))
-      throw new Error('Retained source digest is required');
-    writeFileSync(
-      args['record-source'],
-      JSON.stringify(
-        {
-          runId: evidence.runId,
-          runSha: evidence.runSha,
-          artifactId: artifact.id,
-          digest: artifact.digest,
-          target: selected[0].target,
-        },
-        null,
-        2,
-      ) + '\n',
-    );
-  }
   const outputs = `artifact_ids=${selected.map((artifact) => artifact.id).join(',')}\ntargets=${targets.join(',')}\n`;
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, outputs);
   else process.stdout.write(outputs);

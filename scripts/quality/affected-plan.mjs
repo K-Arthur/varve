@@ -373,10 +373,7 @@ function snapshotOwnerSpec(path) {
 function nativeAdapterLanes(files) {
   return files.some(
     (file) =>
-      file === '.github/workflows/release.yml' ||
-      file === 'scripts/release/native-qualification-reuse.mjs' ||
-      file === 'scripts/release/select-run-artifacts.mjs' ||
-      file.startsWith('scripts/release/production/'),
+      file === '.github/workflows/release.yml' || file.startsWith('scripts/release/production/'),
   )
     ? ['native-adapter-contracts']
     : [];

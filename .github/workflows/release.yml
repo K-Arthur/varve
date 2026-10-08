@@ -69,16 +69,6 @@ on:
         required: false
         default: ''
         type: string
-      native_reuse_run_id:
-        description: 'Original native qualification run; must equal reuse_run_id'
-        required: false
-        default: ''
-        type: string
-      native_reuse_targets:
-        description: 'Unchanged native targets to retain; changed or failed targets must run again'
-        required: false
-        default: ''
-        type: string
       # Installer-size gate override. The gate compares the NSIS installer
       # against scripts/release/installer-size-baseline.json and blocks
       # unexplained growth (warn 1.2x / block 1.35x of expected). Provide a
@@ -124,8 +114,6 @@ jobs:
       policy_hash: ${{ steps.certification.outputs.policy_hash }}
       reuse_run_id: ${{ steps.reuse.outputs.reuse_run_id }}
       reuse_targets: ${{ steps.reuse.outputs.reuse_targets }}
-      native_reuse_run_id: ${{ steps.native-reuse.outputs.native_reuse_run_id }}
-      native_reuse_targets: ${{ steps.native-reuse.outputs.native_reuse_targets }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -281,17 +269,6 @@ jobs:
           VARVE_REUSE_RUN_ID: ${{ inputs.reuse_run_id }}
           VARVE_REUSE_TARGETS: ${{ inputs.reuse_targets }}
         run: node release-tooling/scripts/release/select-run-artifacts.mjs reuse-inputs
-          --windows '${{ steps.resolve.outputs.build_windows }}'
-          --macos '${{ steps.resolve.outputs.build_macos }}'
-
-      - name: Resolve explicit native retention
-        id: native-reuse
-        env:
-          VARVE_NATIVE_REUSE_RUN_ID: ${{ inputs.native_reuse_run_id }}
-          VARVE_NATIVE_REUSE_TARGETS: ${{ inputs.native_reuse_targets }}
-          VARVE_REUSE_RUN_ID: ${{ steps.reuse.outputs.reuse_run_id }}
-          VARVE_REUSE_TARGETS_JSON: ${{ steps.reuse.outputs.reuse_targets }}
-        run: node release-tooling/scripts/release/select-run-artifacts.mjs native-reuse-inputs
           --windows '${{ steps.resolve.outputs.build_windows }}'
           --macos '${{ steps.resolve.outputs.build_macos }}'
 
@@ -466,9 +443,6 @@ jobs:
           sparse-checkout: |
             /.github/workflows/release.yml
             /scripts/release/production/
-            /scripts/release/native-qualification-reuse.mjs
-            /scripts/release/select-run-artifacts.mjs
-            /scripts/release/resume.mjs
             /scripts/release/targets.mjs
             /scripts/release/verify-release-data.mjs
             /scripts/is-main-module.mjs
@@ -531,7 +505,6 @@ jobs:
           node release-qualification-tooling/scripts/release/production/published-upgrade.test.mjs
           node release-qualification-tooling/scripts/release/production/workflow.test.mjs
           node release-qualification-tooling/scripts/release/production/session-options.test.mjs
-          node release-qualification-tooling/scripts/release/production/native-retention.test.mjs
       - name: Preserve native runtime identity
         if: always() && matrix.enabled
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -691,8 +664,7 @@ jobs:
           node release-tooling/scripts/release/select-run-artifacts.mjs select-reuse \
             --repo '${{ github.repository }}' --run-id '${{ needs.preflight.outputs.reuse_run_id }}' \
             --sha '${{ github.workflow_sha }}' --source-sha '${{ needs.preflight.outputs.tag_sha }}' \
-            --targets '${{ matrix.name }}' --expected-artifact-id '${{ steps.reuse.outputs.artifact_ids }}' \
-            --record-source 'retained-platform/retained-platform-source-${{ matrix.name }}.json'
+            --targets '${{ matrix.name }}' --expected-artifact-id '${{ steps.reuse.outputs.artifact_ids }}'
           node release-tooling/scripts/release/select-run-artifacts.mjs verify \
             --dir retained-platform --version '${{ needs.preflight.outputs.version }}' \
             --sha '${{ needs.preflight.outputs.tag_sha }}' --policy-hash '${{ needs.preflight.outputs.policy_hash }}' \
@@ -1205,8 +1177,6 @@ jobs:
             node_arch: arm64
             artifact: release-linux-aarch64
             enabled: true
-    env:
-      REUSE_NATIVE: ${{ contains(fromJSON(needs.preflight.outputs.native_reuse_targets), format('linux-{0}', matrix.arch_slug)) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -1223,9 +1193,6 @@ jobs:
           sparse-checkout: |
             /.github/workflows/release.yml
             /scripts/release/production/
-            /scripts/release/native-qualification-reuse.mjs
-            /scripts/release/select-run-artifacts.mjs
-            /scripts/release/resume.mjs
             /scripts/release/targets.mjs
             /scripts/release/verify-release-data.mjs
             /scripts/quality/heavy-lease.mjs
@@ -1260,7 +1227,6 @@ jobs:
           node release-qualification-tooling/scripts/release/production/published-upgrade.test.mjs
           node release-qualification-tooling/scripts/release/production/workflow.test.mjs
           node release-qualification-tooling/scripts/release/production/session-options.test.mjs
-          node release-qualification-tooling/scripts/release/production/native-retention.test.mjs
           node release-qualification-tooling/scripts/release/production/appimage-extraction.test.mjs
 
       - name: Select successful Linux producer artifact
@@ -1289,51 +1255,8 @@ jobs:
           --sha '${{ needs.preflight.outputs.tag_sha }}' --policy-hash '${{ needs.preflight.outputs.policy_hash }}'
           --targets '${{ steps.artifacts.outputs.targets }}'
 
-      - name: Select retained native qualification
-        id: native-reuse
-        if: matrix.enabled && env.REUSE_NATIVE == 'true'
-        working-directory: release-qualification-tooling
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/release/native-qualification-reuse.mjs select
-          --repo '${{ github.repository }}' --run-id '${{ needs.preflight.outputs.native_reuse_run_id }}'
-          --sha '${{ github.workflow_sha }}' --source-sha '${{ needs.preflight.outputs.tag_sha }}'
-          --target 'linux-${{ matrix.arch_slug }}' --selection ../native-reuse-selection.json
-
-      - name: Download original native qualification
-        if: matrix.enabled && env.REUSE_NATIVE == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          artifact-ids: ${{ steps.native-reuse.outputs.artifact_ids }}
-          github-token: ${{ github.token }}
-          run-id: ${{ needs.preflight.outputs.native_reuse_run_id }}
-          path: retained-native
-          digest-mismatch: error
-
-      - name: Verify retained native qualification and installer identity
-        if: matrix.enabled && env.REUSE_NATIVE == 'true'
-        working-directory: release-qualification-tooling
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/release/native-qualification-reuse.mjs verify
-          --repo '${{ github.repository }}' --run-id '${{ needs.preflight.outputs.native_reuse_run_id }}'
-          --sha '${{ github.workflow_sha }}' --source-sha '${{ needs.preflight.outputs.tag_sha }}'
-          --target 'linux-${{ matrix.arch_slug }}' --selection ../native-reuse-selection.json
-          --dir ../retained-native --installer-dir '../staged/linux-${{ matrix.arch_slug }}' --version '${{ needs.preflight.outputs.version }}'
-
-      - name: Preserve retained native provenance
-        if: matrix.enabled && env.REUSE_NATIVE == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: native-retained-linux-${{ matrix.arch_slug }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
-          path: retained-native/
-          if-no-files-found: error
-          retention-days: 90
-
       - name: Install container runtime
-        if: matrix.enabled && env.REUSE_NATIVE != 'true'
+        if: matrix.enabled
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -1344,22 +1267,22 @@ jobs:
           podman info >/dev/null 2>&1 || echo "::warning::podman info failed — install tests will fail fast"
 
       - name: Install-test .deb and .rpm in clean containers
-        if: matrix.enabled && env.REUSE_NATIVE != 'true'
+        if: matrix.enabled
         run: |
           bash scripts/release/verify-package-install.sh \
             --bundle-dir "$(pwd)/staged/linux-${{ matrix.arch_slug }}"
 
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
-        if: matrix.enabled && env.REUSE_NATIVE != 'true'
+        if: matrix.enabled
         with:
           toolchain: 1.97.1
       - name: Install pinned external Linux WebDriver
-        if: matrix.enabled && env.REUSE_NATIVE != 'true'
+        if: matrix.enabled
         run: |
           sudo apt-get install -y --no-install-recommends webkit2gtk-driver
           node scripts/quality/run-bounded-command.mjs 480000 "$PWD" cargo install tauri-driver --version 2.1.0 --locked
       - name: Actual published Linux install, disk seed, upgrade and production UI qualification
-        if: matrix.enabled && env.REUSE_NATIVE != 'true'
+        if: matrix.enabled
         env:
           GITHUB_TOKEN: ${{ github.token }}
           VARVE_RELEASE_SHA: ${{ needs.preflight.outputs.tag_sha }}
@@ -1382,7 +1305,7 @@ jobs:
           sudo apt-get remove -y "$(dpkg-deb -f "$CURRENT" Package)"
 
       - name: Launch smoke (AppImage under Xvfb)
-        if: matrix.enabled && env.REUSE_NATIVE != 'true'
+        if: matrix.enabled
         run: |
           set -euo pipefail
           IMG="$(find staged/linux-${{ matrix.arch_slug }} -name '*.AppImage' | head -1)"
@@ -1440,7 +1363,7 @@ jobs:
   # published-version upgrade checks gate draft verification alongside package
   # structure, signatures and launch checks. Human usability review remains useful.
       - name: Preserve actual native qualification evidence
-        if: always() && matrix.enabled && env.REUSE_NATIVE != 'true'
+        if: always() && matrix.enabled
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: native-production-${{ matrix.artifact }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
@@ -1479,8 +1402,6 @@ jobs:
             os: macos-latest
             artifact: macos-aarch64
             enabled: ${{ needs.preflight.outputs.build_macos == 'true' }}
-    env:
-      REUSE_NATIVE: ${{ contains(fromJSON(needs.preflight.outputs.native_reuse_targets), matrix.artifact) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         if: matrix.enabled
@@ -1506,9 +1427,6 @@ jobs:
           sparse-checkout: |
             /.github/workflows/release.yml
             /scripts/release/production/
-            /scripts/release/native-qualification-reuse.mjs
-            /scripts/release/select-run-artifacts.mjs
-            /scripts/release/resume.mjs
             /scripts/release/targets.mjs
             /scripts/release/verify-release-data.mjs
             /scripts/quality/heavy-lease.mjs
@@ -1543,7 +1461,6 @@ jobs:
           node release-qualification-tooling/scripts/release/production/published-upgrade.test.mjs
           node release-qualification-tooling/scripts/release/production/workflow.test.mjs
           node release-qualification-tooling/scripts/release/production/session-options.test.mjs
-          node release-qualification-tooling/scripts/release/production/native-retention.test.mjs
 
       - name: Select successful platform producer artifact
         if: matrix.enabled
@@ -1571,51 +1488,8 @@ jobs:
           --sha '${{ needs.preflight.outputs.tag_sha }}' --policy-hash '${{ needs.preflight.outputs.policy_hash }}'
           --targets '${{ steps.artifacts.outputs.targets }}'
 
-      - name: Select retained native qualification
-        id: native-reuse
-        if: matrix.enabled && env.REUSE_NATIVE == 'true'
-        working-directory: release-qualification-tooling
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/release/native-qualification-reuse.mjs select
-          --repo '${{ github.repository }}' --run-id '${{ needs.preflight.outputs.native_reuse_run_id }}'
-          --sha '${{ github.workflow_sha }}' --source-sha '${{ needs.preflight.outputs.tag_sha }}'
-          --target '${{ matrix.artifact }}' --selection ../native-reuse-selection.json
-
-      - name: Download original native qualification
-        if: matrix.enabled && env.REUSE_NATIVE == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          artifact-ids: ${{ steps.native-reuse.outputs.artifact_ids }}
-          github-token: ${{ github.token }}
-          run-id: ${{ needs.preflight.outputs.native_reuse_run_id }}
-          path: retained-native
-          digest-mismatch: error
-
-      - name: Verify retained native qualification and installer identity
-        if: matrix.enabled && env.REUSE_NATIVE == 'true'
-        working-directory: release-qualification-tooling
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/release/native-qualification-reuse.mjs verify
-          --repo '${{ github.repository }}' --run-id '${{ needs.preflight.outputs.native_reuse_run_id }}'
-          --sha '${{ github.workflow_sha }}' --source-sha '${{ needs.preflight.outputs.tag_sha }}'
-          --target '${{ matrix.artifact }}' --selection ../native-reuse-selection.json
-          --dir ../retained-native --installer-dir '../staged' --version '${{ needs.preflight.outputs.version }}'
-
-      - name: Preserve retained native provenance
-        if: matrix.enabled && env.REUSE_NATIVE == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: native-retained-${{ matrix.artifact }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
-          path: retained-native/
-          if-no-files-found: error
-          retention-days: 90
-
       - name: Install pinned external macOS Accessibility driver
-        if: matrix.enabled && env.REUSE_NATIVE != 'true' && runner.os == 'macOS'
+        if: matrix.enabled && runner.os == 'macOS'
         shell: bash
         run: |
           set -euo pipefail
@@ -1628,7 +1502,7 @@ jobs:
           # fails the AX probe with evidence; no TCC edits, SIP changes or app plugin.
 
       - name: Windows — silent install, payload signature, launch smoke, uninstall
-        if: matrix.enabled && env.REUSE_NATIVE != 'true' && runner.os == 'Windows'
+        if: matrix.enabled && runner.os == 'Windows'
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -1685,7 +1559,7 @@ jobs:
           Write-Host 'Uninstall PASSED'
 
       - name: macOS — mount DMG, structure/arch checks, launch smoke, unmount
-        if: matrix.enabled && env.REUSE_NATIVE != 'true' && runner.os == 'macOS'
+        if: matrix.enabled && runner.os == 'macOS'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -1762,7 +1636,7 @@ jobs:
       # trust gate will merge). A tampered or truncated upload fails here even
       # though the build runner verified its local copy.
       - name: macOS — verify signature on downloaded bytes
-        if: matrix.enabled && env.REUSE_NATIVE != 'true' && runner.os == 'macOS'
+        if: matrix.enabled && runner.os == 'macOS'
         shell: bash
         run: |
           set -euo pipefail
@@ -1780,7 +1654,7 @@ jobs:
   #   6. upload the verified set for the draft job
   # Any step failing stops the release before a draft exists.
       - name: Preserve actual native qualification evidence
-        if: always() && matrix.enabled && env.REUSE_NATIVE != 'true'
+        if: always() && matrix.enabled
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: native-production-${{ matrix.artifact }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
