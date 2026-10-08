@@ -1,0 +1,103 @@
+{
+  "evidenceRunId": 37767007493,
+  "evidenceSourceSha": "b05cefe852d994f1a7a5f578ac6e556a9ea60321",
+  "jobs": [
+    {
+      "id": 113281135145,
+      "name": "Bundle (linux-x86_64)",
+      "run_id": 37767007493,
+      "head_sha": "b05cefe852d994f1a7a5f578ac6e556a9ea60321",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-10-08T11:10:00Z",
+      "started_at": "2026-10-08T11:10:03Z",
+      "completed_at": "2026-10-08T11:36:58Z",
+      "runner_id": 1000022506,
+      "runner_name": "GitHub Actions 1000022506",
+      "labels": ["ubuntu-22.04"],
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-08T11:10:04Z",
+          "completed_at": "2026-10-08T11:10:06Z"
+        },
+        {
+          "name": "Upload release artifacts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 43,
+          "started_at": "2026-10-08T11:36:19Z",
+          "completed_at": "2026-10-08T11:36:29Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 89,
+          "started_at": "2026-10-08T11:36:55Z",
+          "completed_at": "2026-10-08T11:36:55Z"
+        }
+      ]
+    },
+    {
+      "id": 113321128719,
+      "name": "Bundle (linux-x86_64)",
+      "run_id": 37767007493,
+      "head_sha": "b05cefe852d994f1a7a5f578ac6e556a9ea60321",
+      "run_attempt": 2,
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-10-08T12:54:06Z",
+      "started_at": "2026-10-08T11:10:03Z",
+      "completed_at": "2026-10-08T11:36:58Z",
+      "runner_id": 1000022506,
+      "runner_name": "GitHub Actions 1000022506",
+      "labels": ["ubuntu-22.04"],
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-08T11:10:04Z",
+          "completed_at": "2026-10-08T11:10:06Z"
+        },
+        {
+          "name": "Upload release artifacts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 43,
+          "started_at": "2026-10-08T11:36:19Z",
+          "completed_at": "2026-10-08T11:36:29Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 89,
+          "started_at": "2026-10-08T11:36:55Z",
+          "completed_at": "2026-10-08T11:36:55Z"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 11548141205,
+      "name": "release-linux-x86_64-attempt-1",
+      "expired": false,
+      "workflow_run": {
+        "id": 37767007493,
+        "repository_id": 1287616901,
+        "head_repository_id": 1287616901,
+        "head_branch": "master",
+        "head_sha": "b05cefe852d994f1a7a5f578ac6e556a9ea60321"
+      }
+    }
+  ],
+  "excerpt": "Actual API identity, timing and runner fields with setup, artifact-upload and completion steps; other steps omitted from this regression fixture."
+}

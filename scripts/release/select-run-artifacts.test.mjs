@@ -180,6 +180,65 @@ function evidence(overrides = {}) {
   };
 }
 
+const copiedProducerFixture = JSON.parse(
+  readFileSync(new URL('./fixtures/copied-producer-37767007493.json', import.meta.url)),
+);
+function copiedProducerEvidence(jobs = structuredClone(copiedProducerFixture.jobs)) {
+  return {
+    jobs,
+    artifacts: structuredClone(copiedProducerFixture.artifacts),
+    runId: copiedProducerFixture.evidenceRunId,
+    runSha: copiedProducerFixture.evidenceSourceSha,
+    attempt: 2,
+    targets: [linux],
+  };
+}
+
+test('actual GitHub single-job rerun copies retain the original successful artifact', () => {
+  const selected = selectRunArtifacts(copiedProducerEvidence());
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0].id, 11548141205);
+  assert.equal(selected[0].attempt, 1);
+});
+
+for (const field of ['started_at', 'completed_at', 'runner_id', 'runner_name', 'labels', 'steps']) {
+  test(`a copied producer with changed ${field} cannot adopt an earlier execution`, () => {
+    const jobs = structuredClone(copiedProducerFixture.jobs);
+    jobs[1][field] = field === 'steps' || field === 'labels' ? [] : 'changed';
+    assert.throws(() => selectRunArtifacts(copiedProducerEvidence(jobs)));
+  });
+}
+
+test('copied producers require a uniquely successful original API execution', () => {
+  const [original, copy] = structuredClone(copiedProducerFixture.jobs);
+  assert.throws(() => selectRunArtifacts(copiedProducerEvidence([copy])), /unique original/);
+  assert.throws(
+    () => selectRunArtifacts(copiedProducerEvidence([original, { ...original }, copy])),
+    /unique original/,
+  );
+  assert.throws(
+    () =>
+      selectRunArtifacts(copiedProducerEvidence([{ ...original, conclusion: 'failure' }, copy])),
+    /unique original/,
+  );
+});
+
+for (const conclusion of ['failure', 'cancelled', null, 'success']) {
+  test(`a genuine newer ${conclusion ?? 'running'} producer cannot use a copied success`, () => {
+    const jobs = structuredClone(copiedProducerFixture.jobs);
+    const newer = {
+      ...jobs[1],
+      id: jobs[1].id + 1,
+      created_at: '2026-10-08T13:00:00Z',
+      started_at: '2026-10-08T13:00:01Z',
+      completed_at: '2026-10-08T13:00:02Z',
+      status: conclusion === null ? 'in_progress' : 'completed',
+      conclusion,
+    };
+    assert.throws(() => selectRunArtifacts(copiedProducerEvidence([...jobs, newer])));
+  });
+}
+
 test('a partial matrix rerun selects fresh platform bytes and untouched successful producers', () => {
   const selected = selectRunArtifacts(
     evidence({

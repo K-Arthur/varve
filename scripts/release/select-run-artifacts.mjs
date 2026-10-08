@@ -113,6 +113,53 @@ function producerName(target) {
   return target === 'final' ? 'Verify, attest and finalize' : `Bundle (${target})`;
 }
 
+function completedExecution(job) {
+  if (
+    job.status !== 'completed' ||
+    job.conclusion !== 'success' ||
+    !Array.isArray(job.steps) ||
+    !job.steps.length ||
+    ![job.created_at, job.started_at, job.completed_at].every(
+      (time) => typeof time === 'string' && Number.isFinite(Date.parse(time)),
+    ) ||
+    Date.parse(job.started_at) > Date.parse(job.completed_at)
+  )
+    return null;
+  return JSON.stringify({
+    started_at: job.started_at,
+    completed_at: job.completed_at,
+    runner_id: job.runner_id,
+    runner_name: job.runner_name,
+    labels: job.labels,
+    steps: job.steps.map(({ name, number, status, conclusion, started_at, completed_at }) => ({
+      name,
+      number,
+      status,
+      conclusion,
+      started_at,
+      completed_at,
+    })),
+  });
+}
+
+function originalProducer(job, producers) {
+  // A single-job rerun creates new API job IDs for untouched successful jobs.
+  // Those copies retain the original execution's timestamps, runner and steps,
+  // but their created_at is AFTER that execution completed. They did not upload
+  // new artifacts. Require the matching earlier API execution; a missing upload
+  // from a genuinely newer execution must still fail closed.
+  const execution = completedExecution(job);
+  if (!execution || Date.parse(job.created_at) <= Date.parse(job.completed_at)) return job;
+  const originals = producers.filter(
+    (candidate) =>
+      candidate.run_attempt < job.run_attempt &&
+      Date.parse(candidate.created_at) <= Date.parse(candidate.started_at) &&
+      completedExecution(candidate) === execution,
+  );
+  if (originals.length !== 1) throw new Error('Copied producer has no unique original execution');
+  return originals[0];
+}
+
 export function selectRunArtifacts({ artifacts, jobs, runId, runSha, attempt, targets }) {
   runId = positiveInteger(runId, 'workflow run ID');
   attempt = positiveInteger(attempt, 'workflow attempt');
@@ -141,8 +188,9 @@ export function selectRunArtifacts({ artifacts, jobs, runId, runSha, attempt, ta
         throw new Error(`Producer identity or attempt mismatch for ${target}`);
       }
     }
-    const latest = Math.max(...producers.map((job) => job.run_attempt));
-    const newest = producers.filter((job) => job.run_attempt === latest);
+    const executions = [...new Set(producers.map((job) => originalProducer(job, producers)))];
+    const latest = Math.max(...executions.map((job) => job.run_attempt));
+    const newest = executions.filter((job) => job.run_attempt === latest);
     if (
       newest.length !== 1 ||
       newest[0].status !== 'completed' ||

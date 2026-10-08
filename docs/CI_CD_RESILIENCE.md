@@ -552,6 +552,14 @@ candidate checkpoint, never as an automatic hook fallback.
 - Artifact names include the run attempt and matrix identity. Plan and WASM
   consumers download immutable artifact IDs from their producer outputs,
   including unchanged successful producers retained by a partial rerun.
+  GitHub creates new job IDs and increments `run_attempt` even for successful
+  jobs copied into a single-job rerun. These copies keep the original runner,
+  execution timestamps and steps, and are created after that execution ended;
+  their artifacts still belong to the original attempt. The selector requires
+  one matching earlier successful API execution before retaining its artifact.
+  A genuinely newer failed, running or upload-less execution still blocks reuse.
+  The actual API fixture from run `37767007493` covers this behavior and rejects
+  altered execution details, absent/duplicate originals and newer failures.
   Execution receipts remain in separate artifact directories. Aggregation
   selects the newest receipt per matrix cell and keeps untouched earlier
   cells; a newer failure, duplicate, malformed receipt, wrong run, or wrong
