@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="658 68 104 80" width="104" height="80">
+  <rect width="100%" height="100%" fill="#ffffff" />
+
+    <g transform="matrix(1,0,0,1,658,68)">
+      <clipPath id="clip-published-embedded-image" clipPathUnits="userSpaceOnUse"><rect x="0" y="0" width="104" height="80" /></clipPath>
+      <g clip-path="url(#clip-published-embedded-image)">
+        <g>
+        <image href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAARUlEQVR4AaXBURVAQAAAwbVPEBFEEOEiiCiCCCJoQoP72ZllO9+PiWcczEgkkUQSSSSRROszDmb262ZGIokkkkgiiST6ASqfBuHn4p1QAAAAAElFTkSuQmCC" x="0.0000" y="-12.0000" width="104.0000" height="104.0000" preserveAspectRatio="none" />
+        </g>
+      </g>
+    </g>
+</svg>

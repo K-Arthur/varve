@@ -848,19 +848,23 @@ const svgCheckSource = source.slice(
 const wrongScopeSvg = readFileSync(
   new URL('./fixtures/macos-poster-export-37781782203.svg', import.meta.url),
 );
+const svgOriginal = JSON.parse(
+  readFileSync('tests/e2e/fixtures/published-v021/poster-embedded.varve', 'utf8'),
+);
 assert.throws(
-  () => vm.runInNewContext(svgCheckSource, { assert, bytes: wrongScopeSvg }),
+  () => vm.runInNewContext(svgCheckSource, { assert, bytes: wrongScopeSvg, original: svgOriginal }),
   /actual SVG selected-image bounds/,
   'The actual incorrectly scoped native SVG must fail before PDF qualification',
 );
 for (const viewBox of ['658 68 104 80', '658 68 842 1191']) {
   const bytes = Buffer.from(
-    `<svg viewBox="${viewBox}"><image href="data:image/png;base64,actual"/></svg>`,
+    `<svg viewBox="${viewBox}"><image href="${svgOriginal.assets['asset-ca2aceaaa125b46e'].dataUrl}"/></svg>`,
   );
-  if (viewBox === '658 68 104 80') vm.runInNewContext(svgCheckSource, { assert, bytes });
+  if (viewBox === '658 68 104 80')
+    vm.runInNewContext(svgCheckSource, { assert, bytes, original: svgOriginal });
   else
     assert.throws(
-      () => vm.runInNewContext(svgCheckSource, { assert, bytes }),
+      () => vm.runInNewContext(svgCheckSource, { assert, bytes, original: svgOriginal }),
       /actual SVG selected-image bounds/,
     );
 }

@@ -499,7 +499,10 @@ try {
           /<svg\b[^>]*\bviewBox="658 68 104 80"/,
           'actual SVG selected-image bounds',
         );
-        assert.match(bytes.toString(), /data:image\/png;base64,/);
+        assert.ok(
+          bytes.toString().includes(`href="${original.assets['asset-ca2aceaaa125b46e'].dataUrl}"`),
+          'actual SVG retains the original embedded image bytes',
+        );
       } else {
         assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');
         assert.match(bytes.toString(), /\/Type\s*\/Page\b/);
