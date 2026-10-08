@@ -235,15 +235,20 @@ const clickHelper = source.slice(
   source.indexOf('async function click('),
   source.indexOf('async function keys('),
 );
+const buttonTypesSource = source.slice(
+  source.indexOf('const buttons ='),
+  source.indexOf('async function click('),
+);
 let pointerRect = { x: 32, y: 37, width: 33, height: 22 };
+let pointerTarget = 'File';
 const pointerCalls = [];
 driver.getElementRect = async (id) => {
-  assert.equal(id, 'File');
+  assert.equal(id, pointerTarget);
   return pointerRect;
 };
 driver.execute = async (command, args) => pointerCalls.push({ command, ...args });
 vm.runInContext(
-  `const buttons = ['XCUIElementTypeMenuItem']; async function until(fn) { return fn(); }\n${clickHelper}; globalThis.click = click;`,
+  `${buttonTypesSource}; async function until(fn) { return fn(); }\n${clickHelper}; globalThis.click = click;`,
   context,
 );
 const panelHelper = source.slice(
@@ -275,6 +280,41 @@ for (const rect of [
   await assert.rejects(context.click('File'), /non-empty pointer target/);
 }
 assert.equal(pointerCalls.length, 1, 'Invalid rectangles must not send a pointer gesture');
+// The same authenticated 0.5.0 snapshot exposes the overflow as PopUpButton.
+// Test the source's real accepted types instead of substituting a mock list.
+pointerTarget = 'actual-inspector-overflow';
+pointerRect = { x: 904, y: 187, width: 42, height: 41 };
+controls = [
+  control('More inspector tabs (3)', 'XCUIElementTypePopUpButton', {
+    elementId: pointerTarget,
+    title: 'More inspector tabs (3)',
+  }),
+  control('More', 'XCUIElementTypePopUpButton'),
+  control('More tools (15 hidden by window width)', 'XCUIElementTypePopUpButton'),
+];
+await assert.rejects(
+  context.one(
+    'More inspector tabs',
+    [
+      'XCUIElementTypeButton',
+      'XCUIElementTypeMenuItem',
+      'XCUIElementTypeRadioButton',
+      'XCUIElementTypeTab',
+    ],
+    true,
+  ),
+  /got 0/,
+  'The previous type list rejects the actual overflow control before Export',
+);
+await context.click('More inspector tabs', true);
+assert.deepEqual(pointerCalls.at(-1), { command: 'macos: click', x: 925, y: 207.5 });
+const overflowClicks = pointerCalls.length;
+controls[0].hittable = false;
+await assert.rejects(context.click('More inspector tabs', true), /got 0/);
+controls[0].hittable = true;
+controls.push({ ...controls[0], elementId: 'ambiguous-inspector-overflow' });
+await assert.rejects(context.click('More inspector tabs', true), /got 2/);
+assert.equal(pointerCalls.length, overflowClicks, 'Hidden or ambiguous overflow sends no gesture');
 controls = [];
 // Actual 0.2.1 native snapshot from release run 37655874917: visible layer
 // text has an empty title/label, while the canvas has similarly named groups.

@@ -136,6 +136,7 @@ async function one(name, types, starts = false, scope = null) {
 }
 const buttons = [
   'XCUIElementTypeButton',
+  'XCUIElementTypePopUpButton',
   'XCUIElementTypeMenuItem',
   'XCUIElementTypeRadioButton',
   'XCUIElementTypeTab',
