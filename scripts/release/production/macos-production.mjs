@@ -335,7 +335,12 @@ async function selectImage() {
   await pointerClick(await until(() => layerLabel('Published embedded image')));
 }
 async function diskSave(predicate = () => true) {
-  await keys('s', COMMAND);
+  if (v.seed) await keys('s', COMMAND);
+  else {
+    // Leave the numeric input through the genuine menu so its edit commits.
+    await click('File');
+    await click('Save', true);
+  }
   if (v.seed) {
     // Published 0.2.1 loses its native save path when reopening. Its actual
     // Save opens Save As; existing disk bytes cannot prove that request ended.
@@ -363,6 +368,31 @@ async function diskSave(predicate = () => true) {
     const d = JSON.parse(readFileSync(savedPath, 'utf8'));
     return predicate(d) && d;
   });
+}
+async function editImageCoordinate(expected) {
+  const types = [
+    'XCUIElementTypeTextField',
+    'XCUIElementTypeTextView',
+    'XCUIElementTypeStepper',
+    'XCUIElementTypeOther',
+  ];
+  const x = await until(() => one(['X (px)', 'X (AB) (px)'], types));
+  const value = Number(await x.getAttribute('value'));
+  assert.equal(value, expected, 'Inspector must describe the selected image before editing');
+  await pointerClick(x);
+  await until(async () => {
+    const focused = await hittableElements(
+      `amHasKeyboardInputFocus == true AND (label == "X (px)" OR title == "X (px)" OR label == "X (AB) (px)" OR title == "X (AB) (px)")`,
+    );
+    assert.equal(focused.length, 1, 'The genuine X input must own keyboard focus');
+    return focused[0];
+  });
+  // Cmd+A is Varve's native canvas Select All accelerator. Use native text
+  // cursor selection instead, retaining actual XCTest keyboard input.
+  await keys('XCUIKeyboardKeyLeftArrow', COMMAND);
+  await keys('XCUIKeyboardKeyRightArrow', COMMAND | SHIFT);
+  await driver.execute('macos: keys', { keys: [...String(value + 1)] });
+  await keys('XCUIKeyboardKeyReturn');
 }
 async function quit() {
   assert.equal((await filePanels('Save')).length, 0, 'Quit requires no pending native file picker');
@@ -400,25 +430,7 @@ try {
   retained(first);
   await selectImage();
   if (!v.seed) {
-    const x = await until(() =>
-      one(
-        ['X (px)', 'X (AB) (px)'],
-        [
-          'XCUIElementTypeTextField',
-          'XCUIElementTypeTextView',
-          'XCUIElementTypeStepper',
-          'XCUIElementTypeOther',
-        ],
-      ),
-    );
-    const value = Number(await x.getAttribute('value'));
-    assert.ok(Number.isFinite(value));
-    await pointerClick(x);
-    await keys('a', COMMAND);
-    // WebKit number inputs have the native Stepper role. Type through XCTest
-    // into the focused control rather than assuming a TextField setValue API.
-    await driver.execute('macos: keys', { keys: [...String(value + 1)] });
-    await keys('XCUIKeyboardKeyReturn');
+    await editImageCoordinate(first.nodes['published-embedded-image'].transform[4]);
     const changed = await diskSave(
       (d) =>
         d.nodes['published-embedded-image'].transform[4] >

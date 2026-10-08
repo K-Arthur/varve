@@ -18,6 +18,7 @@ const names = [
   'published-upgrade',
   'workflow',
   'session-options',
+  'native-retention',
 ];
 const workflow = readFileSync(
   process.env.VARVE_NATIVE_WORKFLOW_FIXTURE || '.github/workflows/release.yml',

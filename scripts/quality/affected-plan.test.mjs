@@ -34,6 +34,8 @@ for (const path of [
   'scripts/release/production/macos-ax-controls.test.mjs',
   'scripts/release/production/macos-session.sh',
   'scripts/release/production/macos-profile-snapshot.py',
+  'scripts/release/native-qualification-reuse.mjs',
+  'scripts/release/select-run-artifacts.mjs',
   '.github/workflows/release.yml',
 ]) {
   const plan = buildPlan([path]);

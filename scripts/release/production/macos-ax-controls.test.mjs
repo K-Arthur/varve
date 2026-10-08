@@ -136,6 +136,76 @@ function rawReference(control) {
 const version = { seed: false };
 const context = vm.createContext({ assert, driver, v: version });
 vm.runInContext(`${helper}; globalThis.one = one;`, context);
+const editHelper = source.slice(
+  source.indexOf('async function editImageCoordinate('),
+  source.indexOf('async function quit('),
+);
+let focusedInputs = [{}],
+  editedValue = '658';
+const editCalls = [];
+const editContext = vm.createContext({
+  assert,
+  COMMAND: 16,
+  SHIFT: 2,
+  one: async () => ({
+    getAttribute: async (name) => {
+      assert.equal(name, 'value');
+      return editedValue;
+    },
+  }),
+  until: async (fn) => fn(),
+  pointerClick: async () => editCalls.push({ pointer: true }),
+  hittableElements: async (predicate) => {
+    assert.match(predicate, /amHasKeyboardInputFocus == true/);
+    return focusedInputs;
+  },
+  keys: async (key, modifierFlags = 0) => editCalls.push({ key, modifierFlags }),
+  driver: { execute: async (command, args) => editCalls.push({ command, ...args }) },
+});
+vm.runInContext(`${editHelper};globalThis.editImageCoordinate=editImageCoordinate;`, editContext);
+await editContext.editImageCoordinate(658);
+assert.deepEqual(JSON.parse(JSON.stringify(editCalls)), [
+  { pointer: true },
+  { key: 'XCUIKeyboardKeyLeftArrow', modifierFlags: 16 },
+  { key: 'XCUIKeyboardKeyRightArrow', modifierFlags: 18 },
+  { command: 'macos: keys', keys: ['6', '5', '9'] },
+  { key: 'XCUIKeyboardKeyReturn', modifierFlags: 0 },
+]);
+editCalls.length = 0;
+editedValue = '0';
+await assert.rejects(editContext.editImageCoordinate(658), /selected image/);
+assert.deepEqual(JSON.parse(JSON.stringify(editCalls)), [], 'Wrong selection cannot be edited');
+editedValue = '658';
+for (const inputs of [[], [{}, {}]]) {
+  focusedInputs = inputs;
+  editCalls.length = 0;
+  await assert.rejects(editContext.editImageCoordinate(658), /own keyboard focus/);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(editCalls)),
+    [{ pointer: true }],
+    'Missing or ambiguous focus prevents typing',
+  );
+}
+const saveHelper = source.slice(
+  source.indexOf('async function diskSave('),
+  source.indexOf('async function editImageCoordinate('),
+);
+const saveClicks = [];
+const saveContext = vm.createContext({
+  v: { seed: false },
+  click: async (...args) => saveClicks.push(args),
+  until: async (fn) => fn(),
+  readFileSync: () => '{"saved":true}',
+  savedPath: 'actual.varve',
+});
+vm.runInContext(`${saveHelper};globalThis.diskSave=diskSave;`, saveContext);
+await saveContext.diskSave((d) => d.saved);
+assert.deepEqual(
+  saveClicks,
+  [['File'], ['Save', true]],
+  'A genuine menu click commits the numeric edit before saving',
+);
+
 const clickHelper = source.slice(
   source.indexOf('async function click('),
   source.indexOf('async function keys('),
@@ -528,7 +598,12 @@ function saveQuitCase({
     },
     one: async () => ({ click: async () => events.push('app-menu') }),
     click: async (name, starts = false) => {
-      assert.ok(['File', 'Close Window', 'Quit Varve'].includes(name));
+      assert.ok(['File', 'Save', 'Close Window', 'Quit Varve'].includes(name));
+      if (name === 'Save') {
+        assert.equal(seed, false);
+        assert.equal(starts, true);
+        saved = true;
+      }
       if (name === 'Close Window') {
         assert.equal(starts, true, 'Historical webview title includes its shortcut');
         windowClosed = closesWindow;
