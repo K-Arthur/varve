@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 0 2068.2 1191" width="2068.2" height="1191">
+  <rect width="100%" height="100%" fill="#ffffff" />
+  <defs>
+    <linearGradient id="grad-poster-ground-0" x1="50.0%" y1="0.0%" x2="50.0%" y2="100.0%">
+      <stop offset="0.0%" stop-color="rgba(247,245,240,1.000)" />
+      <stop offset="4.1%" stop-color="rgba(246,244,238,1.000)" />
+      <stop offset="8.3%" stop-color="rgba(245,243,237,1.000)" />
+      <stop offset="12.4%" stop-color="rgba(244,241,235,1.000)" />
+      <stop offset="16.5%" stop-color="rgba(243,240,234,1.000)" />
+      <stop offset="20.7%" stop-color="rgba(242,239,232,1.000)" />
+      <stop offset="24.8%" stop-color="rgba(241,238,231,1.000)" />
+      <stop offset="28.9%" stop-color="rgba(240,237,229,1.000)" />
+      <stop offset="33.1%" stop-color="rgba(239,235,228,1.000)" />
+      <stop offset="37.2%" stop-color="rgba(238,234,226,1.000)" />
+      <stop offset="41.3%" stop-color="rgba(237,233,225,1.000)" />
+      <stop offset="45.5%" stop-color="rgba(236,232,223,1.000)" />
+      <stop offset="49.6%" stop-color="rgba(235,231,222,1.000)" />
+      <stop offset="53.7%" stop-color="rgba(234,229,220,1.000)" />
+      <stop offset="57.9%" stop-color="rgba(233,228,219,1.000)" />
+      <stop offset="62.0%" stop-color="rgba(232,227,217,1.000)" />
+      <stop offset="64.5%" stop-color="rgba(231,226,215,1.000)" />
+      <stop offset="67.1%" stop-color="rgba(230,224,214,1.000)" />
+      <stop offset="69.6%" stop-color="rgba(228,223,212,1.000)" />
+      <stop offset="72.1%" stop-color="rgba(227,221,211,1.000)" />
+      <stop offset="74.7%" stop-color="rgba(226,220,209,1.000)" />
+      <stop offset="77.2%" stop-color="rgba(225,219,207,1.000)" />
+      <stop offset="79.7%" stop-color="rgba(224,217,206,1.000)" />
+      <stop offset="82.3%" stop-color="rgba(222,216,204,1.000)" />
+      <stop offset="84.8%" stop-color="rgba(221,214,203,1.000)" />
+      <stop offset="87.3%" stop-color="rgba(220,213,201,1.000)" />
+      <stop offset="89.9%" stop-color="rgba(219,212,199,1.000)" />
+      <stop offset="92.4%" stop-color="rgba(218,210,198,1.000)" />
+      <stop offset="94.9%" stop-color="rgba(216,209,196,1.000)" />
+      <stop offset="97.5%" stop-color="rgba(215,207,195,1.000)" />
+      <stop offset="100.0%" stop-color="rgba(214,206,193,1.000)" />
+    </linearGradient>
+<!-- gradient interpolated in "oklab" — baked to sRGB stops (SVG has no native oklab gradient) -->
+  </defs>
+
+    <g transform="matrix(1,0,0,1,0,0)" style="isolation: isolate;">
+      <rect x="0" y="0" width="842" height="1191" fill="rgba(247,245,240,1.000)" />
+      <clipPath id="frame-clip-poster-frame" clipPathUnits="userSpaceOnUse"><rect x="0" y="0" width="842" height="1191" /></clipPath>
+      <g clip-path="url(#frame-clip-poster-frame)">
+      <rect x="0" y="0" width="842" height="1191" fill="url(#grad-poster-ground-0)" transform="matrix(1,0,0,1,0,0)" />
+      <path d="M -30 470 C 90 448 290 454 430 440 C 580 426 750 444 880 462 L 880 620 L -30 634 Z" fill="rgba(45,165,158,1.000)" transform="matrix(1,0,0,1,0,0)" opacity="0.92" />
+      <path d="M -30 604 C 90 582 290 596 430 582 C 580 568 750 572 880 590 L 880 736 L -30 750 Z" fill="rgba(226,140,60,1.000)" transform="matrix(1,0,0,1,0,0)" opacity="0.9" />
+      <path d="M -30 722 C 90 700 290 722 430 708 C 580 694 750 684 880 702 L 880 840 L -30 854 Z" fill="rgba(197,75,58,1.000)" transform="matrix(1,0,0,1,0,0)" opacity="0.88" />
+      <path d="M 78 402 C 228 498 280 450 420 520 C 580 600 614 498 764 402" fill="rgba(0,0,0,0.000)" stroke="rgba(18,92,92,1.000)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="4" transform="matrix(1,0,0,1,0,0)" />
+      <circle cx="0" cy="0" r="96" fill="rgba(197,75,58,1.000)" transform="matrix(1,0,0,1,648,262)" opacity="0.85" style="mix-blend-mode: multiply;" />
+      <text x="0" y="0" fill="rgba(18,92,92,1.000)" font-size="22" font-family="IBM Plex Sans Variable" font-weight="600" text-anchor="start" letter-spacing="3.4" line-height="1.2" transform="matrix(1,0,0,1,78,150)">
+        <tspan x="0" y="0.00">ANNUAL LAYERS · NO. 07</tspan>
+      </text>
+      <text x="0" y="0" fill="rgba(16,21,31,1.000)" font-size="132" font-family="IBM Plex Sans Variable" font-weight="800" text-anchor="start" letter-spacing="-4" line-height="0.94" transform="matrix(1,0,0,1,72,196)">
+        <tspan x="0" y="0.00">Layers</tspan>
+        <tspan x="0" y="124.08">of time</tspan>
+      </text>
+      <text x="0" y="0" fill="rgba(16,21,31,1.000)" font-size="27" font-family="IBM Plex Sans Variable" font-weight="400" text-anchor="start" line-height="1.45" transform="matrix(1,0,0,1,78,860)">
+        <tspan x="0" y="0.00">A varve is a single year of sediment — one</tspan>
+        <tspan x="0" y="39.15">light layer, one dark. Read together they</tspan>
+        <tspan x="0" y="78.30">keep a record no single layer holds.</tspan>
+      </text>
+      <text x="0" y="0" fill="rgba(18,92,92,1.000)" font-size="21" font-family="IBM Plex Sans Variable" font-weight="500" text-anchor="start" letter-spacing="0.6" line-height="1.2" transform="matrix(1,0,0,1,78,1080)">
+        <tspan x="0" y="0.00">Vector · Layout · Type · Motion · Print</tspan>
+      </text>
+      <g transform="matrix(1,0,0,1,658,68)">
+        <clipPath id="clip-published-embedded-image" clipPathUnits="userSpaceOnUse"><rect x="0" y="0" width="104" height="80" /></clipPath>
+        <g clip-path="url(#clip-published-embedded-image)">
+          <g>
+          <image href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAARUlEQVR4AaXBURVAQAAAwbVPEBFEEOEiiCiCCCJoQoP72ZllO9+PiWcczEgkkUQSSSSRROszDmb262ZGIokkkkgiiST6ASqfBuHn4p1QAAAAAElFTkSuQmCC" x="0.0000" y="-12.0000" width="104.0000" height="104.0000" preserveAspectRatio="none" />
+          </g>
+        </g>
+      </g>
+      </g>
+    </g>
+</svg>

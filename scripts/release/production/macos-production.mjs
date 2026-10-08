@@ -207,7 +207,8 @@ async function panelPath(path, finalButton) {
     return refs[0];
   });
   await field.click();
-  await keys('a', COMMAND);
+  // setValue already clears this native field. Cmd+A also reaches Varve's
+  // canvas accelerator and can replace the selected artwork during Save.
   await field.setValue(path);
   await keys('XCUIKeyboardKeyReturn');
   await click(finalButton, false, panel);
@@ -493,6 +494,11 @@ try {
           }
       } else if (format === 'SVG') {
         assert.match(bytes.toString(), /<svg\b/);
+        assert.match(
+          bytes.toString(),
+          /<svg\b[^>]*\bviewBox="658 68 104 80"/,
+          'actual SVG selected-image bounds',
+        );
         assert.match(bytes.toString(), /data:image\/png;base64,/);
       } else {
         assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');

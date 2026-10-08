@@ -774,6 +774,97 @@ for (const seed of [true, false]) {
   );
 }
 
+// Run 37781782203, artifact 11554930103: the native destination helper sent
+// Cmd+A before WebdriverIO's own /clear + /value calls. PNG was the selected
+// image, but the later SVG and PDF used its enclosing poster frame.
+const destinationSource = source.slice(
+  source.indexOf('async function panelPath('),
+  source.indexOf('function retained('),
+);
+function destinationCase(finalButton, fieldCount = 1) {
+  let panelOpen = true;
+  let selected = 'published-embedded-image';
+  const calls = [];
+  const field = {
+    click: async () => calls.push(['field-click']),
+    setValue: async (path) => calls.push(['native-clear-and-type', path]),
+  };
+  const context = vm.createContext({
+    assert,
+    COMMAND: 16,
+    SHIFT: 2,
+    savedPath,
+    until: async (fn) => fn(),
+    filePanels: async () => (panelOpen ? [{ elementId: 'native-panel' }] : []),
+    driver: { $: async (ref) => ref },
+    hittableElements: async () => Array.from({ length: fieldCount }, () => field),
+    keys: async (key, modifiers) => {
+      calls.push(['keys', key, modifiers]);
+      if (key === 'a' && modifiers === 16) selected = 'poster-frame';
+    },
+    click: async (name, _starts, panel) => {
+      assert.equal(name, finalButton);
+      assert.equal(panel.elementId, 'native-panel');
+      panelOpen = false;
+      calls.push(['confirm', name]);
+    },
+    confirmSavedFileReplacement: async () => calls.push(['replace-if-present']),
+  });
+  vm.runInContext(`${destinationSource}; globalThis.panelPath = panelPath;`, context);
+  return { context, calls, selection: () => selected };
+}
+for (const action of ['Open', 'Save']) {
+  const picker = destinationCase(action);
+  await picker.context.panelPath(savedPath, action);
+  assert.equal(picker.selection(), 'published-embedded-image');
+  assert.deepEqual(
+    picker.calls.filter((call) => call[0] === 'keys'),
+    [
+      ['keys', 'g', 18],
+      ['keys', 'XCUIKeyboardKeyReturn', undefined],
+    ],
+  );
+  assert.deepEqual(
+    picker.calls.find((call) => call[0] === 'native-clear-and-type'),
+    ['native-clear-and-type', savedPath],
+  );
+  assert.ok(savedPath.includes('β'), 'Native destination entry retains the actual Unicode path');
+  assert.ok(picker.calls.some((call) => call[0] === 'confirm'));
+}
+for (const fieldCount of [0, 2]) {
+  const picker = destinationCase('Save', fieldCount);
+  await assert.rejects(picker.context.panelPath(savedPath, 'Save'), /One actual focused native/);
+  assert.ok(
+    !picker.calls.some((call) =>
+      ['field-click', 'native-clear-and-type', 'confirm'].includes(call[0]),
+    ),
+  );
+}
+
+const svgCheckSource = source.slice(
+  source.indexOf("} else if (format === 'SVG') {") + "} else if (format === 'SVG') {".length,
+  source.indexOf('} else {', source.indexOf("} else if (format === 'SVG') {")),
+);
+const wrongScopeSvg = readFileSync(
+  new URL('./fixtures/macos-poster-export-37781782203.svg', import.meta.url),
+);
+assert.throws(
+  () => vm.runInNewContext(svgCheckSource, { assert, bytes: wrongScopeSvg }),
+  /actual SVG selected-image bounds/,
+  'The actual incorrectly scoped native SVG must fail before PDF qualification',
+);
+for (const viewBox of ['658 68 104 80', '658 68 842 1191']) {
+  const bytes = Buffer.from(
+    `<svg viewBox="${viewBox}"><image href="data:image/png;base64,actual"/></svg>`,
+  );
+  if (viewBox === '658 68 104 80') vm.runInNewContext(svgCheckSource, { assert, bytes });
+  else
+    assert.throws(
+      () => vm.runInNewContext(svgCheckSource, { assert, bytes }),
+      /actual SVG selected-image bounds/,
+    );
+}
+
 const replacementSource = source.slice(
   source.indexOf('async function confirmSavedFileReplacement('),
   source.indexOf('async function panelPath('),
