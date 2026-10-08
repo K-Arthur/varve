@@ -110,6 +110,16 @@ assert.match(mac, /ditto "\$OLD_APP" "\$INSTALL"/);
 assert.match(mac, /ditto "\$APP" "\$INSTALL"/);
 assert.match(
   mac,
+  /python3 release-qualification-tooling\/scripts\/release\/production\/macos-profile-snapshot\.py --check-current "\$QUALIFIED\/current-document\/profile-after-session\.json"/,
+);
+assert.ok(
+  mac.indexOf('--check-current') > mac.indexOf('Actual upgraded macOS production qualification'),
+);
+assert.ok(
+  mac.indexOf('--check-current') < mac.indexOf('Native macOS profile changed during upgrade'),
+);
+assert.match(
+  mac,
   /verify-license-payload\.mjs \\\n\s+--resource-root "\$INSTALL\/Contents\/Resources"/,
   'the installed macOS DMG payload is checked',
 );

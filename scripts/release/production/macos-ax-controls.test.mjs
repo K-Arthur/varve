@@ -53,6 +53,16 @@ const helper = source.slice(source.indexOf('function literal('), source.indexOf(
 let controls = [],
   requests = [];
 const attributes = [];
+function descendantOf(control, parent) {
+  let ancestor = control.parent;
+  const seen = new Set();
+  while (ancestor && !seen.has(ancestor)) {
+    if (ancestor === parent) return true;
+    seen.add(ancestor);
+    ancestor = controls.find((candidate) => candidate.elementId === ancestor)?.parent;
+  }
+  return false;
+}
 function matches(predicate, parent) {
   assert.doesNotMatch(
     predicate,
@@ -69,7 +79,7 @@ function matches(predicate, parent) {
   return controls.filter(
     (c) =>
       types.includes(c.amType) &&
-      (!parent || c.parent === parent) &&
+      (!parent || descendantOf(c, parent)) &&
       named.some((n) =>
         n.starts ? (c[n.field] || '').startsWith(n.value) : c[n.field] === n.value,
       ),
@@ -78,6 +88,17 @@ function matches(predicate, parent) {
 const driver = {
   findElements: async (using, predicate) => {
     requests.push({ using, predicate });
+    if (using === 'xpath') {
+      assert.equal(
+        predicate,
+        '//XCUIElementTypeGroup[@label="Layers" or @title="Layers"][not(ancestor::XCUIElementTypeGroup[@label="Layers" or @title="Layers"])]',
+      );
+      const trees = controls.filter(
+        (c) =>
+          c.amType === 'XCUIElementTypeGroup' && (c.label === 'Layers' || c.title === 'Layers'),
+      );
+      return trees.filter((c) => !trees.some((outer) => descendantOf(c, outer.elementId)));
+    }
     return matches(predicate);
   },
   findElementsFromElement: async (id, using, predicate) => {
@@ -93,7 +114,8 @@ const driver = {
     },
   }),
 };
-const context = vm.createContext({ assert, driver });
+const version = { seed: false };
+const context = vm.createContext({ assert, driver, v: version });
 vm.runInContext(`${helper}; globalThis.one = one;`, context);
 const clickHelper = source.slice(
   source.indexOf('async function click('),
@@ -117,9 +139,12 @@ const panelHelper = source.slice(
 vm.runInContext(`${panelHelper}; globalThis.filePanels = filePanels;`, context);
 const layerHelper = source.slice(
   source.indexOf('async function layerLabel('),
-  source.indexOf('async function selectImage('),
+  source.indexOf('async function diskSave('),
 );
-vm.runInContext(`${layerHelper}; globalThis.layerLabel = layerLabel;`, context);
+vm.runInContext(
+  `${layerHelper}; globalThis.layerLabel = layerLabel; globalThis.selectImage = selectImage; globalThis.prepareLayerControls = prepareLayerControls;`,
+  context,
+);
 function control(label, amType = 'XCUIElementTypeButton', other = {}) {
   return { elementId: label, label, amText: label, amType, hittable: true, ...other };
 }
@@ -155,12 +180,78 @@ controls = [
 assert.equal((await context.layerLabel('Published embedded image')).elementId, 'image-label');
 assert.equal(requests.at(-1).id, 'layers-tree');
 controls[1].hittable = false;
-await assert.rejects(context.layerLabel('Published embedded image'), /hittable native layer label/);
+await assert.rejects(context.layerLabel('Published embedded image'), /Hittable native layer label/);
 controls[1].hittable = true;
 controls.push({ ...controls[1], elementId: 'duplicate-label' });
-await assert.rejects(context.layerLabel('Published embedded image'), /hittable native layer label/);
+await assert.rejects(context.layerLabel('Published embedded image'), /actual native layer label/);
+// Observed current 0.5.0 hosted snapshot: nested Layers groups have the same
+// image descendant below the visible sidebar until its disclosures collapse.
+controls.pop();
+controls.push(
+  control('Layers', 'XCUIElementTypeGroup', {
+    elementId: 'nested-layers',
+    parent: 'layers-tree',
+  }),
+);
+controls[1].parent = 'nested-layers';
+const nestedRequestStart = requests.length;
+assert.equal((await context.layerLabel('Published embedded image')).elementId, 'image-label');
+assert.deepEqual(
+  requests
+    .slice(nestedRequestStart)
+    .filter((request) => request.id)
+    .map((request) => request.id),
+  ['layers-tree'],
+  'One descendant lookup avoids fresh Mac2 UUIDs for repeated queries of the same layer',
+);
+controls.push(control('Layers', 'XCUIElementTypeGroup', { elementId: 'other-layers' }), {
+  ...controls[1],
+  elementId: 'other-image',
+  parent: 'other-layers',
+  hittable: false,
+});
+await assert.rejects(context.layerLabel('Published embedded image'), /actual native layer label/);
+controls.splice(-2);
+controls[1].hittable = false;
+controls.push(control('Hide minimap'), control('Hide Design Canvases section'));
+const originalRect = driver.getElementRect;
+const originalExecute = driver.execute;
+const disclosures = [];
+driver.getElementRect = async (id) => {
+  if (id === 'Hide minimap') return { x: 131, y: 200, width: 25, height: 25 };
+  if (id === 'Hide Design Canvases section') return { x: 8, y: 378, width: 31, height: 25 };
+  assert.equal(id, 'image-label');
+  assert.equal(controls[1].hittable, true, 'No offscreen layer pointer gesture');
+  return { x: 109, y: 420, width: 22, height: 20 };
+};
+driver.execute = async (command, args) => {
+  assert.equal(command, 'macos: click');
+  disclosures.push({ x: args.x, y: args.y });
+  if (disclosures.length === 2) controls[1].hittable = true;
+};
+await context.selectImage();
+assert.deepEqual(disclosures, [
+  { x: 143.5, y: 212.5 },
+  { x: 23.5, y: 390.5 },
+  { x: 120, y: 430 },
+]);
+controls.splice(-2);
+await context.prepareLayerControls();
+assert.equal(disclosures.length, 3, 'Collapsed sections are never expanded again');
+controls.push(
+  control('Hide minimap'),
+  control('Hide minimap', undefined, { elementId: 'other-hide' }),
+);
+await assert.rejects(context.prepareLayerControls(), /Unambiguous native disclosure/);
+assert.equal(disclosures.length, 3, 'Ambiguous disclosures never send a gesture');
+version.seed = true;
+await context.prepareLayerControls();
+assert.equal(disclosures.length, 3, 'Historical app gets no current layout workaround');
+version.seed = false;
+driver.getElementRect = originalRect;
+driver.execute = originalExecute;
 controls = [];
-await assert.rejects(context.layerLabel('Published embedded image'), /actual native Layers tree/);
+await assert.rejects(context.layerLabel('Published embedded image'), /Actual native Layers tree/);
 for (const type of ['XCUIElementTypeDialog', 'XCUIElementTypeSheet']) {
   controls = [
     control('', type, { elementId: 'native-open', identifier: 'open-panel', title: 'Open' }),

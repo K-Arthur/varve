@@ -219,6 +219,7 @@ function retained(doc) {
   assertRetainedDocument(doc, original, { schema: v.schema, seed: v.seed });
 }
 async function evidence(name) {
+  console.log(`Native qualification capture: ${name}`);
   writeFileSync(join(out, `${name}.xml`), await driver.getPageSource());
   await driver.saveScreenshot(join(out, `${name}.png`));
 }
@@ -291,22 +292,45 @@ async function open(path) {
 }
 async function layerLabel(name) {
   const trees = await driver.findElements(
-    'predicate string',
-    'amType IN {"XCUIElementTypeGroup"} AND (label == "Layers" OR title == "Layers")',
+    'xpath',
+    '//XCUIElementTypeGroup[@label="Layers" or @title="Layers"][not(ancestor::XCUIElementTypeGroup[@label="Layers" or @title="Layers"])]',
   );
-  assert.equal(trees.length, 1, 'Exactly one actual native Layers tree');
-  const tree = await driver.$(trees[0]);
+  assert.ok(trees.length > 0, 'Actual native Layers tree must exist');
   // WebKit exposes visible layer names as StaticText.value, with empty
   // label/title. Canvas accessibility groups also name nodes, so scope this
   // exact, hittable text lookup to the actual Layers tree.
-  const labels = await hittableElements(
-    `amType IN {"XCUIElementTypeStaticText"} AND value == ${literal(name)}`,
-    tree,
-  );
-  assert.equal(labels.length, 1, `Exactly one hittable native layer label: ${name}`);
-  return labels[0];
+  // Current WebKit exposes nested groups named Layers. Query only the
+  // outermost scopes: pinned Mac2 assigns a fresh UUID on every lookup, so
+  // IDs cannot deduplicate repeated queries for the same descendant.
+  const labels = [];
+  for (const tree of trees) {
+    const refs = await driver.findElementsFromElement(
+      tree.elementId,
+      'predicate string',
+      `amType IN {"XCUIElementTypeStaticText"} AND value == ${literal(name)}`,
+    );
+    labels.push(...refs);
+  }
+  assert.equal(labels.length, 1, `Exactly one actual native layer label: ${name}`);
+  const element = await driver.$(labels[0]);
+  const hittable = await element.getAttribute('hittable');
+  assert.ok(hittable === true || hittable === 'true', `Hittable native layer label: ${name}`);
+  return element;
+}
+async function prepareLayerControls() {
+  if (v.seed) return;
+  // The hosted display is short. Use genuine disclosure controls to reveal
+  // the Layers list rather than clicking its offscreen AX rectangle.
+  for (const name of ['Hide minimap', 'Hide Design Canvases section']) {
+    const controls = await hittableElements(
+      `amType IN {"XCUIElementTypeButton"} AND (label == ${literal(name)} OR title == ${literal(name)})`,
+    );
+    assert.ok(controls.length <= 1, `Unambiguous native disclosure: ${name}`);
+    if (controls.length) await pointerClick(controls[0]);
+  }
 }
 async function selectImage() {
+  await prepareLayerControls();
   await pointerClick(await until(() => layerLabel('Published embedded image')));
 }
 async function diskSave(predicate = () => true) {
@@ -375,14 +399,16 @@ try {
   retained(first);
   await selectImage();
   if (!v.seed) {
-    const x = await one(
-      ['X (px)', 'X (AB) (px)'],
-      [
-        'XCUIElementTypeTextField',
-        'XCUIElementTypeTextView',
-        'XCUIElementTypeStepper',
-        'XCUIElementTypeOther',
-      ],
+    const x = await until(() =>
+      one(
+        ['X (px)', 'X (AB) (px)'],
+        [
+          'XCUIElementTypeTextField',
+          'XCUIElementTypeTextView',
+          'XCUIElementTypeStepper',
+          'XCUIElementTypeOther',
+        ],
+      ),
     );
     const value = Number(await x.getAttribute('value'));
     assert.ok(Number.isFinite(value));
@@ -485,6 +511,7 @@ try {
   receipt.passed = true;
 } catch (error) {
   receipt.error = error.stack ?? String(error);
+  console.error(receipt.error);
   process.exitCode = 1;
   if (driver)
     await evidence('native-failure').catch((e) => {

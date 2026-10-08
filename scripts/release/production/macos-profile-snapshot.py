@@ -68,8 +68,30 @@ def snapshot(home):
     return result
 
 
+def require_clean_current(result):
+    """Reject unclean or unavailable current-app exit evidence; never repair it."""
+    if result.get("certifiesQualification") is not False:
+        raise ValueError("Recovery diagnostics cannot replace installed qualification")
+    entries = result.get("databases", [])
+    if result.get("warnings") or any(entry.get("diagnosticUnavailable") for entry in entries):
+        raise ValueError("Current Mac recovery diagnostic is incomplete")
+    markers = [entry.get("markers", {}) for entry in entries]
+    if any(values.get(KEYS[0]) == "false" for values in markers):
+        raise ValueError("Current Mac native Quit left an unclean profile")
+    if any(values.get(KEYS[2], {}).get("active") is True for values in markers):
+        raise ValueError("Current Mac retained active recovery state")
+    if not any(values.get(KEYS[0]) == "true" for values in markers):
+        raise ValueError("Current Mac clean-exit marker was not observed")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", type=pathlib.Path, required=True)
+    actions = parser.add_mutually_exclusive_group(required=True)
+    actions.add_argument("--out", type=pathlib.Path)
+    actions.add_argument("--check-current", type=pathlib.Path)
     args = parser.parse_args()
-    args.out.write_text(json.dumps(snapshot(pathlib.Path.home()), indent=2) + "\n")
+    if args.out:
+        args.out.write_text(json.dumps(snapshot(pathlib.Path.home()), indent=2) + "\n")
+    else:
+        require_clean_current(json.loads(args.check_current.read_text()))
+        print("Current Mac clean-exit marker observed; installed qualification remains separate.")

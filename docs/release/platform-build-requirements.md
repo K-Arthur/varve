@@ -93,6 +93,17 @@ adapter regressions, including real rendered PDF positives and negatives.
 Wrong Node version/architecture fails without producing an acceptance receipt.
 Any failed contract blocks expensive compilation and artifact reuse.
 
+The current Mac accessibility tree may contain nested groups named `Layers`.
+The adapter queries only outermost Layers scopes, while distinct matching
+labels remain an error. Pinned Mac2 creates a fresh UUID per lookup, so IDs
+cannot deduplicate repeated queries for the same descendant. On the short
+hosted display, actual minimap and canvas
+disclosure controls reveal the layer before any pointer gesture. Hidden targets,
+ambiguous disclosures and missing layer trees fail the local contract checks.
+After current-app normal Quit, the workflow requires an observable clean-exit
+marker and rejects active recovery state or incomplete diagnostics. The check
+never edits the profile and does not substitute for installed qualification.
+
 Changes to native adapters or the release workflow also select the local
 `native-adapter-contracts` lane. It runs the ten common hosted adapter checks
 plus Linux extraction, verifies that all three owning hosted steps match,

@@ -3,6 +3,8 @@ import importlib.util
 import json
 import pathlib
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -51,6 +53,41 @@ class ProfileSnapshotTest(unittest.TestCase):
             self.assertTrue(result["databases"][0]["diagnosticUnavailable"])
             self.assertFalse(result["certifiesQualification"])
             self.assertNotIn("other.app", json.dumps(result))
+
+
+    def test_current_exit_guard_uses_real_sqlite_and_never_resets_markers(self):
+        with tempfile.TemporaryDirectory(prefix="varve profile # ") as directory:
+            home = pathlib.Path(directory)
+            path = home / "Library/WebKit/dev.varve.desktop/LocalStorage/tauri.localstorage"
+            path.parent.mkdir(parents=True)
+            with sqlite3.connect(path) as db:
+                db.execute("CREATE TABLE ItemTable(key BLOB UNIQUE, value BLOB)")
+                db.execute("INSERT INTO ItemTable VALUES (?, ?)",
+                           (module.KEYS[0].encode("utf-16-le"), "true".encode("utf-16-le")))
+            before = hashlib.sha256(path.read_bytes()).hexdigest()
+            healthy = module.snapshot(home)
+            module.require_clean_current(healthy)
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), before)
+            cases = [
+                healthy,
+                {**healthy, "databases": []},
+                {**healthy, "databases": [{"markers": {module.KEYS[0]: "false"}}]},
+                {**healthy, "databases": [{"markers": {module.KEYS[0]: "true", module.KEYS[2]: {"active": True}}}]},
+                {**healthy, "databases": [{"markers": {}, "diagnosticUnavailable": True}]},
+                {**healthy, "databases": [{"markers": {module.KEYS[0]: "true"}, "diagnosticUnavailable": True}]},
+                {**healthy, "warnings": ["Profile diagnostic file bound reached"]},
+                {**healthy, "certifiesQualification": True},
+            ]
+            for index, diagnostic in enumerate(cases):
+                evidence = home / "current profile #.json"
+                evidence.write_text(json.dumps(diagnostic))
+                saved = evidence.read_bytes()
+                process = subprocess.run([sys.executable, spec.origin, "--check-current", str(evidence)],
+                                         capture_output=True, text=True)
+                self.assertEqual(process.returncode == 0, index == 0, process.stderr)
+                self.assertEqual(evidence.read_bytes(), saved)
+                if index == 0:
+                    self.assertIn("installed qualification remains separate", process.stdout)
 
 
 if __name__ == "__main__":

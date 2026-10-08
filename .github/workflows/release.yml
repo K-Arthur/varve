@@ -1601,6 +1601,7 @@ jobs:
           rm -rf "${UPDATER_TMP}"
           trap - EXIT
           node scripts/quality/run-bounded-command.mjs 720000 "$PWD" node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded macOS production qualification" -- bash release-qualification-tooling/scripts/release/production/macos-session.sh "$INSTALL" "$QUALIFIED/current-document" '${{ needs.preflight.outputs.version }}' "$QUALIFIED/old-document/functional/Migrated save β.varve" 2.33 false
+          python3 release-qualification-tooling/scripts/release/production/macos-profile-snapshot.py --check-current "$QUALIFIED/current-document/profile-after-session.json"
           node --input-type=module -e 'import assert from "node:assert/strict";import{readFileSync}from"node:fs";const[a,b]=process.argv.slice(1).map(p=>JSON.parse(readFileSync(p)));assert.equal(a.appDataDirectory,b.appDataDirectory,"Native macOS profile changed during upgrade");' "$QUALIFIED/old-document/functional/qualification.json" "$QUALIFIED/current-document/functional/qualification.json"
           BIN="${APP}/Contents/MacOS/varve-desktop"
           [[ -x "${BIN}" ]] || { echo "::error::Executable missing in bundle"; exit 1; }
