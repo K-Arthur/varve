@@ -87,7 +87,8 @@ jobs:
   attribution-check:
     name: Candidate commit metadata
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    # This scans full commit history; the job budget also includes checkout.
+    timeout-minutes: 10
     needs: changes
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

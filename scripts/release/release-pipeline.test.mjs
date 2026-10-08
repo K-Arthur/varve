@@ -515,6 +515,21 @@ function workflowJob(source, id) {
   const next = source.slice(start + 1).search(/\n {2}[a-z][a-z0-9-]*:/);
   return source.slice(start, next < 0 ? source.length : start + 1 + next);
 }
+// History scans need a full-depth checkout. The job deadline includes that
+// network operation, so three minutes can expire before the scan starts.
+for (const [name, source] of [
+  ['integration', integrationWorkflow],
+  ['release candidate', candidateWorkflow],
+]) {
+  const job = load(source).jobs['attribution-check'];
+  assert.ok(job, `${name} workflow must retain its history policy guard`);
+  assert.ok(
+    job['timeout-minutes'] >= 10,
+    `${name} history guard must allow full-history checkout before scanning`,
+  );
+  const checkout = job.steps.find((step) => step.uses?.startsWith('actions/checkout@'));
+  assert.equal(checkout?.with?.['fetch-depth'], 0, `${name} guard must inspect complete history`);
+}
 for (const id of ['e2e', 'e2e-visual']) {
   const job = workflowJob(candidateWorkflow, id);
   assert.match(job, /needs: \[changes, pipeline-validate, wasm\]/);

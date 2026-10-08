@@ -101,7 +101,8 @@ jobs:
   attribution-check:
     name: AI attribution guard
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    # This scans full commit history; the job budget also includes checkout.
+    timeout-minutes: 10
     needs: changes
     if: github.event_name == 'pull_request'
     steps:

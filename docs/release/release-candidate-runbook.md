@@ -120,6 +120,11 @@ SHA `CI / certification` check and policy-bound integration artifact, then runs
 the extended matrix once. Each candidate matrix cell uploads an exact-source
 execution receipt; final aggregation requires every promised lane, platform,
 and browser shard before it records `POLICY_VERSION` plus the policy hash.
+The candidate commit-metadata guard fetches full history before scanning it;
+its job timeout includes checkout time. Keep this guard and the matching
+integration history guard at 10 minutes or more so a slow full-history fetch
+cannot cancel certification before the policy scan begins. The release-pipeline
+regression test enforces this minimum.
 The final evidence artifact is named
 `varve-release-candidate-<sha>-<policy-hash>-run-<run_id>-attempt-<attempt>`.
 A candidate from any other SHA
