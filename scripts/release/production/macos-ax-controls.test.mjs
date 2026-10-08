@@ -202,21 +202,32 @@ vm.runInContext(`${saveHelper};globalThis.diskSave=diskSave;`, saveContext);
 await saveContext.diskSave((d) => d.saved);
 assert.deepEqual(
   JSON.parse(JSON.stringify(saveClicks)),
-  [['File'], [['Save', 'SaveCtrl+S', 'Save⌘S']]],
+  [['File'], [['Save', 'Save ⌘S']]],
   'A genuine menu click commits the numeric edit before saving',
 );
-for (const title of saveClicks[1][0]) {
+// Actual 0.5.0 Mac AX snapshot: run 37715309662, artifact 11523758676.
+// native-failure.xml SHA256: 4868ba969e6961db29e808a1c8801b4393b1599c3efa08d05f1458f0b178705f.
+// WebKit inserts a space before the shortcut and exposes menu item titles,
+// with empty labels. DOM text concatenation is not the native AX contract.
+for (const title of ['Save', 'Save ⌘S']) {
   controls = [
-    control(title, 'XCUIElementTypeButton', { elementId: 'actual-save' }),
-    control('Save As…⌘⇧S', 'XCUIElementTypeButton'),
-    control('Save a Copy…', 'XCUIElementTypeButton'),
+    control('', 'XCUIElementTypeMenuItem', { elementId: 'actual-save', title }),
+    control('', 'XCUIElementTypeMenuItem', { title: 'Save As… ⌘⇧S' }),
+    control('', 'XCUIElementTypeMenuItem', { title: 'Save a Copy…' }),
   ];
   assert.equal(
-    (await context.one(saveClicks[1][0], ['XCUIElementTypeButton'])).elementId,
+    (await context.one(saveClicks[1][0], ['XCUIElementTypeMenuItem'])).elementId,
     'actual-save',
   );
-  await assert.rejects(context.one('Save', ['XCUIElementTypeButton'], true), /got 3/);
+  await assert.rejects(context.one('Save', ['XCUIElementTypeMenuItem'], true), /got 3/);
 }
+await assert.rejects(
+  context.one(['Save', 'SaveCtrl+S', 'Save⌘S'], ['XCUIElementTypeMenuItem']),
+  /got 0/,
+  'The failed release selector must reject the observed native menu fixture',
+);
+controls.push(control('', 'XCUIElementTypeMenuItem', { title: 'Save ⌘S' }));
+await assert.rejects(context.one(saveClicks[1][0], ['XCUIElementTypeMenuItem']), /got 2/);
 controls = [control('Save As…', 'XCUIElementTypeButton')];
 await assert.rejects(context.one(saveClicks[1][0], ['XCUIElementTypeButton']), /got 0/);
 
@@ -613,7 +624,7 @@ function saveQuitCase({
     one: async () => ({ click: async () => events.push('app-menu') }),
     click: async (name, starts = false) => {
       if (Array.isArray(name)) {
-        assert.deepEqual(JSON.parse(JSON.stringify(name)), ['Save', 'SaveCtrl+S', 'Save⌘S']);
+        assert.deepEqual(JSON.parse(JSON.stringify(name)), ['Save', 'Save ⌘S']);
         name = 'Save';
       }
       assert.ok(['File', 'Save', 'Close Window', 'Quit Varve'].includes(name));
