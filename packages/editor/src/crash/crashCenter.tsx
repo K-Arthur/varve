@@ -17,8 +17,8 @@ import { SafeModeScreen } from './safeModeScreen';
 export interface CrashCenterProps {
   platformKind: 'tauri' | 'web' | 'memory';
   /** Called once at boot; must return true when the previous session ended
-   * uncleanly (see RecoveryManager's strata-clean-shutdown marker). */
-  readUncleanShutdown: () => boolean;
+   * uncleanly (native SQLite on desktop, localStorage in browser builds). */
+  readUncleanShutdown: () => boolean | Promise<boolean>;
   documentSchemaVersion?: number;
   isNetworkAvailable?: () => boolean;
   allowMetered?: () => boolean;

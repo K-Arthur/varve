@@ -290,7 +290,24 @@ async function open(path) {
     await click('Open…', true);
   }
   await panelPath(path, 'Open');
-  await until(() => one('Fit all to viewport', ['XCUIElementTypeButton']));
+  await waitForEditorAfterOpen();
+}
+async function waitForEditorAfterOpen() {
+  const outcome = await until(async () => {
+    const recovery = await hittableElements(
+      "amType == 'XCUIElementTypeGroup' AND (label == 'Recover unsaved documents' OR title == 'Recover unsaved documents')",
+    );
+    if (recovery.length > 0) return { unexpectedRecoveryDialog: true };
+    const fitAll = await hittableElements(
+      "amType == 'XCUIElementTypeButton' AND (label == 'Fit all to viewport' OR title == 'Fit all to viewport')",
+    );
+    return fitAll.length === 1 ? { editorReady: true } : null;
+  });
+  assert.equal(
+    outcome.unexpectedRecoveryDialog,
+    undefined,
+    'A clean native Quit must not be classified as a crash and cover the reopened editor with recovery UI',
+  );
 }
 async function layerLabel(name) {
   const trees = await driver.findElements(
@@ -420,6 +437,15 @@ async function quit() {
   await driver.deleteSession().catch(() => {});
   driver = null;
 }
+function assertNativeCleanShutdown(phase) {
+  if (v.seed) return;
+  const snapshotScript = process.env.VARVE_MACOS_PROFILE_SNAPSHOT;
+  assert.ok(snapshotScript, 'Mac qualification requires its native profile snapshot helper');
+  const snapshotPath = join(out, `${phase}.json`);
+  execFileSync('python3', [snapshotScript, '--out', snapshotPath], { stdio: 'inherit' });
+  execFileSync('python3', [snapshotScript, '--check-current', snapshotPath], { stdio: 'inherit' });
+  receipt.evidence.push({ phase: 'native SQLite clean shutdown', path: snapshotPath });
+}
 try {
   await launch();
   // Genuine New/Create controls provide UI evidence before opening the migration fixture.
@@ -453,6 +479,7 @@ try {
   }
   await evidence('native-saved');
   await quit();
+  assertNativeCleanShutdown('profile-after-first-quit');
   await launch();
   await open(savedPath);
   await selectImage();
@@ -527,6 +554,7 @@ try {
   assert.equal(hash(readFileSync(input)), hash(sourceBytes));
   await evidence('native-reopened');
   await quit();
+  assertNativeCleanShutdown('profile-after-final-quit');
   receipt.evidence.push({
     phase: 'native process restart and disk reopen',
     savedSha256: hash(readFileSync(savedPath)),

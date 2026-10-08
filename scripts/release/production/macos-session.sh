@@ -6,6 +6,7 @@ APP="$1"; OUT="$2"; VERSION="$3"; INPUT="$4"; SCHEMA="$5"; SEED="${6:-false}"
 if [[ "$SEED" == true ]]; then set -- --seed; else set --; fi
 mkdir -p "$OUT"
 export APPIUM_HOME="$RUNNER_TEMP/varve-appium-home"
+export VARVE_MACOS_PROFILE_SNAPSHOT="$SESSION_DIR/macos-profile-snapshot.py"
 "$RUNNER_TEMP/varve-appium/node_modules/.bin/appium" --address 127.0.0.1 --port 4723 --log "$OUT/appium.log" >"$OUT/appium-stdout.log" 2>&1 &
 SERVER_PID=$!
 finish_session() {

@@ -1,4 +1,5 @@
 import hashlib
+from contextlib import closing
 import importlib.util
 import json
 import pathlib
@@ -19,7 +20,7 @@ class ProfileSnapshotTest(unittest.TestCase):
             home = pathlib.Path(directory)
             path = home / "Library/WebKit/dev.varve.desktop/WebsiteData/LocalStorage/tauri.localstorage"
             path.parent.mkdir(parents=True)
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 db.execute("CREATE TABLE ItemTable(key TEXT UNIQUE, value BLOB)")
                 db.executemany("INSERT INTO ItemTable VALUES (?, ?)", [
                     (module.KEYS[0], "false".encode("utf-16-le")),
@@ -60,21 +61,33 @@ class ProfileSnapshotTest(unittest.TestCase):
             home = pathlib.Path(directory)
             path = home / "Library/WebKit/dev.varve.desktop/LocalStorage/tauri.localstorage"
             path.parent.mkdir(parents=True)
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 db.execute("CREATE TABLE ItemTable(key BLOB UNIQUE, value BLOB)")
                 db.execute("INSERT INTO ItemTable VALUES (?, ?)",
                            (module.KEYS[0].encode("utf-16-le"), "true".encode("utf-16-le")))
-            before = hashlib.sha256(path.read_bytes()).hexdigest()
+            native = home / "Library/Application Support/dev.varve.desktop/documents.db"
+            native.parent.mkdir(parents=True)
+            with closing(sqlite3.connect(native)) as db, db:
+                db.execute("CREATE TABLE view_state(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+                db.execute("INSERT INTO view_state VALUES (?, ?)",
+                           (module.NATIVE_SHUTDOWN_KEY, "true"))
+            before = (hashlib.sha256(path.read_bytes()).hexdigest(), hashlib.sha256(native.read_bytes()).hexdigest())
             healthy = module.snapshot(home)
             module.require_clean_current(healthy)
-            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), before)
+            self.assertEqual(healthy["nativeShutdown"], "true")
+            self.assertEqual(
+                (hashlib.sha256(path.read_bytes()).hexdigest(), hashlib.sha256(native.read_bytes()).hexdigest()),
+                before,
+                "profile diagnostics must remain read-only",
+            )
             cases = [
                 healthy,
                 {**healthy, "databases": []},
-                {**healthy, "databases": [{"markers": {module.KEYS[0]: "false"}}]},
+                {**healthy, "nativeShutdown": "false"},
+                {**healthy, "nativeShutdown": None},
+                {**healthy, "nativeShutdownDiagnosticUnavailable": True},
                 {**healthy, "databases": [{"markers": {module.KEYS[0]: "true", module.KEYS[2]: {"active": True}}}]},
                 {**healthy, "databases": [{"markers": {}, "diagnosticUnavailable": True}]},
-                {**healthy, "databases": [{"markers": {module.KEYS[0]: "true"}, "diagnosticUnavailable": True}]},
                 {**healthy, "warnings": ["Profile diagnostic file bound reached"]},
                 {**healthy, "certifiesQualification": True},
             ]

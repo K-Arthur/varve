@@ -1,4 +1,4 @@
-import type { Platform } from '@varve/platform';
+import { isTauriRuntime, type Platform, readNativePreviousCleanShutdown } from '@varve/platform';
 import type { Document } from '@varve/scene';
 import { useEffect, useState } from 'react';
 import { useEditor } from '../../context';
@@ -30,25 +30,36 @@ export function RecoveryManager(_props: RecoveryManagerProps) {
 
   useEffect(() => {
     const previousWasClean = getSharedShutdownMarker().begin();
-
     const mgr = getSharedRecoveryManager();
-    mgr.hasSessions().then((has) => {
-      if (!has) return;
-      // Only show the recovery dialog if the previous session ended
-      // uncleanly (crash / power loss). A normal close writes a marker.
-      const wasUnclean = previousWasClean !== true;
-      if (wasUnclean) {
-        mgr.listSessions().then((sessions) => {
-          setRecoverySessions(sessions);
-          setShowRecovery(true);
-        });
-      } else {
-        // Clean shutdown with stale sessions — discard them silently
-        mgr.listSessions().then((sessions) => {
-          for (const s of sessions) void mgr.deleteSession(s.id);
-        });
+    let mounted = true;
+    void (async () => {
+      // Native process termination can happen before WebKit flushes
+      // localStorage to disk. The Rust process records this decision in the
+      // synchronous SQLite store before approving exit; an unavailable native
+      // read is conservatively treated as unclean so recovery data survives.
+      const clean = isTauriRuntime()
+        ? (await readNativePreviousCleanShutdown()) === true
+        : previousWasClean === true;
+      if (!(await mgr.hasSessions()) || !mounted) return;
+
+      if (!clean) {
+        const sessions = await mgr.listSessions();
+        if (!mounted) return;
+        setRecoverySessions(sessions);
+        setShowRecovery(true);
+        return;
       }
+
+      // Clean shutdown with stale sessions — discard them silently.
+      const sessions = await mgr.listSessions();
+      for (const session of sessions) void mgr.deleteSession(session.id);
+    })().catch(() => {
+      // A storage or bridge read failure must never discard recovery data.
+      if (mounted) setShowRecovery(false);
     });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleRecoveryRestore = (id: string) => {

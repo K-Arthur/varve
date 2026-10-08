@@ -561,18 +561,32 @@ const openHelper = source.slice(
 );
 const homeControls = [{ elementId: 'home-open' }];
 const openCalls = [];
+let recoveryDialogVisible = false;
+async function nativeControls(predicate) {
+  if (predicate.includes('Recover unsaved documents')) {
+    return recoveryDialogVisible ? [{ elementId: 'recovery-dialog' }] : [];
+  }
+  if (predicate.includes('Fit all to viewport')) return [{ elementId: 'fit-all' }];
+  return homeControls;
+}
 const openContext = vm.createContext({
   assert,
   v: { seed: false },
-  hittableElements: async () => homeControls,
+  hittableElements: nativeControls,
   pointerClick: async (element) => openCalls.push(['pointer', element.elementId]),
   createDocumentFromHome: async () => openCalls.push(['new-editor']),
   click: async (...args) => openCalls.push(['click', ...args]),
   panelPath: async (...args) => openCalls.push(['native-panel', ...args]),
-  until: async (fn) => fn(),
-  one: async (...args) => openCalls.push(['ready', ...args]),
+  until: async (fn) => {
+    const result = await fn();
+    if (!result) throw new Error('Native editor did not become ready');
+    return result;
+  },
 });
-vm.runInContext(`${openHelper}; globalThis.open = open;`, openContext);
+vm.runInContext(
+  `${openHelper}; globalThis.open = open; globalThis.waitForEditorAfterOpen = waitForEditorAfterOpen;`,
+  openContext,
+);
 await openContext.open('/actual/Migrated save β.varve');
 assert.deepEqual(openCalls.slice(0, 2), [
   ['pointer', 'home-open'],
@@ -587,7 +601,18 @@ assert.deepEqual(openCalls.slice(0, 4), [
   ['click', 'Open…', true],
   ['native-panel', '/actual/Migrated save β.varve', 'Open'],
 ]);
-assert.equal(openCalls.at(-1)[1], 'Fit all to viewport');
+assert.equal(
+  openCalls.length,
+  4,
+  'Reopened editor readiness is checked through the actual AX controls',
+);
+recoveryDialogVisible = true;
+await assert.rejects(
+  openContext.waitForEditorAfterOpen(),
+  /clean native Quit must not be classified as a crash/,
+  'A recovery modal must be diagnosed before the generic Fit All timeout',
+);
+recoveryDialogVisible = false;
 homeControls.push({ elementId: 'duplicate-open' });
 openCalls.length = 0;
 await assert.rejects(openContext.open('/actual/file.varve'), /must be unambiguous/);

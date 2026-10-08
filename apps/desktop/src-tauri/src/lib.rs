@@ -5533,7 +5533,13 @@ pub fn run() {
             crash::install(&directories.crash_reports);
             let db_path = data_dir.join("documents.db");
             let store = varve_sync::DocumentStore::new(&db_path).expect("init document store");
+            // Read the prior native process outcome and synchronously arm this
+            // process as unclean before the webview can create recovery state.
+            // WebView localStorage is not the desktop shutdown authority.
+            let native_shutdown = lifecycle::NativeShutdownState::begin(&store)
+                .expect("initialize native shutdown recovery state");
             app.manage(store);
+            app.manage(native_shutdown);
             app.manage(UpscaleCancelState::new());
             app.manage(std::sync::Arc::new(acceleration::AccelerationState::new()));
             app.manage(LamaCancelState::new());
@@ -5877,6 +5883,8 @@ pub fn run() {
             crash::crash_delete_report,
             lifecycle::approve_window_close,
             lifecycle::approve_exit,
+            lifecycle::native_previous_clean_shutdown,
+            lifecycle::set_native_shutdown_clean,
             menu::build_native_menu,
             menu::update_native_menu_state,
             build_render_ir,

@@ -79,7 +79,7 @@ export interface CrashUiState {
 export interface CrashControllerDeps {
   platformKind: PlatformKind;
   /** Read the previous-session clean-shutdown marker exactly once at boot. */
-  readUncleanShutdown: () => boolean;
+  readUncleanShutdown: () => boolean | Promise<boolean>;
   storageFactory?: () => Promise<CrashReportStorage>;
   uploader?: CrashUploader;
   metrics?: CrashMetrics;
@@ -204,7 +204,12 @@ export class CrashCenterController {
     this.safeModeStore = new LocalStorageSafeModeStore(localStorageLike());
     if (!this.loopRecorded) {
       this.loopRecorded = true;
-      const unclean = this.deps.readUncleanShutdown();
+      let unclean = true;
+      try {
+        unclean = await this.deps.readUncleanShutdown();
+      } catch {
+        // Unavailable shutdown evidence is conservatively an interrupted run.
+      }
       if (unclean) {
         recordStartupFailure(loopStore);
       } else {

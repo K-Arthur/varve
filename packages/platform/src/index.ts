@@ -120,7 +120,11 @@ export {
   recordStorageWrite,
   resetStorageWriteMetrics,
 } from './storageWriteMetrics';
-export { createTauriPlatform } from './tauri';
+export {
+  createTauriPlatform,
+  readNativePreviousCleanShutdown,
+  setNativeShutdownClean,
+} from './tauri';
 export * from './types';
 export type { WebPlatformOptions } from './web';
 export { createWebPlatform } from './web';

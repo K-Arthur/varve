@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createTauriPlatform } from './tauri';
+import {
+  createTauriPlatform,
+  readNativePreviousCleanShutdown,
+  setNativeShutdownClean,
+} from './tauri';
 
 interface TestTauriGlobal {
   __TAURI__?: unknown;
@@ -14,6 +18,37 @@ afterEach(() => {
 });
 
 describe('createTauriPlatform', () => {
+  it('reads the native previous-process marker and preserves uncertainty', async () => {
+    const invoke = vi.fn().mockResolvedValue(true);
+    globalWithTauri.__TAURI__ = {
+      core: { invoke },
+      event: { listen: async () => () => {} },
+    };
+
+    await expect(readNativePreviousCleanShutdown()).resolves.toBe(true);
+    expect(invoke).toHaveBeenCalledWith('native_previous_clean_shutdown', {
+      sessionId: expect.any(String),
+    });
+
+    invoke.mockRejectedValueOnce(new Error('native database unavailable'));
+    await expect(readNativePreviousCleanShutdown()).resolves.toBeNull();
+    invoke.mockResolvedValueOnce('true');
+    await expect(readNativePreviousCleanShutdown()).resolves.toBeNull();
+  });
+
+  it('updates native shutdown state for verified updater restarts', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    globalWithTauri.__TAURI__ = {
+      core: { invoke },
+      event: { listen: async () => () => {} },
+    };
+
+    await setNativeShutdownClean(true);
+    await setNativeShutdownClean(false);
+    expect(invoke).toHaveBeenNthCalledWith(1, 'set_native_shutdown_clean', { clean: true });
+    expect(invoke).toHaveBeenNthCalledWith(2, 'set_native_shutdown_clean', { clean: false });
+  });
+
   it('cancels a native clipboard read when the transport deadline expires', async () => {
     vi.useFakeTimers();
     try {

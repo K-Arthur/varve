@@ -10,6 +10,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import {
+  CRASH_LOOP_STORAGE_KEY,
   CrashConsentProvider,
   type CrashReport,
   type CrashUploader,
@@ -118,7 +119,7 @@ class RecordingUploader implements CrashUploader {
 function makeController(
   overrides: {
     state?: 'unknown' | 'denied' | 'askEachTime' | 'automaticAllowed';
-    unclean?: boolean;
+    unclean?: boolean | Promise<boolean>;
     uploader?: CrashUploader;
   } = {},
 ) {
@@ -308,6 +309,24 @@ describe('controller + dialog flow (integration)', () => {
     expect(reopened.getState().safeMode).toBeNull();
     expect(localStorage.getItem(SAFE_MODE_STORAGE_KEY)).toBeNull();
     reopened.dispose();
+    localStorage.clear();
+  });
+
+  it('awaits native shutdown evidence before recording crash-loop status', async () => {
+    localStorage.clear();
+    const interrupted = makeController({ unclean: Promise.resolve(true) }).controller;
+    await interrupted.boot();
+    const failed = JSON.parse(localStorage.getItem(CRASH_LOOP_STORAGE_KEY) ?? '{}');
+    expect(failed.failures).toHaveLength(1);
+    interrupted.dispose();
+
+    localStorage.clear();
+    const clean = makeController({ unclean: Promise.resolve(false) }).controller;
+    await clean.boot();
+    const reset = JSON.parse(localStorage.getItem(CRASH_LOOP_STORAGE_KEY) ?? '{}');
+    expect(reset.failures).toEqual([]);
+    expect(reset.lastClean).toEqual(expect.any(Number));
+    clean.dispose();
     localStorage.clear();
   });
 

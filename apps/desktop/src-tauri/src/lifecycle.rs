@@ -13,7 +13,57 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
-use tauri::{AppHandle, Emitter, Manager, RunEvent, Window, WindowEvent, Wry};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, Window, WindowEvent, Wry};
+
+const NATIVE_SHUTDOWN_KEY: &str = "app-setting:native-clean-shutdown";
+
+/// The previous native process' shutdown result, captured before this process
+/// arms itself as unclean. Unlike WebView localStorage, this state is committed
+/// by the native SQLite store before the process is allowed to exit.
+pub struct NativeShutdownState {
+    previous_clean: bool,
+    frontend_session: Mutex<Option<(String, bool)>>,
+}
+
+impl NativeShutdownState {
+    pub fn begin(store: &varve_sync::DocumentStore) -> Result<Self, String> {
+        let previous_clean = store
+            .get_view_state(NATIVE_SHUTDOWN_KEY)
+            .map_err(|error| format!("Could not read native shutdown state: {error}"))?
+            .as_deref()
+            == Some("true");
+        store
+            .set_view_state(NATIVE_SHUTDOWN_KEY, "false")
+            .map_err(|error| format!("Could not arm native shutdown state: {error}"))?;
+        Ok(Self {
+            previous_clean,
+            frontend_session: Mutex::new(None),
+        })
+    }
+
+    pub fn previous_clean_for_session(&self, session_id: &str) -> bool {
+        let Ok(mut current) = self.frontend_session.lock() else {
+            return false;
+        };
+        if let Some((current_id, result)) = current.as_ref() {
+            if current_id == session_id {
+                return *result;
+            }
+        }
+        let result = current.is_none() && self.previous_clean;
+        *current = Some((session_id.to_string(), result));
+        result
+    }
+}
+
+pub fn write_clean_shutdown_state(
+    store: &varve_sync::DocumentStore,
+    clean: bool,
+) -> Result<(), String> {
+    store
+        .set_view_state(NATIVE_SHUTDOWN_KEY, if clean { "true" } else { "false" })
+        .map_err(|error| format!("Could not persist native shutdown state: {error}"))
+}
 
 /// One-shot close/exit authorization tokens, scoped per window label.
 #[derive(Default)]
@@ -106,16 +156,95 @@ pub fn approve_window_close(app: AppHandle<Wry>, label: String) -> Result<(), St
 }
 
 #[tauri::command]
-pub fn approve_exit(app: AppHandle<Wry>) {
+pub fn native_previous_clean_shutdown(
+    state: State<'_, NativeShutdownState>,
+    session_id: String,
+) -> bool {
+    state.previous_clean_for_session(&session_id)
+}
+
+#[tauri::command]
+pub fn set_native_shutdown_clean(
+    store: State<'_, varve_sync::DocumentStore>,
+    clean: bool,
+) -> Result<(), String> {
+    write_clean_shutdown_state(&store, clean)
+}
+
+#[tauri::command]
+pub fn approve_exit(app: AppHandle<Wry>, clean_shutdown: bool) -> Result<(), String> {
+    if clean_shutdown {
+        let store = app
+            .try_state::<varve_sync::DocumentStore>()
+            .ok_or_else(|| "Native document store is unavailable".to_string())?;
+        write_clean_shutdown_state(&store, true)?;
+    }
     if let Some(guard) = app.try_state::<LifecycleGuard>() {
         guard.approve_exit();
     }
     app.exit(0);
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn temporary_store() -> (varve_sync::DocumentStore, std::path::PathBuf) {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "varve-native-shutdown-{}-{}.sqlite3",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        (
+            varve_sync::DocumentStore::new(&path).expect("temporary document store"),
+            path,
+        )
+    }
+
+    #[test]
+    fn native_shutdown_state_distinguishes_clean_and_interrupted_processes() {
+        let (store, path) = temporary_store();
+
+        let first = NativeShutdownState::begin(&store).expect("first startup");
+        assert!(
+            !first.previous_clean_for_session("first-page"),
+            "a fresh profile is not a clean exit"
+        );
+        assert_eq!(
+            store
+                .get_view_state(NATIVE_SHUTDOWN_KEY)
+                .expect("armed state"),
+            Some("false".into())
+        );
+
+        let interrupted_restart = NativeShutdownState::begin(&store).expect("restart");
+        assert!(
+            !interrupted_restart.previous_clean_for_session("interrupted-page"),
+            "a process that did not approve a clean exit remains recoverable"
+        );
+
+        write_clean_shutdown_state(&store, true).expect("commit clean exit");
+        let clean_restart = NativeShutdownState::begin(&store).expect("clean restart");
+        assert!(clean_restart.previous_clean_for_session("clean-page"));
+        assert!(
+            clean_restart.previous_clean_for_session("clean-page"),
+            "React remounts in one webview retain the same startup result"
+        );
+        assert!(
+            !clean_restart.previous_clean_for_session("reloaded-page"),
+            "a later webview session in the running native process is unclean"
+        );
+        assert_eq!(
+            store
+                .get_view_state(NATIVE_SHUTDOWN_KEY)
+                .expect("re-armed state"),
+            Some("false".into())
+        );
+        drop(store);
+        let _ = std::fs::remove_file(path);
+    }
 
     #[test]
     fn window_token_is_one_shot_and_scoped() {

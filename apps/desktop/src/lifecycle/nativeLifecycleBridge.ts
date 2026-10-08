@@ -56,8 +56,8 @@ async function approveWindowClose(label: string): Promise<void> {
   await getTauri()?.core.invoke('approve_window_close', { label });
 }
 
-async function approveExit(): Promise<void> {
-  await getTauri()?.core.invoke('approve_exit');
+async function approveExit(cleanShutdown: boolean): Promise<void> {
+  await getTauri()?.core.invoke('approve_exit', { cleanShutdown });
 }
 
 /**
@@ -74,7 +74,9 @@ async function finalize(intent: TerminationIntent): Promise<boolean | undefined>
   if (action === 'close-window') {
     await approveWindowClose('main');
   } else if (action === 'exit') {
-    await approveExit();
+    // This path runs only after TerminationCoordinator completed finalizers
+    // and marked the session clean. Rust persists that fact before app.exit.
+    await approveExit(true);
   }
   return undefined;
 }
@@ -108,7 +110,8 @@ export function installNativeLifecycleBridge(): () => void {
   const handleNativeExit = async () => {
     const coordinator = getLifecycleCoordinator();
     if (!coordinator) {
-      await approveExit();
+      // Home has no editor coordinator; preserve any pending recovery state.
+      await approveExit(false);
       return;
     }
     await coordinator.requestTermination('quit-application', 'native-exit');

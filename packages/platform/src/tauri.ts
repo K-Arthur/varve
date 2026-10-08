@@ -78,6 +78,31 @@ function core(): TauriCore {
   return coreObj;
 }
 
+// Stable across React StrictMode effect replay, but regenerated if the webview
+// reloads. Rust returns the process-start marker once per webview session.
+const nativeClientSessionId = uuid();
+
+/**
+ * Read the shutdown result captured by the native process before it armed
+ * itself as unclean. `null` means this bridge is unavailable; native callers
+ * should treat that as unclean so recovery data is retained.
+ */
+export async function readNativePreviousCleanShutdown(): Promise<boolean | null> {
+  try {
+    const value = await core().invoke('native_previous_clean_shutdown', {
+      sessionId: nativeClientSessionId,
+    });
+    return typeof value === 'boolean' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Update the durable native marker around a verified updater relaunch. */
+export async function setNativeShutdownClean(clean: boolean): Promise<void> {
+  await core().invoke('set_native_shutdown_clean', { clean });
+}
+
 const NATIVE_CLIPBOARD_DEADLINE_MS = 5_000;
 
 function abortError(): Error {

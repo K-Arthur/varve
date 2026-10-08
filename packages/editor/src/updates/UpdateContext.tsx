@@ -1,3 +1,4 @@
+import { isTauriRuntime, setNativeShutdownClean } from '@varve/platform';
 import { Button, Dialog } from '@varve/ui';
 import {
   createContext,
@@ -257,7 +258,13 @@ export function UpdateCoordinatorProvider({
         // picks up the installed version. An explicit restart owns relaunching
         // and therefore suppresses the bridge's ordinary exit approval.
         if (intent === 'restart') {
-          await coordinator.relaunch();
+          const native = isTauriRuntime();
+          if (native) await setNativeShutdownClean(true);
+          const result = await coordinator.relaunch();
+          if (result.kind === 'error' && result.error.code === 'restart-failed') {
+            if (native) await setNativeShutdownClean(false).catch(() => undefined);
+            throw new Error(result.error.message);
+          }
           return true;
         }
       } finally {

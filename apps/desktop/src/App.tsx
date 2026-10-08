@@ -27,6 +27,7 @@ import {
   detectPlatform,
   displayNameFromPath,
   type FileEntry,
+  readNativePreviousCleanShutdown,
   upsertPreservingMeta,
 } from '@varve/platform';
 import { DocumentCodec } from '@varve/scene';
@@ -520,12 +521,12 @@ export function App() {
       )}
       <CrashCenter
         platformKind={platform.kind}
-        // Crash-loop classification lives with the marker authority: only an
-        // explicitly armed, never-finalized marker is evidence of an
-        // interrupted run. Absent (fresh profile / Home-only sessions, where
-        // LifecycleProvider never mounts) is not a failure — see
-        // readUncleanShutdownMarker and audit 2026-09-27 §7.4.
-        readUncleanShutdown={() => readUncleanShutdownMarker((key) => localStorage.getItem(key))}
+        // Use the same native process-start result as document recovery;
+        // WebView localStorage is only authoritative in browser builds.
+        readUncleanShutdown={async () => {
+          if (isTauriRuntime()) return (await readNativePreviousCleanShutdown()) !== true;
+          return readUncleanShutdownMarker((key) => localStorage.getItem(key));
+        }}
         documentSchemaVersion={currentDocumentSchemaVersion()}
         onControllerReady={(controller) => {
           installCrashTestHooks(controller);
