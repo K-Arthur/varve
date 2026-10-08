@@ -303,7 +303,8 @@ async function layerLabel(name) {
   // outermost scopes: pinned Mac2 assigns a fresh UUID on every lookup, so
   // IDs cannot deduplicate repeated queries for the same descendant.
   const labels = [];
-  for (const tree of trees) {
+  for (const ref of trees) {
+    const tree = await driver.$(ref);
     const refs = await driver.findElementsFromElement(
       tree.elementId,
       'predicate string',

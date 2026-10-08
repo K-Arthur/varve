@@ -97,23 +97,42 @@ const driver = {
         (c) =>
           c.amType === 'XCUIElementTypeGroup' && (c.label === 'Layers' || c.title === 'Layers'),
       );
-      return trees.filter((c) => !trees.some((outer) => descendantOf(c, outer.elementId)));
+      return trees
+        .filter((c) => !trees.some((outer) => descendantOf(c, outer.elementId)))
+        .map(rawReference);
     }
-    return matches(predicate);
+    return matches(predicate).map(rawReference);
   },
   findElementsFromElement: async (id, using, predicate) => {
+    assert.equal(typeof id, 'string', 'Native child lookup requires a normalized element ID');
     requests.push({ id, using, predicate });
-    return matches(predicate, id);
+    return matches(predicate, id).map(rawReference);
   },
-  $: async (ref) => ({
-    ...ref,
-    getAttribute: async (name) => {
-      attributes.push({ id: ref.elementId, name });
-      assert.equal(name, 'hittable');
-      return ref.hittable;
-    },
-  }),
+  $: async (ref) => {
+    const id = ref[webDriverElementKey];
+    assert.equal(
+      typeof id,
+      'string',
+      'Protocol lookup returns W3C references, not wrapper elements',
+    );
+    const actual = controls.find((candidate) => candidate.elementId === id);
+    assert.ok(actual);
+    return {
+      ...actual,
+      getAttribute: async (name) => {
+        attributes.push({ id, name });
+        assert.equal(name, 'hittable');
+        return actual.hittable;
+      },
+    };
+  },
 };
+const webDriverElementKey = 'element-6066-11e4-a52e-4f735466cecf';
+function rawReference(control) {
+  const reference = { [webDriverElementKey]: control.elementId };
+  assert.equal(reference.elementId, undefined);
+  return reference;
+}
 const version = { seed: false };
 const context = vm.createContext({ assert, driver, v: version });
 vm.runInContext(`${helper}; globalThis.one = one;`, context);
@@ -204,6 +223,21 @@ assert.deepEqual(
   ['layers-tree'],
   'One descendant lookup avoids fresh Mac2 UUIDs for repeated queries of the same layer',
 );
+const rawReferenceContext = vm.createContext({
+  assert,
+  driver,
+  v: version,
+  literal: JSON.stringify,
+});
+vm.runInContext(
+  `${layerHelper.replace('const tree = await driver.$(ref);', 'const tree = ref;')}; globalThis.layerLabel = layerLabel;`,
+  rawReferenceContext,
+);
+await assert.rejects(
+  rawReferenceContext.layerLabel('Published embedded image'),
+  /normalized element ID/,
+  'The observed raw-reference regression must fail before any native child request',
+);
 controls.push(control('Layers', 'XCUIElementTypeGroup', { elementId: 'other-layers' }), {
   ...controls[1],
   elementId: 'other-image',
@@ -258,7 +292,7 @@ for (const type of ['XCUIElementTypeDialog', 'XCUIElementTypeSheet']) {
     control('Open', 'XCUIElementTypeButton'),
     control('New document', 'XCUIElementTypeDialog'),
   ];
-  assert.equal((await context.filePanels('Open'))[0].elementId, 'native-open');
+  assert.equal((await context.filePanels('Open'))[0][webDriverElementKey], 'native-open');
 }
 controls = [control('Save', 'XCUIElementTypeDialog', { identifier: 'save-panel' })];
 assert.equal((await context.filePanels('Save')).length, 1);
@@ -665,3 +699,4 @@ if (['darwin', 'linux'].includes(process.platform))
       stdio: 'inherit',
     },
   );
+await import('./macos-webdriver-contract.test.mjs');

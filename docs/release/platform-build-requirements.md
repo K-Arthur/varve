@@ -97,8 +97,11 @@ The current Mac accessibility tree may contain nested groups named `Layers`.
 The adapter queries only outermost Layers scopes, while distinct matching
 labels remain an error. Pinned Mac2 creates a fresh UUID per lookup, so IDs
 cannot deduplicate repeated queries for the same descendant. On the short
-hosted display, actual minimap and canvas
-disclosure controls reveal the layer before any pointer gesture. Hidden targets,
+hosted display, actual minimap and canvas disclosure controls reveal the layer
+before any pointer gesture. Raw W3C discovery references must pass through
+WebdriverIO's `$` wrapper before a child lookup uses `elementId`. The local
+contract exercises the actual locked client against a loopback protocol fixture
+and rejects unnormalized references before transport. Hidden targets,
 ambiguous disclosures and missing layer trees fail the local contract checks.
 After current-app normal Quit, the workflow requires an observable clean-exit
 marker and rejects active recovery state or incomplete diagnostics. The check
