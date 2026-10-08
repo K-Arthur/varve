@@ -19,6 +19,7 @@ const DEPTH_MODEL_ID = 'depth-anything-v2-small';
 const SYNTHETIC_MODEL_BYTES = Buffer.from([1]);
 const SYNTHETIC_MODEL_SHA256 = createHash('sha256').update(SYNTHETIC_MODEL_BYTES).digest('hex');
 const SYNTHETIC_MODEL_PATH = '/__e2e__/depth-model.onnx';
+const SYNTHETIC_MISSING_MODEL_PATH = '/__e2e__/uncached-depth-model.onnx';
 
 function installWorkerStub() {
   return `
@@ -82,9 +83,14 @@ async function installSyntheticModelRoutes(context: import('@playwright/test').B
   expect(depthModel, 'The production manifest must still declare the depth model').toBeDefined();
   depthModel.sha256 = SYNTHETIC_MODEL_SHA256;
   depthModel.remoteUrl = SYNTHETIC_MODEL_PATH;
+  depthModel.localPath = SYNTHETIC_MISSING_MODEL_PATH;
+  depthModel.sizeBytes = SYNTHETIC_MODEL_BYTES.length;
   await context.route('**/models/manifest.json', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', json: manifest });
   });
+  await context.route(`**${SYNTHETIC_MISSING_MODEL_PATH}`, (route) =>
+    route.fulfill({ status: 404 }),
+  );
   // If availability checks choose acquisition, exercise the real verified writer
   // with the same synthetic bytes instead of downloading the optional 27 MB model.
   await context.route(`**${SYNTHETIC_MODEL_PATH}`, async (route) => {
@@ -257,46 +263,17 @@ async function openDepthBlurSection(page: import('@playwright/test').Page) {
   return page.getByRole('group', { name: 'Depth Blur' });
 }
 
-/**
- * Click a control inside a section that re-renders while depth state settles.
- * Playwright retries a detached element, but a re-render storm can outlast the
- * default timeout (observed as "element was detached from the DOM, retrying"
- * for 45s). Retry the click with a freshly resolved locator instead.
- */
-/**
- * Click a control inside a section that re-renders while depth state settles.
- * Playwright retries a detached element, but a re-render storm can outlast the
- * default timeout (observed as "element was detached from the DOM, retrying"
- * for 45s). Retry the click with a freshly resolved locator instead.
- *
- * Note: the Depth Blur section can also stay in its model-download state for a
- * long stretch when the model-store check is slow under load; in that case the
- * enable control is genuinely absent and no click strategy can help. That is a
- * product-side readiness race, not a test artifact.
- */
-async function clickThroughRerender(locator: import('@playwright/test').Locator, attempts = 6) {
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      await locator.click({ timeout: 5000 });
-      return;
-    } catch {
-      await locator.page().waitForTimeout(300);
-    }
-  }
-  await locator.click({ timeout: 15000 });
-}
-
 async function generateDepthMap(
   page: import('@playwright/test').Page,
   section: import('@playwright/test').Locator,
 ) {
-  const enableButton = section.getByRole('button', { name: /enable depth blur/i });
-  if (await enableButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await clickThroughRerender(enableButton);
-  }
+  // The cached-model lookup can replace Enable with Generate between a
+  // visibility check and pointer dispatch. Await the settled state instead
+  // of clicking a transient control or retrying it after it has disappeared.
+  // The acquisition workflow below explicitly enables a missing model.
   const generateButton = section.getByRole('button', { name: /generate depth map/i });
   await expect(generateButton).toBeVisible({ timeout: 30000 });
-  await clickThroughRerender(generateButton);
+  await generateButton.click();
   // Depth generation runs on a worker against the (possibly cold) depth model.
   // The original 5s bound was tight enough that a loaded runner could miss it
   // and report a failure that was only slowness.
@@ -332,10 +309,22 @@ test.describe('Depth Blur workflow', () => {
     });
     await importTestImage(page);
     await page.locator('.layers-panel').getByRole('treeitem').click();
+    let releaseCachedLookup!: () => void;
+    const cachedLookup = new Promise<void>((resolve) => {
+      releaseCachedLookup = resolve;
+    });
+    await page.route(`**${SYNTHETIC_MISSING_MODEL_PATH}`, async (route) => {
+      await cachedLookup;
+      await route.fulfill({ status: 404 });
+    });
     const section = await openDepthBlurSection(page);
-
-    // The model store is seeded, but the app can briefly render the
-    // download-first state while its cached-model check settles.
+    const enableButton = section.getByRole('button', { name: /enable depth blur/i });
+    await expect(enableButton).toBeVisible();
+    releaseCachedLookup();
+    await expect(section.getByRole('button', { name: /generate depth map/i })).toBeVisible();
+    // Negative control for the observed CI failure: the old visibility
+    // decision is stale, and repeatedly clicking Enable cannot advance it.
+    await expect(enableButton.click({ timeout: 250 })).rejects.toThrow(/Timeout/);
     await generateDepthMap(page, section);
     await expect(section.getByRole('button', { name: /save depth blur/i })).toBeVisible({
       timeout: 30000,
@@ -390,10 +379,42 @@ test.describe('Depth Blur workflow', () => {
 
   test('creates a depth-range mask on the image node', async ({ page }) => {
     test.setTimeout(180000);
+    // Exercise verified acquisition separately from cached readiness. The
+    // inference stub remains synthetic, but the real download/checksum/store
+    // path must install the exact bytes declared by our synthetic manifest.
+    await page.evaluate(
+      (modelId) =>
+        new Promise<void>((resolve, reject) => {
+          const request = indexedDB.open('varve-model-store');
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => {
+            const db = request.result;
+            const transaction = db.transaction('models', 'readwrite');
+            transaction.objectStore('models').delete(modelId);
+            transaction.oncomplete = () => {
+              db.close();
+              resolve();
+            };
+            transaction.onerror = () => {
+              db.close();
+              reject(transaction.error);
+            };
+          };
+        }),
+      DEPTH_MODEL_ID,
+    );
     await importTestImage(page);
     await page.locator('.layers-panel').getByRole('treeitem').click();
     const blurSection = await openDepthBlurSection(page);
-
+    const modelDownload = page.waitForResponse(
+      (response) => response.url().endsWith(SYNTHETIC_MODEL_PATH) && response.status() === 200,
+    );
+    await blurSection.getByRole('button', { name: /enable depth blur/i }).click();
+    expect(
+      createHash('sha256')
+        .update(await (await modelDownload).body())
+        .digest('hex'),
+    ).toBe(SYNTHETIC_MODEL_SHA256);
     await generateDepthMap(page, blurSection);
     await expect(blurSection.getByRole('button', { name: /save depth map/i })).toBeVisible({
       timeout: 30000,
