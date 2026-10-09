@@ -82,6 +82,7 @@ describe('ErrorBoundary', () => {
   it('still shows the fallback for a genuine render crash', () => {
     function EngineBomb() {
       throw new TypeError("Cannot read properties of null (reading 'engine')");
+      return null;
     }
     const { container } = render(
       <ErrorBoundary>
