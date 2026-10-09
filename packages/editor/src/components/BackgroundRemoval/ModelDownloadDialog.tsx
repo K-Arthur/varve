@@ -5,6 +5,7 @@ import {
   type NormalizedModelDownloadError,
   normalizeModelDownloadError,
 } from '../../backgroundRemoval/normalizeModelDownloadError';
+import { useAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { modelRequirementLabel } from '../../modelRequirements';
 import './ModelDownloadDialog.css';
 
@@ -34,6 +35,7 @@ type DownloadStatus =
   | 'cancelled';
 
 export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownloadDialogProps) {
+  const aiEnabled = useAiFeaturesEnabled();
   const removalModel = AVAILABLE_MODELS.find((candidate) => candidate.id === modelId);
   const featureModel = removalModel ?? UPSCALE_MODELS.find((candidate) => candidate.id === modelId);
   // Denoise/other catalog models (SCUNet, for one) are in neither feature list,
@@ -68,6 +70,18 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
   }, []);
 
   const handleDownload = useCallback(async () => {
+    // Block download if AI features are disabled
+    if (!aiEnabled) {
+      setError({
+        message: 'AI features are disabled',
+        details: 'Enable AI features in Settings to download AI models.',
+        severity: 'error',
+        userMessage: 'AI features are disabled. Enable them in Settings to download models.',
+      });
+      updateStatus('error');
+      return;
+    }
+
     updateStatus('connecting');
     setProgress(0);
     setError(null);

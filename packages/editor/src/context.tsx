@@ -7074,6 +7074,17 @@ export function EditorProvider({
       },
 
       openCafDialog: (nodeId) => {
+        // Check if AI features are enabled
+        const settings = loadSettings();
+        if (!settings.ai.enabled) {
+          toast({
+            message: 'AI features are disabled',
+            description: 'Enable AI features in Settings to use Generative Edit.',
+            type: 'info',
+            duration: 4000,
+          });
+          return;
+        }
         patch({ cafDialogNodeId: nodeId });
       },
 
