@@ -29,12 +29,14 @@ const appImageSignatureNotice = appImageUpdaterSignatureNotice();
       </aside>
 
       {release.version === '0.5.0' && release.updater && (
-        <p>
-          The v0.5.0 feed includes Linux AppImage (x86_64 and ARM64), Windows NSIS
-          (x86_64 and ARM64), and Apple Silicon macOS app updates. Debian and RPM
-          package installs remain manual. The update signatures do not code-sign
-          the Windows or macOS installers.
-        </p>
+        <div class="docs-section">
+          <p>
+            The v0.5.0 feed includes Linux AppImage (x86_64 and ARM64), Windows NSIS
+            (x86_64 and ARM64), and Apple Silicon macOS app updates. Debian and RPM
+            package installs remain manual. The update signatures do not code-sign
+            the Windows or macOS installers.
+          </p>
+        </div>
       )}
 
       <section class="docs-section">
