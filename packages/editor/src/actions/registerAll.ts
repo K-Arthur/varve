@@ -1,7 +1,6 @@
 import { isTauriRuntime } from '@varve/platform';
 import { type ContactChannelId, contactMailto } from '@varve/shared';
 import { isCapabilityRestricted } from '../capabilities/restrictions';
-import { registerCalloutActions } from './calloutCommands';
 import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
 import { registerPresentationActions } from '../components/Presentation/presentationCommands';
 import type { EditorContextValue } from '../context';
@@ -13,6 +12,7 @@ import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import type { ShortcutBinding } from '../shortcuts/types';
 import { registerThumbnailActions } from '../thumbnail/thumbnailCommands';
 import { type ActionCategory, getActionRegistry } from './ActionRegistry';
+import { registerCalloutActions } from './calloutCommands';
 import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
 
 export { dispatchRegisteredAction } from './ActionRegistry';
