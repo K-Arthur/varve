@@ -5,7 +5,7 @@
 import type { CalloutKind } from '@varve/scene';
 import { wrapTextInCallout } from '@varve/scene';
 import type { EditorContextValue } from '../context';
-import { getActionRegistry, type ActionCategory } from './ActionRegistry';
+import { type ActionCategory, getActionRegistry } from './ActionRegistry';
 
 interface CalloutCommandDef {
   id: string;
