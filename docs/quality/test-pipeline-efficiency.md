@@ -264,6 +264,19 @@ changes and isolates that no-op event. The 0.5.0 download manifest, updater
 feed, and public LLM release facts were regenerated from the published assets;
 the source deployment validates those files before the live visual check.
 
+The follow-up fail-fast guard and adoption path were verified together at
+`98cd30abd27d0bce896d93399deba22b5a10160b`. [Full CI
+37932768728](https://github.com/K-Arthur/varve/actions/runs/37932768728)
+passed the clean-source check before its integration lanes and completed all
+24 browser shards plus native, visual, website, Rust, WASM, and tooling lanes.
+[Final candidate 37940409555](https://github.com/K-Arthur/varve/actions/runs/37940409555)
+verified and adopted that exact immutable integration evidence; its repeated
+product-test jobs were skipped. `pnpm verify:full --remote` then passed at the
+same clean master SHA, including Emoji, Health, and Architecture audits and
+the final producer/supersession recheck. The guard is covered by tracked and
+untracked mutation regressions; the hosted run confirms the workflow places it
+before every expensive integration lane.
+
 Likewise, replacing development-server browser tests with a shared frontend
 bundle needs equivalence checks for test bridges, harness entry points, optional
 models, WASM/ORT assets, and environment defines. Reusing the public demo would
