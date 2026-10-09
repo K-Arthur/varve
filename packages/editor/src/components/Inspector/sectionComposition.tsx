@@ -21,6 +21,7 @@ import type { EditorState } from '../../context/types';
 import { LayerStatesSection } from '../LayersPanel/LayerStatesSection';
 import type { SectionId } from './sectionRegistry';
 import { AdjustmentLayerAccessSection } from './sections/AdjustmentLayerAccessSection';
+import { AiProvenanceSection } from './sections/AiProvenanceSection';
 import { AiToolsHintSection } from './sections/AiToolsHintSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AnimationSection } from './sections/AnimationSection';
@@ -139,6 +140,7 @@ const SINGLE_MEMBERS: CompositionMember[] = [
   { id: 'layer-states', render: () => <LayerStatesSection /> },
   // Restored: the Photo-workspace pointer for image selections outside Photo.
   { id: 'ai-tools-hint', render: () => <AiToolsHintSection /> },
+  { id: 'ai-provenance', render: () => <AiProvenanceSection /> },
 ];
 
 /** A selected table: scoped table workflow plus shared appearance. */

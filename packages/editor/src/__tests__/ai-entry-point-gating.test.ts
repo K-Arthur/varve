@@ -60,6 +60,37 @@ const AI_ENTRY_POINTS = [
   },
 ] as const;
 
+/** Take the source from `start` through the matching closing brace. */
+function sliceBalancedBlock(source: string, openBrace: number): string {
+  let depth = 0;
+  for (let i = openBrace; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(openBrace, i + 1);
+    }
+  }
+  return source.slice(openBrace);
+}
+
+function extractEntryBody(content: string, name: string): string | null {
+  const starts = [
+    new RegExp(`${name}:\\s*(?:async\\s+)?\\([^)]*\\)\\s*(?::[^{=]+)?=>\\s*\\{`),
+    new RegExp(`(?:const|let)\\s+${name}\\s*=\\s*useCallback\\s*\\(`),
+    new RegExp(`(?:const|let)\\s+${name}\\s*=\\s*(?:async\\s+)?\\(`),
+    new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`),
+  ];
+  for (const pattern of starts) {
+    const match = content.match(pattern);
+    if (!match || match.index === undefined) continue;
+    const brace = content.indexOf('{', match.index);
+    if (brace === -1) continue;
+    return sliceBalancedBlock(content, brace);
+  }
+  return null;
+}
+
 /**
  * Patterns that indicate proper AI gating.
  */
@@ -87,40 +118,7 @@ describe('AI Entry Point Gating Audit', () => {
         continue;
       }
 
-      // Find the function/method in the file
-      // Try multiple patterns: arrow function, method, regular function, useCallback
-      const patterns = [
-        // Object property: functionName: async (params): ReturnType => { ... }
-        new RegExp(
-          `${entryPoint.function}:\\s*(?:async\\s+)?\\([^)]*\\)\\s*(?::\\s*[^=]+)?\\s*=>\\s*\\{[\\s\\S]*?(?=\\n\\s{2,6}\\w+:|\\n\\s*\\})`,
-          'm',
-        ),
-        // const functionName = useCallback((params) => { ... }, [deps])
-        new RegExp(
-          `(?:const|let)\\s+${entryPoint.function}\\s*=\\s*useCallback\\s*\\(\\s*(?:async\\s+)?\\([^)]*\\)\\s*(?::\\s*[^=]+)?\\s*=>\\s*\\{[\\s\\S]*?(?=\\},\\s*\\[)`,
-          'm',
-        ),
-        // const functionName = (params): ReturnType => { ... }
-        new RegExp(
-          `(?:const|let)\\s+${entryPoint.function}\\s*=\\s*(?:async\\s+)?\\([^)]*\\)\\s*(?::\\s*[^=]+)?\\s*=>\\s*\\{[\\s\\S]*?(?=\\n\\s*(?:const|let|function|export|\\}))`,
-          'm',
-        ),
-        // function functionName(params) { ... }
-        new RegExp(
-          `(?:async\\s+)?function\\s+${entryPoint.function}[\\s\\S]*?\\{[\\s\\S]*?(?=\\n(?:async\\s+)?function|\\nexport|$)`,
-          'm',
-        ),
-      ];
-
-      let functionBody = '';
-      for (const pattern of patterns) {
-        const match = content.match(pattern);
-        if (match) {
-          functionBody = match[0];
-          break;
-        }
-      }
-
+      const functionBody = extractEntryBody(content, entryPoint.function);
       if (!functionBody) {
         // Function not found - might have been refactored
         ungated.push(entryPoint);

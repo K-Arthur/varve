@@ -172,6 +172,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale:
       'Layer effects such as shadows, glows, and blur need dedicated vertical space and remain distinct from Studio treatments and Object Filters.',
   },
+  'ai-provenance': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'occasional',
+    complexity: 'compact',
+    status: 'functional',
+    rationale:
+      'Display AI tool, model, and timestamp metadata for selected AI-edited layers when the AI system is enabled.',
+  },
   'smart-filters': {
     surface: 'properties',
     scope: 'selection',
