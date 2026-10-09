@@ -25,8 +25,7 @@ const GPU_LOSS =
 const TEARDOWN_IPC =
   /webview (?:has been )?(?:dropped|destroyed)|webview not found|window not found|command (?:was )?cancell?ed|promise cancell?ed|the webview was (?:dropped|destroyed)/i;
 
-const FONT_LOAD =
-  /failed to (?:load|decode) font|ots parsing error|fontface(?:\.load)?/i;
+const FONT_LOAD = /failed to (?:load|decode) font|ots parsing error|fontface(?:\.load)?/i;
 
 export function diagnosticParts(value: unknown): DiagnosticParts {
   if (value == null) return { name: '', message: '' };

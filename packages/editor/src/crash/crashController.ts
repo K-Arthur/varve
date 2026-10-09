@@ -365,10 +365,14 @@ export class CrashCenterController {
     // Compositor backends already fall back to Canvas2D and recover in place.
     // loseContext() during teardown also bubbles here, so treating the window
     // event as a crash showed the recovery dialog on document switches.
-    this.breadcrumbs.record('webgl.context.lost', 'renderer');
-    console.warn('[crash] WebGL context lost; compositor fallback handles recovery');
-    if (event instanceof WebGLContextEvent && !event.defaultPrevented) {
-      event.preventDefault();
+    try {
+      this.breadcrumbs.record('webgl.context.lost', 'renderer');
+      console.warn('[crash] WebGL context lost; compositor fallback handles recovery');
+      if (event.cancelable && !event.defaultPrevented) {
+        event.preventDefault();
+      }
+    } catch {
+      // handlers never throw
     }
   };
 

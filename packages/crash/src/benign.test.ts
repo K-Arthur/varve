@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, expect, it } from 'vitest';
 import {
   diagnosticParts,
@@ -74,7 +77,9 @@ describe('isBenignDiagnostic', () => {
     ).toBe(true);
     expect(isBenignWindowErrorEvent(new Event('webglcontextlost'))).toBe(true);
     expect(
-      isBenignWindowErrorEvent(new ErrorEvent('error', { message: 'boom', error: new Error('boom') })),
+      isBenignWindowErrorEvent(
+        new ErrorEvent('error', { message: 'boom', error: new Error('boom') }),
+      ),
     ).toBe(false);
     expect(isBenignRejection(new DOMException('Aborted', 'AbortError'))).toBe(true);
     expect(isBenignRejection(new Error('synthetic unhandled rejection'))).toBe(false);

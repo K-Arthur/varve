@@ -122,10 +122,12 @@ export function useDocumentFontReadiness(doc: Document, onFontGeometryChanged: (
     const key = documentFontFaceKey(faces);
     if (key === prefetchedKeyRef.current) return;
     prefetchedKeyRef.current = key;
-    void getFontRegistry().ensureDocumentFonts(faces).catch((error) => {
-      // A missing or unloadable face is a resolution result. Leaving this
-      // promise unhandled used to open the crash-recovery dialog.
-      console.warn('[fonts] document face prefetch failed', error);
-    });
+    void getFontRegistry()
+      .ensureDocumentFonts(faces)
+      .catch((error) => {
+        // A missing or unloadable face is a resolution result. Leaving this
+        // promise unhandled used to open the crash-recovery dialog.
+        console.warn('[fonts] document face prefetch failed', error);
+      });
   }, [fontDocument]);
 }

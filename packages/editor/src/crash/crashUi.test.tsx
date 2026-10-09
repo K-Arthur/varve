@@ -399,7 +399,9 @@ describe('controller + dialog flow (integration)', () => {
     window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', { promise, reason }));
     await waitFor(() => expect(controller.getState().awaitingReport).not.toBeNull());
     expect(controller.getState().dialogVisible).toBe(true);
-    expect(controller.getState().awaitingReport?.crash.message).toBe('synthetic unhandled rejection');
+    expect(controller.getState().awaitingReport?.crash.message).toBe(
+      'synthetic unhandled rejection',
+    );
     controller.dispose();
   });
 
