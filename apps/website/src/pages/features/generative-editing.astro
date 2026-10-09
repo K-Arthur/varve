@@ -84,14 +84,11 @@ import StatusPill from '../../components/StatusPill.astro';
           <figure>
             <img
               src={sitePath('/samples/generative-editing/landscape-after.png')}
-              alt="The same landscape photograph with a locally generated right and bottom border"
+              alt="The same landscape photograph with an AI-generated right and bottom border"
               loading="lazy"
               decoding="async"
             />
-            <figcaption>
-              Promptless Expand · LaMa, desktop local CPU
-              <span class="ai-sample-label">AI-generated sample</span>
-            </figcaption>
+            <figcaption>AI-generated sample · Promptless Expand · LaMa, desktop local CPU</figcaption>
           </figure>
         </div>
         <p class="evidence-note">
@@ -179,7 +176,6 @@ import StatusPill from '../../components/StatusPill.astro';
   .before-after-grid figure { margin: 0; }
   .before-after-grid img { display: block; width: 100%; height: auto; border-radius: var(--website-radius-card); border: 1px solid var(--border-default); background: var(--surface-card); }
   .before-after-grid figcaption { margin-top: .65rem; color: var(--text-tertiary); font-size: .8rem; line-height: 1.5; }
-  .ai-sample-label { display: inline-block; margin-left: .5rem; padding: .1rem .4rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-control); color: var(--text-primary); font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; }
   .evidence-note, .evidence-attribution { color: var(--text-secondary); line-height: 1.8; max-width: 760px; }
   .evidence-attribution { font-size: .9rem; }
   .evidence-attribution a { color: var(--text-link); }

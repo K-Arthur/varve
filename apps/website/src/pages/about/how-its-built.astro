@@ -1,12 +1,11 @@
 ---
-import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout
   title="How Varve is built"
-  description="How Varve is developed: independent authorship, AI coding assistants as a reviewed force multiplier, and optional on-device models that do not upload your documents."
+  description="How Varve is developed: independent authorship, named AI coding assistants, cleaned commit history, and optional on-device models that do not upload your documents."
 >
   <div class="container-custom">
     <div class="about-page">
@@ -15,35 +14,41 @@ import { sitePath } from '../../lib/siteUrl';
       </nav>
 
       <h1 class="page-hero-title">How Varve is built</h1>
-      <p class="lede">
-        Varve is written by one person. AI assistants help with the volume of
-        work. They do not replace review, and they do not see your documents.
-      </p>
 
       <section class="about-section">
-        <h2>Who writes the product</h2>
         <p>
-          Varve is developed independently by one designer-developer. Architecture,
-          quality gates, licensing, and what ships stay human-owned. Commits are
-          authored by the maintainer. AI tool names are not added to commit
-          messages or author metadata.
+          Varve is developed independently by one designer-developer. Architecture
+          decisions, quality gates, licensing, and what ships stay human-owned.
         </p>
       </section>
 
       <section class="about-section">
         <h2>AI coding assistants</h2>
         <p>
-          The repository is large enough that a solo maintainer uses AI coding
-          assistants as a force multiplier: drafting, searching, refactoring, and
-          mechanical edits. Assisted output is reviewed before it is committed.
-          Generated text is not treated as a separate legal contribution. Where a
-          change is wrong, the maintainer is responsible for the repair.
+          A solo maintainer uses AI coding assistants as a force multiplier:
+          Claude Code, Codex, Cursor, Devin, opencode, and Windsurf. They draft,
+          search, refactor, and make mechanical edits. Assisted output is reviewed
+          before it is committed. Generated text is not a separate legal
+          contribution. Where a change is wrong, the maintainer is responsible for
+          the repair.
         </p>
         <p>
           This is not an AI-generated product and not an unattended codegen
           pipeline. There is no claim that every line was typed by hand, and no
           claim that assistants replace review. No contributor is required to use
           any specific AI tool.
+        </p>
+      </section>
+
+      <section class="about-section">
+        <h2>Commit history</h2>
+        <p>
+          Co-authored-by trailers and generation signatures from AI tools (Claude,
+          Codex, Cursor, Devin, opencode, Windsurf, and others) have been removed
+          from commit history with <code>git-filter-repo</code>. The commit-msg hook and CI
+          check prevent them from returning. Commits are authored by the
+          maintainer. AI tool names are not added to commit messages or author
+          metadata.
         </p>
       </section>
 
@@ -61,31 +66,17 @@ import { sitePath } from '../../lib/siteUrl';
           uploaded for training. Prompt-conditioned fill, replace, and expand stay
           gated until a local model passes compatibility and real-photo review.
         </p>
-        <Button variant="secondary" href={sitePath('/features/generative-editing')}>
-          Generative editing limits
-        </Button>
       </section>
 
       <section class="about-section">
         <h2>Marketing samples</h2>
         <p>
-          Reviewed before/after photographs on this site are labeled when a region
-          was synthesized. The landscape expand sample uses a public-domain
+          Reviewed before/after photographs on the website are labeled when a
+          region was synthesized. The landscape expand sample uses a public-domain
           photograph; the added border was generated locally with LaMa. The
           retained source pixels are unchanged. Unreviewed generations are not
           used as product proof.
         </p>
-      </section>
-
-      <section class="about-section">
-        <h2>Third-party credits</h2>
-        <p>
-          The product and this site use Tabler Icons (MIT) and Fraunces (SIL OFL
-          1.1), alongside Lucide, Phosphor, Geist, and IBM Plex Sans. Full
-          attribution is in the repository <code>NOTICE</code> and
-          <code>THIRD_PARTY_NOTICES</code> files.
-        </p>
-        <Button variant="secondary" href={sitePath('/about/license')}>License and third-party terms</Button>
       </section>
     </div>
   </div>
@@ -109,14 +100,7 @@ import { sitePath } from '../../lib/siteUrl';
   }
 
   .about-page .page-hero-title {
-    margin-bottom: 1rem;
-  }
-
-  .lede {
-    color: var(--text-secondary);
-    font-size: 1.2rem;
-    line-height: 1.7;
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
   }
 
   .about-section {

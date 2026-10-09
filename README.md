@@ -26,6 +26,7 @@
   <a href="https://varve.studio/download"><strong>Download Varve</strong></a> ·
   <a href="https://varve.studio"><strong>Website</strong></a> ·
   <a href="https://varve.studio/docs"><strong>Docs</strong></a> ·
+  <a href="https://varve.studio/about/how-its-built"><strong>How it's built</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/releases"><strong>Releases</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a> ·
   <a href="https://github.com/sponsors/K-Arthur"><strong>Sponsor</strong></a>
@@ -368,8 +369,7 @@ background removal, image enhancement, object selection, depth-aware effects,
 palette extraction, and local asset search. Some small baseline models ship
 with the app; larger models are downloaded on demand, verified against a
 checksum when available, and run locally. There is no Varve-hosted inference
-service. How the product itself is developed, including AI-assistance
-disclosure, is at [How Varve is built](https://varve.studio/about/how-its-built).
+service.
 </details>
 
 <details>
