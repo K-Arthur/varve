@@ -25,11 +25,14 @@ The user asked for the work retained specifically between the v0.2.1 and
 v0.5.0 releases, so this interval is recorded separately from the broader
 `v0.2.1..HEAD` inventory below. The tag interval contains **3,594 commits**
 and a net diff of **6,424 paths, 910,532 insertions, and 82,842 deletions**.
-The v0.5.0 tag points to frozen product source `0c9b07fa9`; `v0.5.0..HEAD`
-contains 14 later commits and 73 changed paths, but no changes under
-`packages/`, `crates/`, or `apps/desktop/`. Those later commits are release,
-website, documentation, and validation work; they do not redefine the v0.5.0
-editor/engine behavior reviewed here.
+The v0.5.0 tag points to frozen product source `0c9b07fa9`. At the audit cut
+`5b345e613`, `v0.5.0..5b345e613` contains **17 later commits**, **85 changed
+paths**, and a textual diff summary of **2,442 insertions / 533 deletions**.
+No paths under `packages/`, `crates/`, or `apps/desktop/` changed in that
+post-release range. Those commits are release, website, documentation, and
+validation work; they do not redefine the v0.5.0 editor/engine behavior
+reviewed here. The count is frozen at that commit so this report can record it
+without counting its own correction.
 
 This was a retained-tree audit with targeted commit-history review, not a
 manual semantic review of every commit or every line in the 910,532 added
