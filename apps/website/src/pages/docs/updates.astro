@@ -28,6 +28,15 @@ const appImageSignatureNotice = appImageUpdaterSignatureNotice();
         <strong>Current release note (v{release.version}):</strong> {release.updater ? 'A signed updater feed is published. In-app availability depends on the installed package and whether the feed includes its platform and architecture.' : 'No updater feed is published for this release.'} See the platform status below.
       </aside>
 
+      {release.version === '0.5.0' && release.updater && (
+        <p>
+          The v0.5.0 feed includes Linux AppImage (x86_64 and ARM64), Windows NSIS
+          (x86_64 and ARM64), and Apple Silicon macOS app updates. Debian and RPM
+          package installs remain manual. The update signatures do not code-sign
+          the Windows or macOS installers.
+        </p>
+      )}
+
       <section class="docs-section">
         <h2>What happens on first launch?</h2>
         <p>

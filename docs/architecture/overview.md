@@ -1,6 +1,6 @@
 # Varve architecture overview
 
-**Status:** current-state overview, last verified 2026-09-02
+**Status:** current-state overview, last verified 2026-10-09
 
 Varve is a local-first design suite in a monorepo. The supported product is a
 Tauri 2 desktop application. The same editor frontend can run through Vite for
@@ -99,7 +99,8 @@ in an adapter or leaf module when possible.
 | `/try/` browser demo | Bounded sample-document demo staged during website deployment | [`browser-demo.md`](browser-demo.md) |
 | Collaboration | UI scaffolding only; no real-time transport or wire protocol | [`../adr/0200-collaboration-behavior.md`](../adr/0200-collaboration-behavior.md) |
 | `apps/web/` | Placeholder Next.js scaffold, excluded from the workspace and not shippable | `apps/web/package.json` and the application table in [`../README.md`](../README.md) |
-| Platform signing | Pipeline and verification exist; published beta artifacts remain unsigned/notarization-free until credentials and a signed release are available | [`../release/signing-decision-record.md`](../release/signing-decision-record.md) |
+| Platform code signing | v0.5.0 Windows and macOS installers are unsigned; its macOS DMG is not notarized. Linux trust uses checksums, SBOMs, and GitHub artifact attestations. | [`../release/platform-support-matrix.md`](../release/platform-support-matrix.md), [`../release/signing-decision-record.md`](../release/signing-decision-record.md) |
+| In-app updates | v0.5.0 publishes signed Tauri update feeds for Linux AppImage, Windows NSIS, and writable Apple Silicon macOS app installs. DEB/RPM and unsupported or non-writable installs remain manual. Updater signatures do not code-sign installers. | [`../release/update-strategy.md`](../release/update-strategy.md) |
 
 “Planned”, “experimental”, and “partial” in subsystem documentation describe
 the current boundary or a documented gap. They are not promises that a future

@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-08
 **Applies to:** Azure Artifact Signing (Windows), Apple Developer ID (macOS),
-App Store Connect API key, and (when it lands) the Tauri updater minisign key.
+App Store Connect API key, and the Tauri updater minisign key.
 
 The goal of this runbook is simple: **a certificate or credential must never
 expire mid-release.** Everything here is calendar work, not incident work —
@@ -75,7 +75,7 @@ Developer ID certificates cannot be renewed — they must be **re-issued**.
 
 ### 1.5 Tauri updater minisign key
 
-- [ ] Private key offline backup in two locations; CI copy in
+- [ ] Keep the private key backed up offline in two locations; CI copy in
       `TAURI_SIGNING_PRIVATE_KEY`; rotation is a two-release operation (old key
       signs a release embedding the new public key first). Losing the private
       key permanently blocks updates for all installed clients
