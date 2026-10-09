@@ -58,6 +58,10 @@ fail_report() { # $1 = exit code
   exit "$1"
 }
 
+json_bool() { # jq --argjson requires JSON booleans, not shell's 0/1 integers.
+  if [[ "$1" = 1 ]]; then printf 'true'; else printf 'false'; fi
+}
+
 run_checked() { # $1 label, rest command
   local label="$1"; shift
   local out
@@ -142,10 +146,10 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 REPORT_JSON="$(jq -n \
   --arg artifact "$(basename "$DMG")" \
-  --argjson signed "$SIGNED" \
-  --argjson notarized "$NOTARIZED" \
-  --argjson stapled "$STAPLED" \
-  --argjson hardened "$HARDENED" \
+  --argjson signed "$(json_bool "$SIGNED")" \
+  --argjson notarized "$(json_bool "$NOTARIZED")" \
+  --argjson stapled "$(json_bool "$STAPLED")" \
+  --argjson hardened "$(json_bool "$HARDENED")" \
   --arg teamId "${TEAM_ID:-}" \
   --arg publisher "$PUBLISHER" \
   --argjson details "$(printf '%s\0' "${DETAILS[@]}" | jq -R -s -c 'split("\u0000") | map(select(length > 0))')" \

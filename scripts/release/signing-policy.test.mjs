@@ -13,9 +13,9 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import {
   findSigningReports,
   MODE_FAIL_CLOSED,
@@ -574,6 +574,63 @@ const MACOS_OK = {
   writeFileSync(join(tmp, 'nested', 'signing-report-windows.json'), '{not json');
   assert.throws(() => readSigningReports(tmp), /Unreadable signing report/);
   rmSync(tmp, { recursive: true, force: true });
+}
+
+// ── macOS report producer/parser contract ───────────────────────────────────
+// The real release runner must serialize its numeric shell flags as JSON
+// booleans because readSigningReports deliberately rejects ambiguous types.
+// Fake only the platform signing commands; execute the production verifier and
+// feed its actual report through the production parser.
+{
+  const tmp = mkdtempSync(join(tmpdir(), 'varve-macos-report-'));
+  const bin = join(tmp, 'bin');
+  mkdirSync(bin);
+  const commands = {
+    hdiutil: `#!/usr/bin/env bash
+if [[ "$1" == "attach" ]]; then
+  while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "-mountpoint" ]]; then mkdir -p "$2/Varve.app"; exit 0; fi
+    shift
+  done
+fi
+exit 0
+`,
+    codesign: `#!/usr/bin/env bash
+if [[ "$1" == "--verify" ]]; then exit 1; fi
+echo 'TeamIdentifier=not set' >&2
+exit 1
+`,
+    spctl: '#!/usr/bin/env bash\necho "rejected (test unsigned artifact)" >&2\nexit 1\n',
+    xcrun: '#!/usr/bin/env bash\nexit 1\n',
+  };
+  for (const [name, source] of Object.entries(commands)) {
+    writeFileSync(join(bin, name), source, { mode: 0o755 });
+  }
+  const dmg = join(tmp, 'Varve-0.5.0-macos-aarch64.dmg');
+  const reportPath = join(tmp, 'signing-report-macos.json');
+  writeFileSync(dmg, 'test DMG placeholder');
+  try {
+    execFileSync(
+      'bash',
+      ['scripts/release/verify-macos-signature.sh', '--dmg', dmg, '--report', reportPath],
+      {
+        encoding: 'utf-8',
+        env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ''}` },
+      },
+    );
+    const emitted = JSON.parse(readFileSync(reportPath, 'utf8'));
+    for (const field of ['signed', 'notarized', 'stapled', 'hardenedRuntime']) {
+      assert.equal(typeof emitted[field], 'boolean', `macOS report ${field} is a JSON boolean`);
+    }
+    assert.equal(emitted.signed, false, 'unsigned DMG stays honestly unsigned');
+    assert.equal(
+      readSigningReports(tmp).macos.signed,
+      false,
+      'the release trust parser accepts the actual unsigned macOS report',
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 process.stdout.write('signing-policy.test.mjs: all assertions passed\n');
