@@ -322,6 +322,11 @@ export const SHORTCUT_DEFS = {
   },
   settings: { binding: { key: ',', ctrl: true }, label: 'Settings\u2026', category: 'File' },
   import: { binding: { key: 'i', ctrl: true }, label: 'Import\u2026', category: 'File' },
+  toggleAiFeatures: {
+    binding: { key: 'a', ctrl: true, alt: true, shift: true },
+    label: 'Toggle AI Features',
+    category: 'File',
+  },
   toggleSnap: { binding: { key: ',' }, label: 'Toggle Snap', category: 'View' },
   toggleGuidesVisible: {
     binding: { key: ';', ctrl: true },
