@@ -132,6 +132,11 @@ test('macOS guidance is Apple-Silicon-only and never claims a specific Mac model
   await expect(
     page.locator('.quick-download-col[data-platform-col="macos"] .recommend-chip'),
   ).toBeVisible();
+  const macArchitecture = page.locator(
+    '.quick-download-col[data-platform-col="macos"] .quick-architecture-label',
+  );
+  await expect(macArchitecture).toContainText('Apple Silicon');
+  await expect(macArchitecture).not.toContainText('ARM64');
 
   await context.close();
 });

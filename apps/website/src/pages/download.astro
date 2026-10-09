@@ -101,6 +101,14 @@ interface Artifact {
   install?: string;
 }
 
+function displayArchitectureLabel(
+  platform: string,
+  artifact: Pick<Artifact, 'arch' | 'architectureLabel'>,
+): string {
+  if (platform === 'macos' && artifact.arch === 'aarch64') return 'Apple Silicon';
+  return artifact.architectureLabel ?? architectureLabel(artifact.arch);
+}
+
 const PLATFORM_LABELS: Record<string, string> = {
   linux: 'Linux',
   macos: 'macOS',
@@ -239,7 +247,7 @@ const quickPlatforms = available.map((p) => {
     const primary = artifacts.find((artifact) => artifact.format === primaryFormat) ?? artifacts[0]!;
     return {
       arch,
-      label: primary.architectureLabel ?? architectureLabel(arch),
+      label: displayArchitectureLabel(p.id, primary),
       primary,
       alternates: artifacts.filter((artifact) => artifact !== primary),
     };
@@ -667,7 +675,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       Download {artifact.size}
                     </Button>
                     <p class="download-meta">
-                      <span class="architecture-badge">{artifact.architectureLabel ?? architectureLabel(artifact.arch)}</span>{' '}
+                      <span class="architecture-badge">{displayArchitectureLabel(p.id, artifact)}</span>{' '}
                       {artifact.filename}
                     </p>
                     {artifact.install && <code class="code-block">{artifact.install}</code>}
