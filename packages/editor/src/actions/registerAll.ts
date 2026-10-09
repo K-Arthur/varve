@@ -12,6 +12,7 @@ import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import type { ShortcutBinding } from '../shortcuts/types';
 import { registerThumbnailActions } from '../thumbnail/thumbnailCommands';
 import { type ActionCategory, getActionRegistry } from './ActionRegistry';
+import { registerCalloutActions } from './calloutCommands';
 import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
 
 export { dispatchRegisteredAction } from './ActionRegistry';
@@ -148,6 +149,9 @@ export function registerEditorActions(
   // Thumbnail commands: source selection + picker entry point. Registered
   // BEFORE registerAllShortcuts() so real handlers win over no-op stubs.
   registerThumbnailActions(ctx);
+
+  // Callout/balloon commands for comic lettering discoverability.
+  registerCalloutActions(ctx);
 
   // Document color conversion dialog entry point (Assign vs Convert).
   registerColorConversionActions();
