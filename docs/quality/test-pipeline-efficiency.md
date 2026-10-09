@@ -51,6 +51,7 @@ The following failures were pipeline defects with concrete evidence:
 
 | Evidence | Cause | Repair and regression coverage |
 | --- | --- | --- |
+| [CI 37922921025](https://github.com/K-Arthur/varve/actions/runs/37922921025): all 24 Chromium shards passed, but final certification rejected the pipeline receipt | `validate-workflows.test.mjs` used a repository-root `GITHUB_OUTPUT` path and left an untracked file, so the receipt correctly marked its source dirty | Workflow fixtures write outputs under an isolated OS temp directory, assert the expected matching/mismatched writes, and verify that no repository-root artifact remains. A clean-source check now runs at the end of pipeline validation, before dependent integration lanes; regression tests prove both untracked and tracked mutations fail this early guard. |
 | [Candidate 37453733595](https://github.com/K-Arthur/varve/actions/runs/37453733595): browser commands passed, all browser receipts failed | Final commands enabled one retry and omitted flaky-failure enforcement, contradicting receipt policy | Restore strict execution. Commands, receipt checks, and workflow guards share `browser-execution-policy.mjs`. Workflow validation rejects missing or conflicting flags before downstream browser jobs start. Negative controls cover the observed retry change and duplicate overrides. |
 | [Release 37452062493](https://github.com/K-Arthur/varve/actions/runs/37452062493): preflight rejected a successful candidate | The verifier expected an Actions run URL; GitHub normalized the API-created check URL to a check ID | Bind the trusted check using its run/attempt `external_id` and validate its producer and artifact independently. Tests retain rejection of wrong source, workflow, attempt, policy, and expired evidence. |
 | Existing immutable `v0.5.0` tag still executed its old verifier | Release preflight checked out product source and used its orchestration tools | A recovery dispatch pins the verifier to the dispatched workflow SHA, while the version, product bytes, certification SHA and policy remain pinned to the tag. Source-isolation guards cover preflight, the repeated gate, and package checkout. |
@@ -262,6 +263,19 @@ website workflow no longer starts source certification for release-tool-only
 changes and isolates that no-op event. The 0.5.0 download manifest, updater
 feed, and public LLM release facts were regenerated from the published assets;
 the source deployment validates those files before the live visual check.
+
+The follow-up fail-fast guard and adoption path were verified together at
+`98cd30abd27d0bce896d93399deba22b5a10160b`. [Full CI
+37932768728](https://github.com/K-Arthur/varve/actions/runs/37932768728)
+passed the clean-source check before its integration lanes and completed all
+24 browser shards plus native, visual, website, Rust, WASM, and tooling lanes.
+[Final candidate 37940409555](https://github.com/K-Arthur/varve/actions/runs/37940409555)
+verified and adopted that exact immutable integration evidence; its repeated
+product-test jobs were skipped. `pnpm verify:full --remote` then passed at the
+same clean master SHA, including Emoji, Health, and Architecture audits and
+the final producer/supersession recheck. The guard is covered by tracked and
+untracked mutation regressions; the hosted run confirms the workflow places it
+before every expensive integration lane.
 
 Likewise, replacing development-server browser tests with a shared frontend
 bundle needs equivalence checks for test bridges, harness entry points, optional

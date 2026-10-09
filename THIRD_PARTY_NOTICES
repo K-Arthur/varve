@@ -184,6 +184,31 @@ stable-diffusion.cpp (MIT)
   Licensed under MIT License.
 
 -----------------------------------------------------------------------------
+ICC Color Profiles
+-----------------------------------------------------------------------------
+
+sRGB ICC Profile (CC0-1.0)
+  Source: Compact ICC Profiles (https://github.com/saucecontrol/Compact-ICC-Profiles)
+  Copyright (c) Clinton Ingram
+  Profile: sRGB-v4.icc (480 bytes, ICC v4 parametric curve)
+  Licensed under CC0-1.0 Universal (Public Domain).
+  Bundled in: crates/varve-colour/profiles/sRGB.icc
+
+ISO Coated v2 CMYK Profile (Zlib)
+  Source: basICColor printing profiles (icc-profiles-free, Debian)
+  Copyright (c) 2006-2007 Color Solutions, All Rights Reserved
+  Copyright (c) 2007-2010 basICColor GmbH
+  Profile: ISOcoated_v2_bas.ICC (FOGRA39, ISO 12647-2:2004/Amd 1)
+  Licensed under Zlib License.
+  Bundled in: crates/varve-colour/profiles/default_cmyk.icc
+  Reference: https://salsa.debian.org/debian/icc-profiles-free
+  Full license text: THIRD_PARTY_LICENSES/Zlib.txt
+
+  Prior to version 0.5.1, Varve bundled Artifex Software ICC profiles
+  (Copyright 2011, AGPL-3.0-or-later). These have been replaced with
+  permissively-licensed equivalents.
+
+-----------------------------------------------------------------------------
 ONNX AI Models
 -----------------------------------------------------------------------------
 

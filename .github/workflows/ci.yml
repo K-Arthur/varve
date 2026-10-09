@@ -388,6 +388,11 @@ jobs:
           node scripts/security/validate-client-env.mjs --app desktop
       - name: Import-boundary audit
         run: node scripts/security/import-boundaries.mjs
+      # A passing test command can still have side effects (for example, a
+      # fixture writing GITHUB_OUTPUT into the checkout). Fail this dependency
+      # job before any full integration/browser lanes are allowed to start.
+      - name: Reject test-generated source changes before integration lanes
+        run: node scripts/quality/ci-execution-report.mjs --assert-clean
       - name: Write pipeline execution receipt
         if: always()
         env:

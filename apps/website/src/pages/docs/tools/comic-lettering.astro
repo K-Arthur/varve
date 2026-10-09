@@ -1,0 +1,70 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
+---
+
+<Layout
+  title="Comic Lettering — Varve Docs"
+  description="Create and edit comic balloons in Varve while keeping dialogue, tails, and page artwork editable."
+>
+  <div class="container-custom">
+    <main class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Comic Lettering
+      </nav>
+      <h1 class="site-page-title">Comic Lettering</h1>
+      <p class="docs-intro">
+        Varve builds a balloon from ordinary text, shape, and path nodes. The words remain editable,
+        and the balloon uses the same selection, history, layer, and export systems as other artwork.
+        Comic support is a built foundation inside the existing workspaces, not a separate Comic
+        workspace.
+      </p>
+
+      <section class="docs-section">
+        <h2>Create a speech balloon</h2>
+        <ol>
+          <li>Create or select one text object that is not already inside a balloon.</li>
+          <li>In the Inspector, open <strong>Typography</strong> and choose <strong>Add speech balloon</strong>.</li>
+          <li>The selected text is grouped with an editable balloon body and tail. The text is moved into the group rather than flattened or duplicated.</li>
+        </ol>
+        <p>
+          Select the group to open the <strong>Comic balloon</strong> Inspector section. Choose Speech,
+          Thought, Caption, Whisper, Shout, Burst, or Cloud; adjust padding and line shape; then edit
+          the tail endpoint, curve, or width. Add, flip, remove, or detach a tail from the same
+          section. Double-click the balloon to edit its dialogue.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Choose how dialogue fits</h2>
+        <ul>
+          <li><strong>Reflow in balloon</strong> wraps the text to the balloon and reports when it is near the edge.</li>
+          <li><strong>Fit balloon to text</strong> grows the body around the current text.</li>
+          <li><strong>Show overflow</strong> leaves the text size and balloon geometry in place and reports the overflow.</li>
+        </ul>
+        <p>
+          Fitting never silently reduces the font size. For round balloons, the first and last lines
+          can narrow to follow the contour. Vertical writing remains rectangular. Check long
+          translations and exported lettering at the final size.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Current boundaries</h2>
+        <p>
+          A dedicated canvas drag tool for drawing balloons, joined balloons with a shared outline,
+          vertical contour columns, speaker-target placement, and script-import automation are not
+          included. Tails added manually to Burst or Cloud recipes anchor at the text box; tails
+          created with the balloon start at the shaped outline. Comic page profiles and panels are
+          editable starting points, not publisher-specific export guarantees.
+        </p>
+        <p>
+          See the <a href={sitePath('/features/comic-lettering')}>Comic Lettering feature page</a>{' '}
+          for the full capability and status summary, and <a href={sitePath('/docs/tools/typography')}>Typography</a>{' '}
+          for shared text controls.
+        </p>
+      </section>
+    </main>
+  </div>
+</Layout>

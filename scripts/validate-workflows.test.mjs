@@ -8,7 +8,8 @@
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { load } from 'js-yaml';
 import { browserEvidenceErrors } from './quality/ci-execution-report.mjs';
@@ -122,17 +123,47 @@ assert.match(
   const plan = load(candidate).jobs.changes.steps.find((step) => step.id === 'plan').run;
   const inertPlan = plan.replaceAll(expression('inputs.mode'), 'final');
   const sha = 'a'.repeat(40);
-  for (const workflowSha of [sha, 'b'.repeat(40)]) {
-    const result = runInertBaselineShell(inertPlan, {
-      ...process.env,
-      VARVE_TEST_SOURCE_SHA: sha,
-      EXPECTED_SHA: sha,
-      WORKFLOW_SHA: workflowSha,
-      GITHUB_OUTPUT: 'unused-inert-output',
-    });
-    assert.equal(result.phaseError, null);
-    assert.equal(result.status, workflowSha === sha ? 0 : 1);
-    assert.equal(result.argv.length > 0, workflowSha === sha, 'mismatch must stop before planning');
+  const outputDir = mkdtempSync(join(tmpdir(), 'varve-workflow-output-'));
+  const repoOutput = join(process.cwd(), 'unused-inert-output');
+  try {
+    assert.equal(
+      existsSync(repoOutput),
+      false,
+      'workflow fixture output must not exist in the repo',
+    );
+    for (const workflowSha of [sha, 'b'.repeat(40)]) {
+      const outputPath = join(
+        outputDir,
+        workflowSha === sha ? 'matching-output' : 'mismatched-output',
+      );
+      const result = runInertBaselineShell(inertPlan, {
+        ...process.env,
+        VARVE_TEST_SOURCE_SHA: sha,
+        EXPECTED_SHA: sha,
+        WORKFLOW_SHA: workflowSha,
+        GITHUB_OUTPUT: outputPath,
+      });
+      assert.equal(result.phaseError, null);
+      assert.equal(result.status, workflowSha === sha ? 0 : 1);
+      assert.equal(
+        result.argv.length > 0,
+        workflowSha === sha,
+        'mismatch must stop before planning',
+      );
+      assert.equal(
+        existsSync(outputPath),
+        workflowSha === sha,
+        'only the matching plan path should write workflow output',
+      );
+      if (workflowSha === sha) assert.equal(readFileSync(outputPath, 'utf8'), `tree_sha=${sha}\n`);
+    }
+    assert.equal(
+      existsSync(repoOutput),
+      false,
+      'workflow regression test must leave the repo clean',
+    );
+  } finally {
+    rmSync(outputDir, { recursive: true, force: true });
   }
 }
 
