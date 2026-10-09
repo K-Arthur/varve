@@ -173,12 +173,14 @@ function createCharacterHead(x, y, expression = 'normal') {
     rotation: 0,
     points: mouthPoints,
     closed: false,
-    strokes: [{
-      fill: COLORS.black,
-      weight: 2,
-      position: 'center',
-      dashPattern: [],
-    }],
+    strokes: [
+      {
+        fill: COLORS.black,
+        weight: 2,
+        position: 'center',
+        dashPattern: [],
+      },
+    ],
     effects: [],
     transform: [1, 0, 0, 1, 0, 0],
   };
@@ -357,14 +359,22 @@ function createBalloon(textId, x, y, text, kind = 'speech', tailX, tailY) {
       blendMode: 'normal',
       rotation: 0,
       fill: COLORS.white,
-      shape: { kind: 'rect', x: x - padding, y: y - padding, w: textWidth + padding * 2, h: textHeight + padding * 2 },
+      shape: {
+        kind: 'rect',
+        x: x - padding,
+        y: y - padding,
+        w: textWidth + padding * 2,
+        h: textHeight + padding * 2,
+      },
       cornerRadius: 48,
-      strokes: [{
-        fill: COLORS.black,
-        weight: 2,
-        position: 'center',
-        dashPattern: [],
-      }],
+      strokes: [
+        {
+          fill: COLORS.black,
+          weight: 2,
+          position: 'center',
+          dashPattern: [],
+        },
+      ],
       effects: [],
       transform: [1, 0, 0, 1, 0, 0],
     };
@@ -392,7 +402,13 @@ function createBalloon(textId, x, y, text, kind = 'speech', tailX, tailY) {
       blendMode: 'normal',
       rotation: 0,
       fill: COLORS.white,
-      shape: { kind: 'ellipse', cx: x + textWidth / 2 + ux * 40, cy: y + textHeight / 2 + uy * 40, rx: 10, ry: 10 },
+      shape: {
+        kind: 'ellipse',
+        cx: x + textWidth / 2 + ux * 40,
+        cy: y + textHeight / 2 + uy * 40,
+        rx: 10,
+        ry: 10,
+      },
       strokes: [{ fill: COLORS.black, weight: 2, position: 'center', dashPattern: [] }],
       effects: [],
       transform: [1, 0, 0, 1, 0, 0],
@@ -410,7 +426,13 @@ function createBalloon(textId, x, y, text, kind = 'speech', tailX, tailY) {
       blendMode: 'normal',
       rotation: 0,
       fill: COLORS.white,
-      shape: { kind: 'ellipse', cx: x + textWidth / 2 + ux * 60, cy: y + textHeight / 2 + uy * 60, rx: 7, ry: 7 },
+      shape: {
+        kind: 'ellipse',
+        cx: x + textWidth / 2 + ux * 60,
+        cy: y + textHeight / 2 + uy * 60,
+        rx: 7,
+        ry: 7,
+      },
       strokes: [{ fill: COLORS.black, weight: 2, position: 'center', dashPattern: [] }],
       effects: [],
       transform: [1, 0, 0, 1, 0, 0],
@@ -455,11 +477,13 @@ function createBalloon(textId, x, y, text, kind = 'speech', tailX, tailY) {
         tailNodeIds: [bubble1Id, bubble2Id, bubble3Id],
         padding,
         parametric: true,
-        tails: [{
-          nodeIds: [bubble1Id, bubble2Id, bubble3Id],
-          style: 'thought',
-          bubbleCount: 3,
-        }],
+        tails: [
+          {
+            nodeIds: [bubble1Id, bubble2Id, bubble3Id],
+            style: 'thought',
+            bubbleCount: 3,
+          },
+        ],
       },
     };
 
@@ -478,14 +502,22 @@ function createBalloon(textId, x, y, text, kind = 'speech', tailX, tailY) {
       blendMode: 'normal',
       rotation: 0,
       fill: COLORS.white,
-      shape: { kind: 'rect', x: x - padding, y: y - padding, w: textWidth + padding * 2, h: textHeight + padding * 2 },
+      shape: {
+        kind: 'rect',
+        x: x - padding,
+        y: y - padding,
+        w: textWidth + padding * 2,
+        h: textHeight + padding * 2,
+      },
       cornerRadius: 28,
-      strokes: [{
-        fill: COLORS.black,
-        weight: 2,
-        position: 'center',
-        dashPattern: [],
-      }],
+      strokes: [
+        {
+          fill: COLORS.black,
+          weight: 2,
+          position: 'center',
+          dashPattern: [],
+        },
+      ],
       effects: [],
       transform: [1, 0, 0, 1, 0, 0],
     };
@@ -514,12 +546,14 @@ function createBalloon(textId, x, y, text, kind = 'speech', tailX, tailY) {
       fill: COLORS.white,
       points: tailPoints,
       closed: true,
-      strokes: [{
-        fill: COLORS.black,
-        weight: 2,
-        position: 'center',
-        dashPattern: [],
-      }],
+      strokes: [
+        {
+          fill: COLORS.black,
+          weight: 2,
+          position: 'center',
+          dashPattern: [],
+        },
+      ],
       effects: [],
       transform: [1, 0, 0, 1, 0, 0],
     };
@@ -545,12 +579,14 @@ function createBalloon(textId, x, y, text, kind = 'speech', tailX, tailY) {
         tailNodeIds: [tailId],
         padding,
         parametric: true,
-        tails: [{
-          nodeIds: [tailId],
-          style: 'pointed',
-          curve: 0,
-          baseWidth: 20,
-        }],
+        tails: [
+          {
+            nodeIds: [tailId],
+            style: 'pointed',
+            curve: 0,
+            baseWidth: 20,
+          },
+        ],
       },
     };
 
@@ -635,12 +671,14 @@ function generateDocument() {
         h: PANEL_HEIGHT,
         children: [],
         clipContent: true,
-        strokes: [{
-          fill: COLORS.black,
-          weight: 3,
-          position: 'center',
-          dashPattern: [],
-        }],
+        strokes: [
+          {
+            fill: COLORS.black,
+            weight: 3,
+            position: 'center',
+            dashPattern: [],
+          },
+        ],
         effects: [],
         panel: {
           semantic: true,
@@ -689,7 +727,12 @@ function generateDocument() {
     Object.assign(allNodes, cookie2.nodes);
 
     Object.assign(doc.nodes, allNodes);
-    doc.nodes[panels[0].id].children.push(counterId, char.groupId, cookie1.groupId, cookie2.groupId);
+    doc.nodes[panels[0].id].children.push(
+      counterId,
+      char.groupId,
+      cookie1.groupId,
+      cookie2.groupId,
+    );
   }
 
   // Panel 2: Decorating close-up
@@ -793,7 +836,14 @@ function generateDocument() {
     Object.assign(allNodes, balloon.nodes);
 
     Object.assign(doc.nodes, allNodes);
-    doc.nodes[panels[2].id].children.push(counterId, char.groupId, c1.groupId, c2.groupId, c3.groupId, balloon.groupId);
+    doc.nodes[panels[2].id].children.push(
+      counterId,
+      char.groupId,
+      c1.groupId,
+      c2.groupId,
+      c3.groupId,
+      balloon.groupId,
+    );
   }
 
   // Panel 4: Baker leaving
@@ -968,11 +1018,26 @@ function generateDocument() {
       effects: [],
     };
 
-    const balloon = createBalloon(textId, 150, 40, 'Did I use\nmagic flour...?', 'thought', 100, 70);
+    const balloon = createBalloon(
+      textId,
+      150,
+      40,
+      'Did I use\nmagic flour...?',
+      'thought',
+      100,
+      70,
+    );
     Object.assign(allNodes, balloon.nodes);
 
     Object.assign(doc.nodes, allNodes);
-    doc.nodes[panels[5].id].children.push(counterId, char.groupId, c1.groupId, c2.groupId, c3.groupId, balloon.groupId);
+    doc.nodes[panels[5].id].children.push(
+      counterId,
+      char.groupId,
+      c1.groupId,
+      c2.groupId,
+      c3.groupId,
+      balloon.groupId,
+    );
   }
 
   return doc;
