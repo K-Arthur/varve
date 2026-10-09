@@ -19,6 +19,80 @@ audit, **not a line-by-line manual review of all 912,014 textual additions** or
 a certification of every code path and model output. Vendored source is
 accounted for as third-party material, not as Varve-owned product behavior.
 
+## Exact release-tag interval: v0.2.1 to v0.5.0
+
+The user asked for the work retained specifically between the v0.2.1 and
+v0.5.0 releases, so this interval is recorded separately from the broader
+`v0.2.1..HEAD` inventory below. The tag interval contains **3,594 commits**
+and a net diff of **6,424 paths, 910,532 insertions, and 82,842 deletions**.
+The v0.5.0 tag points to frozen product source `0c9b07fa9`; `v0.5.0..HEAD`
+contains 14 later commits and 73 changed paths, but no changes under
+`packages/`, `crates/`, or `apps/desktop/`. Those later commits are release,
+website, documentation, and validation work; they do not redefine the v0.5.0
+editor/engine behavior reviewed here.
+
+This was a retained-tree audit with targeted commit-history review, not a
+manual semantic review of every commit or every line in the 910,532 added
+lines. The full path and commit inventories locate the work; for each public
+workflow below, the review followed relevant introduction and corrective
+commits into the final tagged implementation, tests, qualification evidence,
+and current user guidance. Reverted-only work and third-party vendor changes
+were not counted as shipped Varve features.
+
+### v0.5.0 feature-to-documentation crosswalk
+
+| v0.5.0 release-note area | Current user guidance and remaining scope |
+| --- | --- |
+| Six workspaces and flexible panels | `/docs/workspaces` covers the six modes, shared document model, layouts, and panel behavior. |
+| Illustration, brush, and tablet controls | `/docs/touch-and-pen` and `/docs/tools/strokes` cover input routes, brush controls, and device-specific pressure/tilt support. |
+| Comic lettering | New `/docs/tools/comic-lettering` guide covers creation, fitting, tails, and incomplete workflows; `/features/comic-lettering` retains the broader capability summary. |
+| Photo workflows | `/docs/tools/retouching`, `/docs/tools/raw-hdr-photo`, `/docs/tools/image-treatments`, `/docs/tools/image-enhancement`, `/docs/tools/colorization`, `/docs/tools/depth-blur`, and `/docs/tools/generative-editing` state tool-specific inputs and qualification limits. |
+| Vector and type tools | `/docs/tools/shape-building`, `/docs/tools/typography`, and `/docs/tools/image-trace` cover the corresponding workflows and format boundaries. |
+| Reusable patterns | `/docs/tools/patterns` describes source editing, repeat placement, seam inspection, and SVG/PDF subset limits. |
+| Presentation decks | `/docs/presentations` marks the workflow experimental and documents raster PDF/PNG delivery and formatting/accessibility limits. |
+| Manual Token Sync | New `/docs/tools/design-tokens` guide explains import, bind, three-way review, export, and the lack of watchers, Git, write-back, and vendor adapters; the feature page carries its full standards matrix. |
+| Local Wasm plugins | `/docs/plugins` and `/features/plugins` describe the experimental local package model, permissions, and intentionally absent marketplace/general extension APIs. |
+| Mockups and exports | New `/docs/tools/mockups` guide documents supported surfaces and export behavior; `/features/mockups` explicitly bounds the feature to 2D mappings rather than full 3D. |
+| PDF artwork, dimensions, and print options | `/docs/file-formats` and `/docs/tools/export` describe embedded artwork, dimensions, supported PDF/PDF-X paths, and text outlining. |
+| Experimental renderer options | `/docs/settings` and `/docs/rendering` distinguish Canvas2D default from opt-in WebGL2/WebGPU paths and their fallbacks. |
+| Schema 2.33 compatibility | `/docs/file-formats` gives the v0.2.1 schema 2.21 baseline, migration behavior, backup advice, and forward-compatibility boundary. |
+| Save, history, and recovery | `/docs/settings` has been corrected: autosave creates internal local copies/recovery points on the configured 1–60 minute interval; it does not write the user's chosen file or mark it saved. `/docs/file-formats` and `docs/architecture/save-destinations.md` describe explicit destinations and save states. |
+| Responsive and accessible controls | `/docs/workspaces`, `/docs/touch-and-pen`, and `/accessibility` describe responsive layouts and supported input/accessibility boundaries. |
+| Fit the active surface | `/docs/workspaces` now explains Fit Canvas versus Fit Page, including empty canvases and blank publishing pages. |
+| Document-name entry and selection/import feedback | These are interaction and error-feedback refinements rather than standalone features; `/docs/getting-started/first-project` and `/docs/file-formats` cover the user-facing name/import workflows, while release notes preserve the implementation detail. |
+| Bounded browser demo | `/docs/browser-demo` documents its sample-document, storage, offline, workspace, and inference limits. |
+| Consent-first desktop updates | `/docs/updates` describes consent, package coverage, signature verification, and manual-only package/platform cases. |
+
+### History checks that changed or validated user-facing truth
+
+Commit subjects were used to find candidate work, then the final tree and
+adjacent fixes were checked before updating copy. Examples include:
+
+| Workflow | Introduction and corrective history in the tag interval | Final-state fact used in public guidance |
+| --- | --- | --- |
+| Comic lettering | `a1eb9165c`, `a8acf5fb2`, `07b690f6f`, then outline/editing fixes `57c2128e5` and `c62822503` | The balloon is a recipe over normal editable nodes; its text remains text. Fitting reports overflow instead of shrinking type, and the dedicated drag tool/joined balloons/vertical contour columns remain out of scope. |
+| Design Token Sync | `a40a424c6`, `78c28571b`, `7d03966b1`, `79fe9d8ca` | External updates use a reviewed base/local/source merge; file watching, Git-backed sources, source write-back, and vendor dialect claims remain absent. |
+| Mockups | `b96e564b0`, `a8839901d`, `0ad367b8b`, export follow-up `4b7fdd7e5`, and source-ownership repair `0746ea753` | Planar, projective, bounded cylindrical, and mesh-envelope surfaces compose through supported exports; PDF/X and code export boundaries are explicit, and no full 3D or PSD smart-object round trip is claimed. |
+| Save and recovery | `ae5aa86b6`, `14de668b0`, `88b581e1d`, `a3656a1d7`, and `d89665b62` | Internal autosave/recovery is separate from the user's authoritative save destination; the Settings guide was stale about page-hide saves and the interval range and is now aligned to the UI and persistence implementation. |
+| Fit active surface | `a054ca08f` | The status-bar fit target follows the active surface and disables only when an unbounded Design Canvas has no artwork; a blank publishing page remains fit-able. |
+
+The page-level review also kept gated or qualification-pending image behavior
+separate from shipped behavior: promptless local reconstruction is not
+prompt-conditioned generation; browser AI-quality Expand is awaiting
+independent real-photo qualification; and browser Fast/PatchMatch Expand
+remains disabled after edge striping. Details and complaint-informed failure
+modes are recorded in the image-editing sections below.
+
+### Documentation and website updates from the release-range review
+
+This follow-up adds task guides for Comic Lettering, Design Tokens, and
+Mockups; links the complete v0.5.0 workflow guides from the Documentation
+index; adds Fit Active Surface guidance to Workspaces; corrects the inaccurate
+autosave description in Settings; and expands Known Issues to distinguish
+current feature boundaries from defects that may be addressed later. The
+three marketing feature pages cross-link their practical guides. No code was
+changed to make the copy true.
+
 ## Retained-tree inventory
 
 | Area | Changed paths | What the inventory contains |
@@ -31,8 +105,9 @@ accounted for as third-party material, not as Varve-owned product behavior.
 | `vendor/` | 127 | Third-party code and notices; not Varve feature claims |
 | Other repository and native areas | 134 | Rust crates, workflows, examples, packaging, toolchain/configuration, licenses, and root guidance |
 
-The path totals above sum to 6,434. The website has 116 built routes at the
-reviewed release, and its feature and documentation pages were treated as
+The path totals above sum to 6,434. The v0.5.0 website had 116 built routes at
+the reviewed release; this follow-up adds three documentation routes, bringing
+the current site build to 119. Feature and documentation pages were treated as
 public product claims rather than inferred from the size of the route tree.
 
 ## Product areas represented by the surviving work
@@ -112,6 +187,28 @@ adding a one-off value. Browser measurements show a 56 px desktop gap at
 Dedicated desktop/mobile assertions and screenshot baselines live in
 `apps/website/tests/e2e/updates.visual.spec.ts`.
 
+## Release-range guides and limitations-page visual review
+
+Desktop and phone-width full-page captures of the new Comic Lettering, Design
+Tokens, and Mockups guides and the expanded Known Issues & Limitations page
+were inspected at 1440×1000 and 390×844. The capture caught missing spaces
+around inline links and commands in the new guides; those were corrected and
+recaptured. The final pages keep the established typography and section rhythm,
+their task steps remain readable on narrow screens, and none has horizontal
+overflow. The limitations page is intentionally information-dense; its new
+feature boundaries link to the workflows they qualify.
+
+The release-range website slice was validated after refreshing the two
+intentional docs-index and Workspaces screenshot baselines. `pnpm verify:plan`
+selected the website checks and reported **no full-suite escalation**.
+`pnpm verify:affected` passed the docs, emoji, radius, E2E typecheck, website
+typecheck, JavaScript unit, website unit, and browser lanes; the two unit lanes
+each passed **285 tests**, and all **678 website E2E cases** passed across GH
+Pages, custom-domain, and touch projects. The build emitted **119 routes**.
+The commit checkpoint also passed its staged health, impact, secret, contact,
+emoji, and docs audits. Rust/native, model-quality, packaging, and full-repo
+gates were not selected for this documentation-only slice.
+
 ## Validation and commits
 
 For the staged implementation and site changes, `pnpm verify:plan --staged`
@@ -129,8 +226,10 @@ The follow-up was committed in reviewable slices:
 
 - `a00f29279` — clarify image-generation capability boundaries.
 - `689145bf6` — restore Updates-page section spacing.
+- `972562cc4` — record the retained post-v0.2.1 audit scope.
+- `b34081aa5` — add v0.5.0 feature guides and expand the limitations page.
 
-Neither commit was pushed as part of this audit.
+These audit changes were not pushed as part of this work.
 
 ## Reproduction commands and interpretation
 
