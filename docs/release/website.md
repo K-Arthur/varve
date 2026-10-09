@@ -1,6 +1,6 @@
 # Varve — Website Architecture and Launch Plan
 
-**Last verified:** 2026-10-06 (release-data workflow inputs)
+**Last verified:** 2026-10-09 (published v0.5.0 release data and update feed)
 **Status:** implemented and deployed at **https://varve.studio** (custom
 domain, registered and DNS at Porkbun, hosted on GitHub Pages). Published
 application versions and availability come from the verified release data
@@ -144,7 +144,7 @@ release.yml  →  dist/release/release-manifest.json + SHA256SUMS.txt + SBOMs
                         │      • any failure FAILS the deployment
                         │      ▼
                         └─ offline path (rehearsal/local)
-                             fetch-website-release.mjs --tag v0.2.1
+                             fetch-website-release.mjs --tag v0.5.0
                               │
                               ▼
     apps/website/src/data/release-manifest.json      (generated snapshot;
@@ -392,7 +392,9 @@ Target WCAG 2.2 AA — enforced by the CI website e2e gate.
 - [x] Real screenshots added (2026-08-09)
 - [x] Accessibility pass (§6)
 - [x] Mobile layout checked at 320/375/768 px (e2e)
-- [x] Download page verified against a **real** release manifest (v0.2.1, published 2026-08-25)
+- [x] Download page verified against a **real** release manifest (initial
+  evidence: v0.2.1, published 2026-08-25; current published data: v0.5.0,
+  published 2026-10-09)
 - [x] Every checksum on the page matches the published artifact
 - [x] Privacy, licence and security pages re-read for accuracy
 - [x] Post-deployment smoke check wired into the workflow (`scripts/website/smoke-pages.mjs`)

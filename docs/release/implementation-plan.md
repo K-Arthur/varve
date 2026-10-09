@@ -1,7 +1,13 @@
-# Varve — Prioritised Release Implementation Plan
+# Varve — Prioritised Release Implementation Plan (Historical)
 
 **Date:** 2026-08-04
 **Status key:** ✅ done in this pass · ⬜ outstanding
+
+> **Historical plan.** This checklist records the release work as planned in
+> August 2026. Its checkboxes, priorities, and estimates are not current
+> release status. The v0.5.0 state and evidence are in the
+> [release execution record](0.5.0-release-execution.md) and
+> [platform support matrix](platform-support-matrix.md).
 
 > **Status update (2026-08-10):** The plan is complete. v0.1.0 was published
 > (2026-08-09) and the v0.1.1 tag exists (unreleased); P0-11 (green CI build)
