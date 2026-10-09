@@ -87,7 +87,12 @@ test.describe('tablet text editing', () => {
     await expect(editor).toHaveAttribute('data-text-orientation', 'mixed');
     await page.keyboard.insertText('Tablet entry ');
 
+    // Freeze the viewport-recovery timer so this covers Escape on both sides
+    // of the 250ms handoff without depending on CI scheduler load.
+    await page.clock.install();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     await page.setViewportSize({ width: 820, height: 360 });
+    await page.clock.runFor(16);
     await expect(editor).toBeFocused();
     const editorGeometry = await editor.evaluate((element) => {
       const rect = element.getBoundingClientRect();
@@ -114,6 +119,14 @@ test.describe('tablet text editing', () => {
     const editSurfaces = page.locator('[data-text-edit-surface="true"]');
     await expect(editSurfaces).toHaveCount(1, { timeout: 15_000 });
 
+    // The first Escape during viewport recovery dismisses the software
+    // keyboard handoff while keeping the native text editor alive.
+    await page.keyboard.press('Escape');
+    await expect(editSurfaces).toHaveCount(1);
+    await expect(editor).toBeFocused();
+
+    // Once recovery settles, Escape commits the text and closes the editor.
+    await page.clock.runFor(250);
     await page.keyboard.press('Escape');
     await expect(editSurfaces).toHaveCount(0, { timeout: 15_000 });
     await expect
