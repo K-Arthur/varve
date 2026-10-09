@@ -14,7 +14,7 @@ import '../../styles/docs-prose.css';
 
       <h1 class="site-page-title">Settings & Preferences</h1>
       <p class="docs-intro">
-        Varve's settings panel allows you to customize the editor behavior, appearance, export defaults, and auto-save configuration. Settings are persisted to localStorage and sync across sessions.
+        Varve's settings panel customizes editor behavior, appearance, export defaults, and the interval for automatic local backups. Automatic recovery is separate from saving a document to its chosen file or library destination.
       </p>
 
       <section class="docs-section">
@@ -229,18 +229,12 @@ import '../../styles/docs-prose.css';
       </section>
 
       <section class="docs-section">
-        <h2>Auto-Save Configuration</h2>
+        <h2>Automatic backups and recovery</h2>
         <p>
-          Varve includes a robust auto-save system that protects your work:
+          <strong>Autosave interval (min)</strong> controls how often Varve writes an internal local copy while you edit. The setting accepts 1–60 minutes and defaults to 5 minutes. For a document with an app-library record, autosave updates that internal record and creates a recovery point; an untitled document is stored as a recovery point.
         </p>
-        <ul>
-          <li><strong>Interval</strong> — How often auto-save runs (default: 5 minutes, configurable 1-30 minutes)</li>
-          <li><strong>Save on visibility change</strong> — Auto-saves when you switch tabs or minimize the window</li>
-          <li><strong>Save on page hide</strong> — Last-chance save before the page unloads</li>
-          <li><strong>Recovery points</strong> — Automatic recovery snapshots created periodically, kept for up to 7 days</li>
-        </ul>
         <p>
-          The auto-save service uses an idle-driven architecture: it debounces rapid edits and only saves when the document has actually changed. A concurrency guard prevents overlapping save operations, and retry with exponential backoff handles transient failures gracefully. The service state machine transitions between idle, saving, and error states.
+          An autosave is <strong>not</strong> a write to the file you chose, and it does not mark that file as saved. Use <strong>File &gt; Save</strong> (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>S</kbd>) to write to the current destination; the first save asks you to choose one. Check the status bar for <strong>Saved</strong>, <strong>Modified</strong>, or a save error before closing important work. Recovery points are a fallback, not an archival backup. See <a href={sitePath('/docs/file-formats')}>File Formats</a> for the save destinations and compatibility rules.
         </p>
       </section>
 

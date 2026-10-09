@@ -1,0 +1,65 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
+---
+
+<Layout
+  title="Design Tokens — Varve Docs"
+  description="Import, bind, update, and export design tokens in Varve, with manual source review and clear format boundaries."
+>
+  <div class="container-custom">
+    <main class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Design Tokens
+      </nav>
+      <h1 class="site-page-title">Design Tokens</h1>
+      <p class="docs-intro">
+        Varve's Variables and Tokens tools are for values in your artwork. An imported token source
+        does not change the Varve interface theme. Source updates are reviewed and applied by you;
+        there is no background file watcher.
+      </p>
+
+      <section class="docs-section">
+        <h2>Open Variables and Tokens</h2>
+        <p>
+          Choose <strong>View &gt; Panels &gt; Variables and Tokens…</strong>, or run{' '}
+          <strong>Open Variables and Tokens</strong> from the command palette. The dialog contains
+          the document's Variables and the Token Sync center for importing, reviewing, and exporting
+          sources.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Import, bind, and update</h2>
+        <ol>
+          <li><strong>Import:</strong> choose a supported DTCG JSON source and review its parse, validation, and mapping diagnostics. Nothing changes in the document until you approve the preview.</li>
+          <li><strong>Bind:</strong> connect supported variable values to artwork properties through the Inspector. Current property bindings cover colors, numbers, and pixel dimensions.</li>
+          <li><strong>Update:</strong> when the source file changes, start a re-import. Varve compares the imported base, your local token value, and the new source value. Review conflicts per token, then apply the approved update as one undoable transaction.</li>
+          <li><strong>Export:</strong> download canonical JSON from the current document token data. Export does not write back to the original source file.</li>
+        </ol>
+        <p>
+          For Resolver projects, choose the modifier contexts before import. The selected context is
+          resolved into document tokens; retain the project files if you need to work with other
+          contexts or composition later.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Current boundaries</h2>
+        <p>
+          Synchronization is manual: there is no live file watching, Git-backed source, or
+          write-back. Vendor-specific token dialects are not advertised as DTCG-compatible
+          interchange. Font-family and weight pickers, composite property bindings, and group
+          metadata updates are still incomplete; unsupported values remain in token data but may
+          not bind to artwork. Downstream tools can interpret aliases and extensions differently,
+          so check the output in your target tool.
+        </p>
+        <p>
+          The <a href={sitePath('/features/design-tokens')}>Design Tokens feature page</a> has the
+          detailed capability matrix and standards evidence.
+        </p>
+      </section>
+    </main>
+  </div>
+</Layout>
