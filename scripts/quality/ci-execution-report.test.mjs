@@ -3,9 +3,12 @@
 /** Regression tests for exact-source CI execution receipts. */
 
 import assert from 'node:assert/strict';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { load } from 'js-yaml';
 import { createBrowserInventory } from './browser-inventory.mjs';
 import {
   browserEvidenceErrors,
@@ -21,6 +24,35 @@ import {
 assert.deepEqual(parseList('one,two\nthree'), ['one', 'two', 'three']);
 assert.equal(normalizeExecutionStatus('cancelled'), 'cancelled');
 assert.equal(normalizeExecutionStatus('timed_out'), 'failure');
+
+// Keep the clean-source check inside the cheap dependency gate for every
+// expensive integration job, and before the diagnostic receipt is written.
+const ciWorkflow = load(
+  readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8'),
+);
+const pipelineSteps = ciWorkflow.jobs['pipeline-validate'].steps;
+const cleanGuardIndex = pipelineSteps.findIndex((step) => step.run?.includes('--assert-clean'));
+const receiptIndex = pipelineSteps.findIndex(
+  (step) => step.name === 'Write pipeline execution receipt',
+);
+assert.notEqual(cleanGuardIndex, -1, 'pipeline validation must fail fast on source mutations');
+assert.ok(cleanGuardIndex < receiptIndex, 'source guard runs before receipt finalization');
+for (const jobName of [
+  'rust',
+  'wasm',
+  'js',
+  'website-e2e',
+  'e2e',
+  'e2e-visual',
+  'desktop-e2e',
+  'bench',
+  'models',
+]) {
+  const needs = Array.isArray(ciWorkflow.jobs[jobName].needs)
+    ? ciWorkflow.jobs[jobName].needs
+    : [ciWorkflow.jobs[jobName].needs];
+  assert.ok(needs.includes('pipeline-validate'), `${jobName} waits for pipeline validation`);
+}
 
 const identity = checkedOutIdentity();
 const cleanIdentity = { ...identity, clean: true, dirtyPathCount: 0, dirtyPaths: [] };
@@ -86,6 +118,43 @@ try {
   assert.deepEqual(JSON.parse(readFileSync(path, 'utf8')), report);
 } finally {
   rmSync(directory, { recursive: true, force: true });
+}
+
+// The pipeline guard runs before expensive lanes. Exercise its CLI against a
+// disposable Git checkout so both tracked edits and leaked output files fail.
+const cleanGuardDirectory = mkdtempSync(join(tmpdir(), 'varve-ci-clean-guard-'));
+try {
+  const git = (args) => execFileSync('git', args, { cwd: cleanGuardDirectory, stdio: 'ignore' });
+  git(['init', '--quiet', '--initial-branch=main']);
+  git(['config', 'user.name', 'Varve CI Fixture']);
+  git(['config', 'user.email', 'varve-ci-fixture@example.invalid']);
+  const trackedPath = join(cleanGuardDirectory, 'tracked.txt');
+  writeFileSync(trackedPath, 'baseline\n');
+  git(['add', 'tracked.txt']);
+  git(['commit', '--quiet', '-m', 'fixture']);
+
+  const reportScript = fileURLToPath(new URL('./ci-execution-report.mjs', import.meta.url));
+  const runGuard = () =>
+    spawnSync(process.execPath, [reportScript, '--assert-clean'], {
+      cwd: cleanGuardDirectory,
+      encoding: 'utf8',
+    });
+  const cleanResult = runGuard();
+  assert.equal(cleanResult.status, 0, cleanResult.stderr);
+  assert.match(cleanResult.stdout, /CI source is clean:/);
+
+  writeFileSync(join(cleanGuardDirectory, 'leaked-output'), 'fixture output\n');
+  const untrackedResult = runGuard();
+  assert.equal(untrackedResult.status, 1);
+  assert.match(untrackedResult.stderr, /execution source is not clean.*leaked-output/s);
+  rmSync(join(cleanGuardDirectory, 'leaked-output'));
+
+  writeFileSync(trackedPath, 'modified\n');
+  const modifiedResult = runGuard();
+  assert.equal(modifiedResult.status, 1);
+  assert.match(modifiedResult.stderr, /execution source is not clean.*tracked.txt/s);
+} finally {
+  rmSync(cleanGuardDirectory, { recursive: true, force: true });
 }
 
 console.log('ci execution report tests passed');

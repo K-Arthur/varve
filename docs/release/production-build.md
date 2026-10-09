@@ -1,7 +1,7 @@
 # Varve — Production Build Commands
 
 **Evidence date:** 2026-08-04 (CachyOS build measurements)
-**Current release line:** v0.2.1 (published 2026-08-25)
+**Latest published release:** v0.5.0 (2026-10-09)
 **Verified on:** CachyOS Linux (kernel 7.1.5, Wayland), Node v26.4.0, pnpm 11.9.0,
 rustc 1.97.1, tauri-cli 2.11.3, webkit2gtk-4.1 2.52.5, **glibc 2.44**
 
@@ -233,7 +233,9 @@ host and travel with the file:
    …). The target needs modern Mesa/EGL. On a FUSE-less machine, run it with
    `--appimage-extract-and-run`.
 
-Both machines can verify the transfer with `sha256sum Varve_0.2.1_amd64.AppImage`.
+Both machines can verify the current published transfer with
+`sha256sum Varve-0.5.0-linux-x86_64.AppImage`. The build measurements above
+remain the historical 2026-08-04 host snapshot.
 
 ### All Linux formats at once
 

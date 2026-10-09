@@ -1,29 +1,31 @@
 # Linux Packaging
 
-Varve ships as multiple Linux distribution formats. This directory contains
-the packaging infrastructure for each channel.
+Varve v0.5.0 publishes Linux AppImage, `.deb`, and `.rpm` downloads. This
+directory also contains a prepared AUR package definition (x86_64 and aarch64
+AppImage sources) and an incomplete Flatpak stub; neither AUR nor Flathub is
+currently a published Varve distribution channel.
 
 ## Directory structure
 
 ```
 packaging/
   aur/
-    varve-desktop-bin/        # AUR binary package (from upstream .deb)
+    varve-desktop-bin/        # prepared AUR package (extracts upstream AppImage)
       PKGBUILD
       .SRCINFO
-      LICENSE                 # 0BSD license for the packaging scripts
   flatpak/
-    dev.varve.desktop.yml     # Flatpak manifest (Flathub-ready)
-    cargo-sources.json        # Vendored Rust crate sources (regenerate per release)
-    pnpm-sources.json         # Vendored pnpm package sources (regenerate per release)
+    dev.varve.desktop.yml     # incomplete Flatpak build stub; exits with failure
+    cargo-sources.json        # generated Rust source inventory (not wired into stub)
+    pnpm-sources.json         # generated pnpm source inventory (not wired into stub)
     dev.varve.desktop.desktop # Desktop entry for the sandbox
-    dev.varve.desktop.metainfo.xml  # Symlink to the canonical metainfo in apps/desktop/src-tauri/linux/
+    dev.varve.desktop.metainfo.xml  # AppStream metainfo for the sandbox
 ```
 
 ## AUR — varve-desktop-bin
 
-Binary package that extracts the upstream AppImage release. Includes ONNX Runtime
-for native AI features (background removal, image upscaling, tracing).
+The local PKGBUILD extracts the upstream AppImage for x86_64 and aarch64.
+Includes ONNX Runtime for native AI features (background removal, image
+upscaling, tracing).
 
 ### Release update procedure
 
@@ -31,7 +33,7 @@ for native AI features (background removal, image upscaling, tracing).
 # 1. Update pkgver in PKGBUILD
 # 2. Get the sha256 from the published SHA256SUMS.txt
 sha256=$(curl -sL https://github.com/K-Arthur/varve/releases/download/v$VERSION/SHA256SUMS.txt \
-  | grep 'linux-x86_64.AppImage' | awk '{print $1}')
+  | grep "linux-${arch}.AppImage$" | awk '{print $1}')
 # 3. Update sha256sums_x86_64 and sha256sums_aarch64 in PKGBUILD
 # 4. Regenerate .SRCINFO
 cd packaging/aur/varve-desktop-bin
@@ -46,56 +48,28 @@ makepkg --verifysource
 # Create AUR account at https://aur.archlinux.org/account/register
 # Then:
 git clone ssh://aur@aur.archlinux.org/varve-desktop-bin.git /tmp/varve-aur
-cp PKGBUILD .SRCINFO LICENSE /tmp/varve-aur/
+cp PKGBUILD .SRCINFO /tmp/varve-aur/
 cd /tmp/varve-aur
-git add PKGBUILD .SRCINFO LICENSE
+git add PKGBUILD .SRCINFO
 git commit -m "varve-desktop-bin $VERSION"
 git push
 ```
 
 ## Flatpak
 
-Complete Flatpak manifest using GNOME Platform 47 (includes webkit2gtk-4.1,
-GTK3, libsoup3). Builds entirely offline with vendored Cargo and pnpm sources.
+**Status: stub; not buildable or ready for Flathub.** The manifest targets
+GNOME Platform 47 but its module intentionally exits with failure. The
+generated Cargo and pnpm source inventories exist, but the manifest still
+contains TODOs and does not consume them. Runtime permissions, build commands,
+dependency inclusion, installation, and update behavior have not been
+qualified. Do not follow the sample build/install commands from older copies
+of this document.
 
-**Important:** Per Flathub policy, the manifest itself and all Flathub submission
-content must be human-authored. AI tools may not be used to generate, modify, or
-assist with the Flathub PR, its description, or reviewer comments.
-
-### Building locally
-
-```bash
-# Install the runtime + SDK
-flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47
-flatpak install flathub org.freedesktop.Sdk.Extension.rust-stable//24.08
-flatpak install flathub org.freedesktop.Sdk.Extension.node22//24.08
-
-# Build
-cd packaging/flatpak
-flatpak-builder --force-clean build-dir dev.varve.desktop.yml
-
-# Install
-flatpak-builder --user --install --force-clean build-dir dev.varve.desktop.yml
-
-# Run
-flatpak run dev.varve.desktop
-```
-
-### Regenerating source manifests
-
-When Cargo.lock or pnpm-lock.yaml changes (e.g., after a dependency update):
-
-```bash
-# Regenerate Cargo sources
-flatpak-builder-tools/cargo/flatpak-cargo-generator.py \
-  apps/desktop/src-tauri/Cargo.lock \
-  -o packaging/flatpak/cargo-sources.json
-
-# Regenerate pnpm sources
-flatpak-builder-tools/node/flatpak_node_generator pnpm \
-  packaging/flatpak/pnpm-sources.json \
-  pnpm-lock.yaml
-```
+Before this can be described as a working package, a maintainer must complete
+the manifest, connect the source inventories, build offline, install and run
+the app in the sandbox, and test file access, printing, fonts, model payloads,
+and update authority. Then follow the human-authored submission checklist in
+`docs/release/linux-ecosystem-readiness.md`.
 
 ### Flathub submission
 
@@ -115,10 +89,10 @@ submission checklist.
 |---|---|
 | Primary Arch package? | **Binary** (`varve-desktop-bin`) from upstream AppImage |
 | Separate source package? | No — single `-bin` package avoids duplicate/maintenance burden |
-| Package source? | **x86_64 and aarch64 AppImage** (complete payload incl. ONNX) |
+| AUR source artifact? | AppImage extraction; local PKGBUILD targets v0.5.0 x86_64 and aarch64 |
 | AUR name | `varve-desktop-bin` (matches executable name, no conflicts) |
 | AppStream metadata outside Flatpak? | Yes — installed by deb/rpm/AppImage and the AUR package |
-| Flatpak offline build? | Yes — Cargo + pnpm vendored via generated source manifests |
-| ONNX in Flatpak? | Initial submission will not include ONNX; AI features fall back |
-| aarch64 support? | Upstream ships aarch64 AppImage; AUR supports both x86_64 and aarch64 |
+| Flatpak offline build? | No — the manifest remains a failing stub; source inventories are not wired in |
+| ONNX in Flatpak? | Unverified — no Flatpak build has completed |
+| aarch64 support? | Upstream ships aarch64 AppImage/deb/rpm; AUR PKGBUILD covers both arches |
 | Tauri updater in package-manager builds? | Disabled — `package-manager-managed` / `store-managed` authorities |

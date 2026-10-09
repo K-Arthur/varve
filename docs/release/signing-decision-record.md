@@ -167,7 +167,7 @@ path ($0) remains viable later but costs integration time.
 | Mac App Store | Sandbox conflicts with arbitrary-path documents, printing (`lp`/`lpstat`), fonts — see `distribution-decision-matrix.md` §4 |
 | Self-hosted apt/rpm repos | No repo exists; GPG repo signing would be pure overhead |
 | Free community signing programs | Eligibility (license/source-availability/governance/age/release-history/build-reproducibility) not established; license stays FSL-1.1-MIT regardless |
-| Tauri updater signing keys | No updater (see `update-strategy.md`); keys are created only when the updater lands, and are stored/backed-up separately from Apple/Windows material |
+| Tauri updater signing keys | Active since 2026-08-13; stored and backed up separately from Apple/Windows material. See the current-state section at the top and `update-strategy.md`. |
 
 ---
 

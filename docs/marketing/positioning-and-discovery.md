@@ -1,7 +1,7 @@
 # Varve positioning and discovery brief
 
 **Status:** Current operating brief
-**Last verified:** 2026-10-02
+**Last verified:** 2026-10-09
 **Owner:** Varve project maintainer
 
 This is the source of truth for public-facing positioning, audience priorities,
@@ -160,9 +160,11 @@ When a new phrase is proposed, check it against both lists before it ships.
 - Optional model tools run locally, and Varve does not train models on user
   documents. Assistive tracing, enhancement, background removal, selection,
   depth and palette tools coexist with explicit mask-guided Fill/Remove and
-  bounded desktop promptless Expand. Model downloads require the user's
-  choice. Prompt-conditioned generation remains gated, and browser AI-quality
-  Expand is implemented but pending qualification; there is no shipped hosted
+  bounded promptless Expand: desktop photo review is limited to Linux x86_64,
+  while the browser AI-quality path is exposed after a local model download but
+  awaits independent real-photo review. Browser Fast/PatchMatch Expand stays
+  disabled after edge striping. Model downloads require the user's choice.
+  Prompt-conditioned generation remains gated; there is no shipped hosted
   text-to-image service. Link the
   [generative capability boundary](../architecture/generative-editing-system.md#current-capability-boundary)
   when discussing these features.
@@ -183,9 +185,11 @@ When a new phrase is proposed, check it against both lists before it ships.
 - Fabricated release versions, dates, installer sizes, package-manager
   commands, testimonials, customer logos, awards, user counts, or performance
   numbers.
-- “Free forever” as a headline. State the specific, checkable commitment
-  instead; the phrase is the pledge that burned Affinity, Sketch, and Clip
-  Studio users.
+- “Free forever” as a headline. State the specific Community Edition
+  commitment in [COMMERCIAL.md](../../COMMERCIAL.md) instead. Current evidence
+  does not support saying that Affinity, Sketch, or Clip Studio users were
+  burned by a reversed “free forever” pledge; see the dated correction in the
+  [complaint research](../research/design-tool-failure-modes-2026-10-02.md#pricing-claim-correction-2026-10-09).
 - “Real-time collaboration” as an available capability; current status is
   single-user with UI scaffolding only. Do not imply peer-to-peer or
   collaborate-without-the-cloud sync.

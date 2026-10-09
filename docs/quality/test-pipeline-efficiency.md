@@ -51,6 +51,7 @@ The following failures were pipeline defects with concrete evidence:
 
 | Evidence | Cause | Repair and regression coverage |
 | --- | --- | --- |
+| [CI 37922921025](https://github.com/K-Arthur/varve/actions/runs/37922921025): all 24 Chromium shards passed, but final certification rejected the pipeline receipt | `validate-workflows.test.mjs` used a repository-root `GITHUB_OUTPUT` path and left an untracked file, so the receipt correctly marked its source dirty | Workflow fixtures write outputs under an isolated OS temp directory, assert the expected matching/mismatched writes, and verify that no repository-root artifact remains. A clean-source check now runs at the end of pipeline validation, before dependent integration lanes; regression tests prove both untracked and tracked mutations fail this early guard. |
 | [Candidate 37453733595](https://github.com/K-Arthur/varve/actions/runs/37453733595): browser commands passed, all browser receipts failed | Final commands enabled one retry and omitted flaky-failure enforcement, contradicting receipt policy | Restore strict execution. Commands, receipt checks, and workflow guards share `browser-execution-policy.mjs`. Workflow validation rejects missing or conflicting flags before downstream browser jobs start. Negative controls cover the observed retry change and duplicate overrides. |
 | [Release 37452062493](https://github.com/K-Arthur/varve/actions/runs/37452062493): preflight rejected a successful candidate | The verifier expected an Actions run URL; GitHub normalized the API-created check URL to a check ID | Bind the trusted check using its run/attempt `external_id` and validate its producer and artifact independently. Tests retain rejection of wrong source, workflow, attempt, policy, and expired evidence. |
 | Existing immutable `v0.5.0` tag still executed its old verifier | Release preflight checked out product source and used its orchestration tools | A recovery dispatch pins the verifier to the dispatched workflow SHA, while the version, product bytes, certification SHA and policy remain pinned to the tag. Source-isolation guards cover preflight, the repeated gate, and package checkout. |
@@ -215,30 +216,35 @@ outcomes. These reports are diagnostic; they never grant certification.
 
 ## Remaining optimizations and acceptance criteria
 
-Complete integration-to-candidate execution adoption is **not active**. Current
-certificates lack all required command, tool, environment, and generated-runtime
-identities. Safe adoption must extend producers, certificate aggregation,
-candidate preflight, and the remote verifier together. It must reject missing
-metadata, expired artifacts, mismatched bytes, partial coverage, and newer red or
-queued producer runs. Candidate-only native, platform, and visual requirements
-still execute. Recheck adopted producers after candidate execution.
+Final integration-to-candidate adoption is now implemented. The final
+candidate workflow reuses the latest successful exact-SHA full integration
+certificate instead of rerunning its product suites. It validates both full
+plans, identical lane and shard inventories, every execution receipt and browser
+inventory, source/tree/policy identity, immutable artifact IDs and digests, and
+the newest producer run/attempt. Candidate evidence records the producer
+workflow, run, attempt, plan digest, and certification digest; the remote full
+gate revalidates that binding and checks for superseding runs before passing.
+Missing, partial, expired, changed, or superseded evidence fails before the
+candidate suites start. A push-triggered change-scoped CI run is insufficient;
+the operator dispatches `ci.yml` for the frozen SHA when a full profile has not
+already passed. Triage retains its bounded diagnostic matrix. Release workflow
+package installation, upgrade, signing/trust, and platform smoke gates remain
+separate and still execute.
 
 ## 0.5.0 release-path audit (October 9)
 
 The completed 0.5.0 integration and final candidate both validated source
-`5ac27d597d193e0f2f17483e94b21e6181d0112c`. The candidate currently repeats
-the integration's JavaScript, Rust, WASM, website, 24-shard browser, visual,
-model, and benchmark categories; only its platform-installed qualification is
+`5ac27d597d193e0f2f17483e94b21e6181d0112c`. The candidate repeated the
+integration's JavaScript, Rust, WASM, website, 24-shard browser, visual, model,
+and benchmark categories; only its platform-installed qualification was
 inherently candidate-specific. A separate duplicate integration run
 (`37889319985`) also repeated 24 browser shards at the same source and policy,
-costing 8.6 runner-hours. The exact-SHA candidate preflight proves integration
-already passed, but the current receipt format does not yet prove enough runtime
-and generated-artifact identity to safely adopt those executions. Do not
-manually suppress a category. Implement adoption only with exact producer
-run/attempt and artifact digest, source/tree/policy identity, command and tool
-versions, hosted runner image, generated WASM digest, complete project/case
-inventory, and a check for any newer failed or queued producer. Mismatch or
-missing evidence must execute the lane; it must never become a skip.
+costing 8.6 runner-hours. The later paired run records confirmed the duplicate
+product suites, and the final-candidate path now adopts the complete exact-SHA
+integration evidence instead. Adoption is restricted to the latest successful
+full producer and its immutable artifacts; it never turns a missing or partial
+lane into a pass. The actual 0.5.0 duplicate work is historical and is not
+retroactively recovered.
 
 The paired integration/candidate inventory audit found matching selected
 commands, projects, and case IDs for 24 browser shards plus the production-demo
@@ -257,6 +263,19 @@ website workflow no longer starts source certification for release-tool-only
 changes and isolates that no-op event. The 0.5.0 download manifest, updater
 feed, and public LLM release facts were regenerated from the published assets;
 the source deployment validates those files before the live visual check.
+
+The follow-up fail-fast guard and adoption path were verified together at
+`98cd30abd27d0bce896d93399deba22b5a10160b`. [Full CI
+37932768728](https://github.com/K-Arthur/varve/actions/runs/37932768728)
+passed the clean-source check before its integration lanes and completed all
+24 browser shards plus native, visual, website, Rust, WASM, and tooling lanes.
+[Final candidate 37940409555](https://github.com/K-Arthur/varve/actions/runs/37940409555)
+verified and adopted that exact immutable integration evidence; its repeated
+product-test jobs were skipped. `pnpm verify:full --remote` then passed at the
+same clean master SHA, including Emoji, Health, and Architecture audits and
+the final producer/supersession recheck. The guard is covered by tracked and
+untracked mutation regressions; the hosted run confirms the workflow places it
+before every expensive integration lane.
 
 Likewise, replacing development-server browser tests with a shared frontend
 bundle needs equivalence checks for test bridges, harness entry points, optional

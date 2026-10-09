@@ -1,7 +1,7 @@
 /** Read-only adoption of existing exact-SHA integration and final candidate runs. */
 import { classifyJobFailure } from '../ci-health.mjs';
 import {
-  validateLocalCandidateEvidence,
+  validateAdoptedCandidateEvidence,
   verifyRemoteCertification,
 } from '../release/certification.mjs';
 import { expectedExecutionMatrices, REQUIRED_CI_JOBS } from './aggregate-ci.mjs';
@@ -326,7 +326,7 @@ async function classifyTerminalRun(run, request, repo) {
 
 async function readProfileEvidence(
   profile,
-  { certification, runs, identity, request, readArtifact, token, now },
+  { certification, runs, identity, request, readArtifact, token, now, integrationEvidence },
 ) {
   const { repo } = identity;
   const binding =
@@ -352,32 +352,200 @@ async function readProfileEvidence(
   const planErrors = validateFullPlan(plan, identity, profile);
   if (planErrors.length) throw new Error(planErrors.join('; '));
   const names =
-    profile === 'candidate'
-      ? ['candidate-certification.json', 'ci-certification.json']
-      : ['ci-certification.json'];
+    profile === 'candidate' ? ['candidate-certification.json'] : ['ci-certification.json'];
   const summaryRead = await readArtifact({ repo, token, artifact, names, now });
-  const aggregate = summaryRead.documents['ci-certification.json'];
-  const errors = validateFullAggregate(aggregate, plan, binding);
+  const errors = [];
   if (profile === 'candidate') {
     const candidate = summaryRead.documents['candidate-certification.json'];
-    errors.push(...validateLocalCandidateEvidence(candidate, identity));
-    const { evidenceHash, ...body } = candidate ?? {};
+    errors.push(
+      ...validateAdoptedCandidateEvidence(candidate, {
+        plan,
+        integrationEvidence,
+      }),
+    );
+    if (String(candidate?.runId) !== String(binding.runId))
+      errors.push('candidate evidence run binding mismatch');
+    const integrationPlan = integrationEvidence?.plan?.documents?.['ci-plan.json'];
     if (
-      candidate?.certifiable !== true ||
-      String(candidate?.runId) !== String(binding.runId) ||
-      sha256(JSON.stringify(body)) !== evidenceHash ||
-      JSON.stringify(candidate?.selectedLanes) !== JSON.stringify(plan.selectedLanes) ||
-      candidate?.deferredLanes?.length
+      JSON.stringify([...(integrationPlan?.selectedLanes ?? [])].sort()) !==
+      JSON.stringify([...plan.selectedLanes].sort())
     )
-      errors.push('candidate evidence binding or integrity mismatch');
+      errors.push('candidate and integration full-gate lane inventories differ');
+  } else {
+    errors.push(
+      ...validateFullAggregate(summaryRead.documents['ci-certification.json'], plan, binding),
+    );
   }
   if (errors.length) throw new Error(errors.join('; '));
   return {
     binding,
     planHash: plan.planHash,
+    commitSha: plan.commitSha,
+    treeSha: plan.treeSha,
+    policyVersion: plan.policyVersion,
+    policyHash: plan.policyHash,
     full: true,
     plan: planRead,
     summary: summaryRead,
+  };
+}
+
+export function validateAdoptionPlanPair(integrationPlan, candidatePlan, identity) {
+  const errors = [
+    ...validateFullPlan(integrationPlan, identity, 'integration'),
+    ...validateFullPlan(candidatePlan, identity, 'candidate'),
+  ];
+  if (
+    JSON.stringify([...(integrationPlan?.selectedLanes ?? [])].sort()) !==
+    JSON.stringify([...(candidatePlan?.selectedLanes ?? [])].sort())
+  )
+    errors.push('integration and candidate full-gate lane inventories differ');
+  return errors;
+}
+
+/** Verify a complete, latest exact-SHA integration run for candidate adoption. */
+export async function verifyRemoteIntegrationEvidence({
+  repo,
+  token,
+  commitSha,
+  treeSha,
+  policyHash,
+  request = githubReader(token),
+  verifyCertification = verifyRemoteCertification,
+  readArtifact = readCertificationArtifact,
+  now = Date.now(),
+} = {}) {
+  if (
+    !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo ?? '') ||
+    !/^[a-f0-9]{40}$/.test(commitSha ?? '') ||
+    !/^[a-f0-9]{40}$/.test(treeSha ?? '') ||
+    !/^[a-f0-9]{64}$/.test(policyHash ?? '') ||
+    !token
+  )
+    throw new Error(
+      'integration adoption requires repository, token, and exact source/policy identities',
+    );
+
+  const identity = { repo, commitSha, treeSha, policyHash };
+  const master = await request(`/repos/${repo}/git/ref/heads/master`);
+  if (master.object?.sha !== commitSha)
+    throw new Error('candidate is not the accepted current master SHA');
+
+  const latestRuns = async () => {
+    const values = await listPages(
+      request,
+      `/repos/${repo}/actions/workflows/ci.yml/runs?head_sha=${commitSha}`,
+      'workflow_runs',
+    );
+    const exact = values.filter(
+      (run) => run.head_sha === commitSha && run.path?.split('@')[0] === '.github/workflows/ci.yml',
+    );
+    if (
+      exact.some(
+        (run) =>
+          !Number.isSafeInteger(run.id) ||
+          run.id <= 0 ||
+          !Number.isSafeInteger(run.run_attempt) ||
+          run.run_attempt <= 0,
+      )
+    )
+      throw new Error('Remote integration workflow identity is invalid');
+    exact.sort((a, b) => Number(b.id) - Number(a.id));
+    return exact[0] ?? null;
+  };
+
+  const run = await latestRuns();
+  if (!run) return { status: 2, classification: 'missing-run', missing: 'integration' };
+  const runs = {
+    integration: {
+      id: run.id,
+      attempt: run.run_attempt,
+      status: run.status,
+      conclusion: run.conclusion,
+    },
+  };
+  if (run.status !== 'completed') return { status: 2, classification: 'pending', runs };
+  if (run.conclusion !== 'success')
+    return { ...(await classifyTerminalRun(run, request, repo)), runs };
+
+  const certification = await verifyCertification({
+    repo,
+    token,
+    commitSha,
+    policyHash,
+    requireCandidate: false,
+  });
+  if (!certification.ok)
+    return {
+      status: 1,
+      classification: 'invalid-certification',
+      errors: certification.errors,
+      runs,
+    };
+  const binding = certification.integrationBinding;
+  if (binding?.runId !== run.id || binding.runAttempt !== run.run_attempt)
+    return { status: 2, classification: 'superseded-run', runs };
+
+  let integration;
+  try {
+    integration = await readProfileEvidence('integration', {
+      certification,
+      runs,
+      identity,
+      request,
+      readArtifact,
+      token,
+      now,
+    });
+  } catch (error) {
+    return {
+      status: 1,
+      classification: 'incomplete-full-integration',
+      errors: [error.message],
+      runs,
+    };
+  }
+
+  const latest = await latestRuns();
+  if (
+    latest?.id !== run.id ||
+    latest.run_attempt !== run.run_attempt ||
+    latest.status !== 'completed' ||
+    latest.conclusion !== 'success'
+  )
+    return { status: 2, classification: 'superseded-during-verification', runs };
+  const current = await verifyCertification({
+    repo,
+    token,
+    commitSha,
+    policyHash,
+    requireCandidate: false,
+  });
+  if (
+    !current.ok ||
+    current.integrationBinding?.runId !== binding.runId ||
+    current.integrationBinding?.runAttempt !== binding.runAttempt ||
+    current.integrationArtifact?.id !== certification.integrationArtifact?.id ||
+    current.integrationArtifact?.digest !== certification.integrationArtifact?.digest
+  )
+    return { status: 2, classification: 'superseded-during-verification', runs };
+  const finalMaster = await request(`/repos/${repo}/git/ref/heads/master`);
+  if (finalMaster.object?.sha !== commitSha)
+    return { status: 2, classification: 'master-changed-during-verification', runs };
+  return {
+    status: 0,
+    classification: 'integration-certified',
+    identity,
+    runs,
+    evidence: {
+      integration: {
+        ...integration,
+        commitSha,
+        treeSha,
+        policyVersion: POLICY_VERSION,
+        policyHash,
+      },
+    },
   };
 }
 
@@ -528,6 +696,7 @@ export async function verifyRemoteFullEvidence({
       readArtifact,
       token,
       now,
+      integrationEvidence: profile === 'candidate' ? evidence.integration : undefined,
     });
   }
   const changed = await recheckRemoteEvidence({

@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { crc32, deflateRawSync } from 'node:zlib';
-import { buildCandidateEvidence } from '../release/certification.mjs';
+import { buildAdoptedCandidateEvidence } from '../release/certification.mjs';
+import { verifyCandidateIntegration } from '../release/verify-candidate-integration.mjs';
 import {
   aggregateCertification,
   expectedExecutionMatrices,
@@ -17,9 +18,11 @@ import { readCertificationArtifact, readEvidenceZip } from './certification-arti
 import { browserLane, collectBrowserEvidence } from './ci-execution-report.mjs';
 import {
   githubReader,
+  validateAdoptionPlanPair,
   validateFullAggregate,
   validateFullPlan,
   verifyRemoteFullEvidence,
+  verifyRemoteIntegrationEvidence,
 } from './remote-full-evidence.mjs';
 import { REMOTE_FULL_COMPLEMENT, runRemoteFullGate } from './remote-full-gate.mjs';
 import {
@@ -369,46 +372,59 @@ function remoteFixture() {
   const artifacts = { integration: [], candidate: [] };
   const plans = { integration: fullPlan('integration'), candidate: fullPlan('candidate') };
   let artifactId = 10;
-  for (const profile of ['integration', 'candidate']) {
-    const binding = profile === 'candidate' ? candidateBinding : integrationBinding;
-    const prefix =
-      profile === 'candidate'
-        ? `varve-candidate-plan-${identity.commitSha}-${binding.runId}`
-        : `varve-ci-plan-${binding.runId}`;
-    const planBytes = evidenceZip([['ci-plan.json', plans[profile]]]);
-    const planMetadata = artifactMetadata(planBytes, {
-      id: artifactId++,
-      name: `${prefix}-attempt-1`,
-      workflow_run: { id: binding.runId, head_sha: identity.commitSha },
-    });
-    artifacts[profile].push(planMetadata);
-    archive.set(planMetadata.id, planBytes);
-    const aggregate = fullAggregate(plans[profile], binding);
-    const entries =
-      profile === 'candidate'
-        ? [
-            [
-              'candidate-certification.json',
-              buildCandidateEvidence({
-                ...identity,
-                aggregate,
-                runId: binding.runId,
-                generatedAt: new Date(timestamp).toISOString(),
-              }),
-            ],
-            ['ci-certification.json', aggregate],
-          ]
-        : [['ci-certification.json', aggregate]];
-    const summaryBytes = evidenceZip(entries);
-    const summaryMetadata = artifactMetadata(summaryBytes, {
-      id: artifactId++,
-      name: `${profile}-summary`,
-      workflow_run: { id: binding.runId, head_sha: identity.commitSha },
-    });
-    archive.set(summaryMetadata.id, summaryBytes);
-    artifacts[profile].push(summaryMetadata);
-    certificate[profile === 'candidate' ? 'artifact' : 'integrationArtifact'] = summaryMetadata;
-  }
+  const integrationPlanBytes = evidenceZip([['ci-plan.json', plans.integration]]);
+  const integrationPlanArtifact = artifactMetadata(integrationPlanBytes, {
+    id: artifactId++,
+    name: `varve-ci-plan-${integrationBinding.runId}-attempt-1`,
+    workflow_run: { id: integrationBinding.runId, head_sha: identity.commitSha },
+  });
+  archive.set(integrationPlanArtifact.id, integrationPlanBytes);
+  artifacts.integration.push(integrationPlanArtifact);
+  const integrationAggregate = fullAggregate(plans.integration, integrationBinding);
+  const integrationSummaryBytes = evidenceZip([['ci-certification.json', integrationAggregate]]);
+  const integrationSummaryArtifact = artifactMetadata(integrationSummaryBytes, {
+    id: artifactId++,
+    name: 'integration-summary',
+    workflow_run: { id: integrationBinding.runId, head_sha: identity.commitSha },
+  });
+  archive.set(integrationSummaryArtifact.id, integrationSummaryBytes);
+  artifacts.integration.push(integrationSummaryArtifact);
+  certificate.integrationArtifact = integrationSummaryArtifact;
+  const integrationEvidence = {
+    ...identity,
+    policyVersion: POLICY_VERSION,
+    planHash: plans.integration.planHash,
+    binding: integrationBinding,
+    plan: { artifactId: integrationPlanArtifact.id, digest: integrationPlanArtifact.digest },
+    summary: {
+      artifactId: integrationSummaryArtifact.id,
+      digest: integrationSummaryArtifact.digest,
+    },
+  };
+
+  const candidatePlanBytes = evidenceZip([['ci-plan.json', plans.candidate]]);
+  const candidatePlanArtifact = artifactMetadata(candidatePlanBytes, {
+    id: artifactId++,
+    name: `varve-candidate-plan-${identity.commitSha}-${candidateBinding.runId}-attempt-1`,
+    workflow_run: { id: candidateBinding.runId, head_sha: identity.commitSha },
+  });
+  archive.set(candidatePlanArtifact.id, candidatePlanBytes);
+  artifacts.candidate.push(candidatePlanArtifact);
+  const candidateEvidence = buildAdoptedCandidateEvidence({
+    plan: plans.candidate,
+    integrationEvidence,
+    runId: candidateBinding.runId,
+    generatedAt: new Date(timestamp).toISOString(),
+  });
+  const candidateSummaryBytes = evidenceZip([['candidate-certification.json', candidateEvidence]]);
+  const candidateSummaryArtifact = artifactMetadata(candidateSummaryBytes, {
+    id: artifactId++,
+    name: 'candidate-summary',
+    workflow_run: { id: candidateBinding.runId, head_sha: identity.commitSha },
+  });
+  archive.set(candidateSummaryArtifact.id, candidateSummaryBytes);
+  artifacts.candidate.push(candidateSummaryArtifact);
+  certificate.artifact = candidateSummaryArtifact;
   const runs = {
     integration: [
       {
@@ -487,6 +503,99 @@ test('adopts existing full integration and final candidate, preserving valid old
         !/dispatch|rerun|release/.test(path.replace('release-candidate.yml', 'candidate.yml')),
     ),
   );
+});
+
+test('final candidate can certify a complete latest full integration run without rerunning its suites', async () => {
+  const fixture = remoteFixture();
+  const result = await verifyRemoteIntegrationEvidence({
+    ...identity,
+    token: 'fixture-token',
+    request: fixture.options.request,
+    verifyCertification: async () => fixture.certificate,
+    readArtifact: fixture.options.readArtifact,
+    now: timestamp,
+  });
+  assert.equal(result.status, 0);
+  assert.equal(result.evidence.integration.binding.runId, 17);
+  assert.equal(result.evidence.integration.plan.documents['ci-plan.json'].profile, 'integration');
+  assert.equal(
+    validateAdoptionPlanPair(
+      result.evidence.integration.plan.documents['ci-plan.json'],
+      fixture.plans.candidate,
+      identity,
+    ).length,
+    0,
+  );
+});
+
+test('candidate preflight accepts only full matching integration evidence and records immutable provenance', async () => {
+  const folder = mkdtempSync(join(tmpdir(), 'varve-candidate-adoption-'));
+  try {
+    const candidatePlan = fullPlan('candidate');
+    const integrationPlan = fullPlan('integration');
+    const planPath = join(folder, 'ci-plan.json');
+    const outputPath = join(folder, 'adoption.json');
+    const githubOutput = join(folder, 'github-output');
+    writeFileSync(planPath, JSON.stringify(candidatePlan));
+    const integration = {
+      commitSha: identity.commitSha,
+      treeSha: identity.treeSha,
+      policyVersion: POLICY_VERSION,
+      policyHash: identity.policyHash,
+      planHash: integrationPlan.planHash,
+      binding: { runId: 17, runAttempt: 2 },
+      plan: { artifactId: 31, digest: `sha256:${'1'.repeat(64)}` },
+      summary: { artifactId: 32, digest: `sha256:${'2'.repeat(64)}` },
+    };
+    const environment = {
+      GITHUB_REPOSITORY: identity.repo,
+      GITHUB_TOKEN: 'fixture-token',
+      EXPECTED_SHA: identity.commitSha,
+      EXPECTED_TREE_SHA: identity.treeSha,
+      EXPECTED_POLICY_HASH: identity.policyHash,
+      GITHUB_OUTPUT: githubOutput,
+    };
+    const adoption = await verifyCandidateIntegration({
+      planPath,
+      outputPath,
+      environment,
+      verify: async () => ({
+        status: 0,
+        evidence: {
+          integration: {
+            ...integration,
+            plan: {
+              ...integration.plan,
+              documents: { 'ci-plan.json': integrationPlan },
+            },
+          },
+        },
+      }),
+    });
+    assert.equal(adoption.integrationEvidence.binding.runId, 17);
+    assert.equal(
+      JSON.parse(readFileSync(outputPath, 'utf8')).integrationEvidence.summary.artifactId,
+      32,
+    );
+    assert.equal(readFileSync(outputPath, 'utf8').includes('fixture-token'), false);
+    assert.match(readFileSync(githubOutput, 'utf8'), /adoption_json=/);
+    await assert.rejects(
+      () =>
+        verifyCandidateIntegration({
+          planPath,
+          outputPath,
+          environment,
+          verify: async () => ({
+            status: 1,
+            classification: 'incomplete-full-integration',
+            errors: ['full browser coverage is missing'],
+          }),
+        }),
+      /full CI workflow for this exact master SHA/,
+    );
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
 });
 
 test('producer JSON browser histories certify compact summaries; missing or contradictory histories fail closed', () => {

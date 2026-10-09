@@ -1,9 +1,16 @@
 # Linux Ecosystem Readiness
 
-**Date:** 2026-08-18
+**Initial assessment:** 2026-08-18
+**Current package snapshot:** 2026-10-09 (v0.5.0)
 **Scope:** Per-channel assessment of external package ecosystems for Varve Linux distribution.
 **Related:** `distribution-decision-matrix.md` (scoring and sequencing), `platform-support-matrix.md` (tested statuses).
 **Hard rule:** Varve is source-available under FSL-1.1-MIT. Never mark it "open source" or "free software" to fit package metadata.
+
+The v0.5.0 release currently publishes direct AppImage, DEB, and RPM
+downloads. The local AUR package definition now targets the published v0.5.0
+x86_64 and aarch64 AppImages and passes source-checksum verification, but
+has not been submitted to AUR. The Flatpak manifest remains an intentional failing stub;
+generated Cargo/pnpm source inventories are present but are not wired into it.
 
 ---
 
@@ -13,8 +20,8 @@
 |---|---|
 | **Eligibility** | Ready — Arch allows any registered user to publish. No approval gate. |
 | **License constraint** | `LicenseRef-FSL-1.1-MIT` is valid SPDX custom syntax; Arch makepkg ≥ 6.1 accepts it. The license text is now shipped under `/usr/share/licenses/varve-desktop-bin/LICENSE`. |
-| **Technical prerequisites** | `packaging/aur/varve-desktop-bin/PKGBUILD` + `.SRCINFO` already validate under `makepkg --verifysource` (with SHA-256 filled in). Requires an AUR account and `aur.git` push access. |
-| **AI can prepare** | PKGBUILD is prepared (done above). Release automation could bump `pkgver`/`sha256sums` in CI — the `sha256sums` field must be filled from the published `SHA256SUMS.txt` before submission. |
+| **Technical prerequisites** | The local `PKGBUILD` + `.SRCINFO` target the v0.5.0 x86_64 and aarch64 AppImages; `makepkg --verifysource` passed against the published SHA-256 values. No AUR package has been submitted. Publishing requires an AUR account and `aur.git` access. |
+| **AI can prepare** | The local package files and release checksum are prepared. Recheck the published `SHA256SUMS.txt` and regenerate `.SRCINFO` after each release. |
 | **Human must do** | (1) Create AUR account (identity verification, requires real name/email). (2) Initialize `aur.git` repo. (3) Push `PKGBUILD` + `.SRCINFO`. |
 | **Maintenance cost** | Low — bump `pkgver` + `sha256sums` per release. A future CI script can automate the diff. |
 | **Recommend** | **Now** — AppStream metainfo has shipped since v0.2.0. No additional technical work needed; blocked only on the human AUR account/push steps below. |
@@ -30,11 +37,12 @@ git clone ssh://aur@aur.archlinux.org/varve-desktop-bin.git /tmp/varve-aur
 cd /tmp/varve-aur
 cp /path/to/varve/packaging/aur/varve-desktop-bin/{PKGBUILD,.SRCINFO} .
 git add PKGBUILD .SRCINFO
-git commit -m "varve-desktop-bin 0.1.3"
+git commit -m "varve-desktop-bin 0.5.0"
 git push
 
-# 3. After each release, update pkgver + sha256sums:
-#    sha256sums=('abc123...')
+# 3. After each release, update pkgver + per-arch sha256sums:
+#    sha256sums_x86_64=('abc123...')
+#    sha256sums_aarch64=('def456...')
 #    updpkgsums  (if paru is available)
 #    makepkg --verifysource
 ```
@@ -45,32 +53,38 @@ git push
 
 | Field | Assessment |
 |---|---|
-| **Eligibility** | Awaiting Flathub submission. Flathub's generative AI policy (updated 2024-2026) requires disclosure of AI-generated content and gives reviewers discretion to reject submissions based on extent or role of generated material. Exceptions may be granted for mature, well-maintained projects. |
-| **License constraint** | Flathub does not require OSI approval. FSL-1.1-MIT (valid SPDX identifier as of SPDX 3.29, 2026-09-16) is acceptable if the source builds from the manifest. |
-| **Technical prerequisites** | Complete Flatpak manifest (`packaging/flatpak/dev.varve.desktop.yml`) with offline build sources (cargo-sources.json, pnpm-sources.json via `flatpak-cargo-generator` / `flatpak-node-generator`). The current manifest is a stub. Runtime: `org.gnome.Platform//47` + webkit2gtk-4.1 extension. Sandbox: Wayland, X11 fallback, DRI, file picker portal. Initial submission will not include bundled ONNX Runtime; AI features will use fallback implementations. |
-| **AI can prepare** | **Nothing that touches the submission or manifest.** Under the AI policy, the manifest, metadata, patches, build scripts, PR description, and reviewer comments must all be human-authored. |
-| **Human must do** | (1) Complete the manifest. (2) Generate `cargo-sources.json` + `pnpm-sources.json` on a local machine. (3) Test with `flatpak-builder` and lint tools. (4) Fork `flathub/flathub`, add `dev.varve.desktop.yml`, submit PR with full AI disclosure. (5) Respond to reviewer feedback (all responses must be human-authored). |
+| **Eligibility** | **Unconfirmed; reviewer decision required.** Flathub's current [Generative AI policy](https://docs.flathub.org/docs/for-app-authors/requirements#generative-ai-policy) requires disclosure of AI-generated or AI-assisted code, documentation, packaging, and other included material. Reviewers may reject disclosed material based on its extent, role, quality, or maintainability. The manifest itself must not contain AI-generated or AI-assisted content. Varve is substantially AI-assisted, so do not promise acceptance or describe it as categorically blocked; a human maintainer must make a complete disclosure and seek a reviewer decision. Policy checked 2026-10-09. |
+| **License constraint** | Flathub does not require OSI approval. FSL-1.1-MIT is acceptable if the source builds from the manifest. |
+| **Technical prerequisites** | The checked-in manifest is a stub that exits with failure. Cargo/pnpm source inventories exist but are not connected to the manifest. No Flatpak build or sandbox run is verified. The draft currently names `org.gnome.Platform//47` and webkit2gtk-4.1; its proposed permissions still need review against actual file, printing, font, model, and update behavior. |
+| **AI can prepare** | Research and technical drafting may be assisted, but AI-generated or AI-assisted app and packaging material must be disclosed. The Flathub manifest and all submission PR text, commit messages, review comments, and replies must be authored by a human; AI agents must not open or automate the submission PR. |
+| **Human must do** | (1) Review the current policy and decide whether to pursue submission. (2) Identify and disclose the AI-generated or AI-assisted material in the app and packaging. (3) Human-author the manifest and submission text. (4) Complete the manifest and verify an offline `flatpak-builder` build plus sandbox behavior. (5) Submit the PR and handle reviewer feedback personally. |
 | **Maintenance cost** | High — runtime version bumps (~every 6 months), sandbox permission reviews, security updates. Flathub expects active maintenance. |
-| **Recommend** | **After 0.5.0** — metainfo is now Flathub-ready; manifest authoring and submission are human-only tasks. |
+| **Recommend** | **Defer** until the manifest is human-authored, an offline build and sandbox run pass, the AI-assistance disclosure is complete, and Flathub maintainers have reviewed eligibility. No submission date is set. |
 
-### Flathub human steps (exact)
+### Flathub human steps (policy checked 2026-10-09)
 
-1. **Complete manifest**: Fill in `packaging/flatpak/dev.varve.desktop.yml` — remove the stub `exit 1`, add actual build commands, cargo/pnpm sources, finish-args. Initial submission will not include bundled ONNX Runtime; AI features will use fallback implementations. Test:
+1. **Review and disclose**: Read Flathub's current [author requirements](https://docs.flathub.org/docs/for-app-authors/requirements#generative-ai-policy). Inventory AI-generated or AI-assisted code, documentation, packaging, and other included material, then make a complete, accurate disclosure. Ask Flathub maintainers for a decision if eligibility is unclear; do not assume an exception or acceptance.
+
+2. **Prepare source inventories** using the documented generators from the
+   upstream `flatpak-builder-tools` project. The repository uses the root
+   `pnpm-lock.yaml` and the Tauri `Cargo.lock`; the generated files are inputs
+   only and do not make the current stub buildable:
+   ```bash
+   python3 /path/to/flatpak-builder-tools/cargo/flatpak-cargo-generator.py \
+     apps/desktop/src-tauri/Cargo.lock -o packaging/flatpak/cargo-sources.json
+   flatpak-node-generator pnpm pnpm-lock.yaml \
+     -o packaging/flatpak/pnpm-sources.json
+   ```
+   See the upstream [`flatpak-cargo-generator`](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo)
+   and [`flatpak-node-generator`](https://github.com/flatpak/flatpak-builder-tools/tree/master/node)
+   usage guides. These commands have not been run as part of a Flatpak build.
+
+3. **Human-author and complete the manifest**: `packaging/flatpak/dev.varve.desktop.yml` must not contain AI-generated or AI-assisted content. Remove the stub `exit 1`, add actual build commands, cargo/pnpm sources, finish-args, and test:
    ```bash
    flatpak-builder --force-clean build-dir packaging/flatpak/dev.varve.desktop.yml
-   flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest packaging/flatpak/dev.varve.desktop.yml
-   flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo repo
    ```
 
-2. **Generate offline sources locally**:
-   ```bash
-   # From a clean checkout on a system with flatpak-builder:
-   flatpak-cargo-generator -p apps/desktop/src-tauri/Cargo.lock -o cargo-sources.json
-   # For pnpm, use flatpak-node-generator or equivalent for pnpm lockfiles
-   flatpak-node-generator -r apps/desktop/pnpm-lock.yaml -o pnpm-sources.json
-   ```
-
-3. **Submit PR**: Fork `flathub/flathub`, add `dev.varve.desktop.yml` to the root, open PR. Include full AI disclosure in the PR description: which parts of the application code, documentation, and metainfo were AI-assisted, and explicitly state that the manifest, PR description, and all reviewer comments are human-authored. All PR content must be written personally.
+4. **Submit and maintain manually**: A human must fork `flathub/flathub`, add `dev.varve.desktop.yml` to the root, author the PR content, and respond to reviewers. Do not use an AI agent to open or automate the PR or generate submission and review text.
 
 ---
 
@@ -104,15 +118,18 @@ git push
 
 ## 5. Homebrew Cask (macOS)
 
+Policy checked 2026-10-09 against Homebrew's [acceptable cask requirements](https://docs.brew.sh/Acceptable-Casks)
+and [security guidance](https://docs.brew.sh/Homebrew-Security-and-Supply-Chain).
+
 | Field | Assessment |
 |---|---|
-| **Eligibility** | Requires macOS DMG installer and Homebrew Cask PR submission. |
+| **Eligibility** | No cask has been submitted. Official macOS casks must pass Homebrew's Gatekeeper checks on the default configuration without asking users to bypass Gatekeeper or System Integrity Protection. |
 | **License constraint** | Homebrew Cask does not require OSI approval — accepts source-available. FSL-1.1-MIT is acceptable. |
-| **Technical prerequisites** | macOS DMG (ARM64 only; Intel x86_64 DMG blocked — ONNX Runtime discontinued macOS Intel binaries at v1.24.1). Code signing + notarization recommended for clean UX (no Gatekeeper warning). |
+| **Technical prerequisites** | The current v0.5.0 Apple Silicon DMG is unsigned and not notarized, so it does not meet the official cask Gatekeeper requirement. A future artifact must pass Homebrew's audit on default macOS settings; a hosted CI smoke check alone does not prove this. |
 | **AI can prepare** | The cask definition (Ruby DSL: `cask "varve" do ...`). |
-| **Human must do** | (1) Acquire Mac hardware (borrowed/rented) for DMG smoke test. (2) Obtain Apple Developer Program ($99/yr) for code signing + notarization. (3) Verify DMG launches. (4) Submit PR to `Homebrew/homebrew-cask`. |
+| **Human must do** | Coordinate a signed and notarized release artifact through the signing process, verify it passes Gatekeeper and launches on supported macOS, then author and submit the cask PR. The project has hosted macOS release checks, but they do not replace Gatekeeper verification. |
 | **Maintenance cost** | Low once stable. |
-| **Recommend** | **Later** — defer until Mac available + notarized DMG. |
+| **Recommend** | **Defer** until a signed and notarized artifact passes the official Gatekeeper check. No release date is set. |
 
 ---
 
@@ -135,12 +152,12 @@ git push
 | Field | Assessment |
 |---|---|
 | **Eligibility** | Requires a Debian/Fedora developer to package and sponsor. External projects cannot directly submit. |
-| **License constraint** | **Hard blocker.** Debian requires DFSG-free software (equivalent to OSI Open Source Definition). FSL-1.1-MIT includes field-of-use restrictions (no commercial use in the FSL grant) that may not qualify. Fedora Licensing Guidelines have a similar approval process. The final answer depends on Prompt 15 licensing findings — if the license is found DFSG-non-free, official repos are permanently blocked. |
+| **License constraint** | The current FSL-1.1-MIT application is not eligible for Debian `main` or Fedora's approved-license channel under the project's licensing research. The MIT OR Apache-2.0 engine crates are separately licensed, but are not the Varve desktop app. A particular app release may become MIT after the FSL conversion period; any future package still needs sponsor and distro-license review. See [`mixed-license-model.md`](../licensing/mixed-license-model.md) and the dated [`decision research`](../licensing/decision-research-2026-08-18.md). |
 | **Technical prerequisites** | Debian: `debian/` directory (rules, control, changelog), policy-compliant packaging. Fedora: `.spec` file. Both need a sponsoring packager. |
 | **AI can prepare** | Nothing — requires human maintainer relationships and months of review. |
 | **Human must do** | Contact Debian/Fedora packaging teams, find a sponsor, prepare compliant package, respond to NMU/security processes. |
 | **Maintenance cost** | High — must track upstream, respond to security issues, coordinate with release cycles. |
-| **Recommend** | **Defer** — wait for Prompt 15 licensing findings. If FSL qualifies as DFSG-free, this becomes a long-term goal for v0.5+. |
+| **Recommend** | **Defer** — no current app package is planned for these repositories. Revisit only for a specific MIT-converted release and a willing distro sponsor. |
 
 ---
 
@@ -148,22 +165,22 @@ git push
 
 | Channel | Status | Blocker | Next step | When |
 |---|---|---|---|---|
-| **AUR** | Ready (PKGBUILD updated for v0.5.0, extracts .deb, includes aarch64 support) | AUR account creation | Submit PKGBUILD | Now |
-| **Flathub** | Ready for human authoring | Manifest authoring + PR submission (human-only per policy) | Complete manifest, test, submit with AI disclosure | After 0.5.0 |
+| **AUR** | Prepared locally for v0.5.0 x86_64 and aarch64; not published | AUR account and push access | Human review, then submit if desired | No release date set |
+| **Flathub** | Not buildable; eligibility is unconfirmed under the current disclosure/reviewer policy | Complete and validate the human-authored manifest; disclose AI-assisted content and obtain a reviewer decision | Decide whether to pursue after technical qualification | No release date set |
 | **Snap** | Rejected | Confinement vs. print/fonts | — | — |
-| **winget** | Ready (manifest draftable) | Windows build verification + PR submission | After Windows CI stable | v0.2+ |
-| **Homebrew Cask** | Blocked (no Mac) | Mac hardware + notarization | Acquire Mac + Apple Dev Program | v0.2+ |
+| **winget** | Not submitted; Windows release workflow qualification exists, installer remains unsigned | Human-authored manifest and repository review | Decide whether to submit | No release date set |
+| **Homebrew Cask** | Not submitted; current DMG is unsigned and unnotarized | Official Gatekeeper check must pass | Qualify a signed/notarized artifact, then prepare a human-reviewed cask | No release date set |
 | **AlternativeTo** | Ready | Account creation | Submit listing | Now |
-| **Debian/Fedora official** | Blocked (license) | FSL-1.1-MIT DFSG qualification | Licensing findings | v0.5+ |
+| **Debian/Fedora official** | Current FSL app is not eligible for the primary free-software repositories; no package planned | Specific MIT-converted release and distro sponsor/license review | Revisit if a sponsor wants to package an eligible release | No release date set |
 
 ---
 
 ## 9. Source-available language rule
 
-Never mark Varve "open source" or "free software" in any package metadata, directory listing, or ecosystem submission. The license identifier `FSL-1.1-MIT` (valid SPDX identifier as of SPDX License List 3.29, 2026-09-16) communicates the correct legal status: source-available with field-of-use restrictions.
+Never mark Varve "open source" or "free software" in any package metadata, directory listing, or ecosystem submission. The license identifier `LicenseRef-FSL-1.1-MIT` communicates the correct legal status: source-available with field-of-use restrictions.
 
-- AUR: `license=('FSL-1.1-MIT')` — correct.
-- Flathub: `<project_license>FSL-1.1-MIT</project_license>` — correct.
+- AUR: `license=('LicenseRef-FSL-1.1-MIT')` — correct.
+- Flathub: `<project_license>LicenseRef-FSL-1.1-MIT</project_license>` — correct.
 - Debian: if DFSG-non-free, place in `contrib` or `non-free`, never `main`.
 - Fedora: if not on approved list, cannot be in base repos.
 - AlternativeTo: description must say "source-available", not "open source".

@@ -10,7 +10,8 @@
 > ("Public alpha", "Beta") are the plan's vocabulary, not Varve's current
 > positioning — the canonical maturity label is **public beta**
 > (`PRODUCT_STATUS` in `@varve/shared`). The scoring and per-channel
-> analysis (§1–§4) remains current guidance for future channels.
+> analysis (§1–§4) is a dated 2026-08 decision baseline; see §10 for the
+> current published channels and package state.
 
 The design goal is the **smallest maintainable release surface**. Every channel added is a
 recurring tax: another artifact to build, smoke-test, checksum, document, and support. For a
@@ -221,3 +222,25 @@ repository owner as an explicit decision:
 | Fail-closed policy | `RELEASE_EXPECT_SIGNED` + channel policy encoded in `signing-policy.mjs`; preconditions checked before build; signedness from post-build verification only | A stable release never silently ships unsigned |
 
 Full reasoning with sources: [signing-decision-record.md](signing-decision-record.md).
+
+## 10. Current release and channel status (2026-10-09)
+
+Varve v0.5.0 is published through GitHub Releases, with the website download
+page as the front door. The published artifacts are Linux AppImage/DEB/RPM
+for x86_64 and ARM64, Windows NSIS for x86_64 and ARM64, and an Apple Silicon
+macOS DMG. Windows and macOS installers are unsigned; the macOS DMG is also
+not notarized. See the
+[current support matrix](platform-support-matrix.md) for evidence tiers and
+system requirements.
+
+The v0.5.0 signed Tauri update feed covers writable Linux AppImages, supported
+Windows NSIS installs, and writable installed Apple Silicon macOS apps. DEB
+and RPM package-manager installs stay manual because no Varve package
+repository owns their files. Updater signatures do not code-sign the
+installers. See [update strategy](update-strategy.md).
+
+The local x86_64 AUR package definition targets the v0.5.0 AppImage and passes
+checksum verification, but it has not been submitted to AUR. The Flatpak
+manifest remains a failing stub and is not buildable or Flathub-ready. No
+Microsoft Store, Flathub, AUR, winget, or Homebrew Cask package is currently
+published.

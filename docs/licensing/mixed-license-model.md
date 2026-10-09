@@ -102,17 +102,11 @@ The open crates unlock:
 
 ## Known issues
 
-1. **ICC profiles (varve-colour):** Both `sRGB.icc` and
-   `default_cmyk.icc` are "Copyright Artifex Software 2011" from
-   Ghostscript (AGPL-3.0-or-later). They must be replaced with
-   permissively-licensed profiles before crates.io publication.
-   Recommended: lcms2 reference profiles (MIT/X11).
-
-2. **Crates.io publication:** The open crates have metadata ready
+1. **Crates.io publication:** The open crates have metadata ready
    (description, license, repository) but have not been published yet.
-   Publication requires the ICC profile fix and manual `cargo publish`.
+   Publication requires manual `cargo publish`.
 
-3. **SBOM generation:** `scripts/release/generate-sbom.mjs` reads
+2. **SBOM generation:** `scripts/release/generate-sbom.mjs` reads
    licenses from `cargo metadata`, so it will automatically reflect
    the per-crate license split. No code change needed.
 

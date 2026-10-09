@@ -1,0 +1,67 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
+---
+
+<Layout
+  title="Mockups — Varve Docs"
+  description="Apply editable mockup templates, replace linked artwork, adjust surfaces, and choose an export format that preserves the composition."
+>
+  <div class="container-custom">
+    <main class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Mockups
+      </nav>
+      <h1 class="site-page-title">Mockups</h1>
+      <p class="docs-intro">
+        A mockup is an editable presentation object with one or more replaceable surfaces. Live
+        surfaces follow their source artwork; a snapshot freezes the current appearance into an
+        embedded image.
+      </p>
+
+      <section class="docs-section">
+        <h2>Apply and update a mockup</h2>
+        <ol>
+          <li>Select the artwork to present, then choose <strong>Apply Mockup…</strong> from the Object menu, canvas context menu, command palette, or <strong>Resources &gt; Mockups</strong>.</li>
+          <li>Select the mockup object and use its Inspector section to replace a surface, edit its source, snapshot it, reconnect it, or clear it.</li>
+          <li>Adjust fit, alignment, rotation, flips, shadow, or numeric geometry. Select a surface chip to edit its corners or edges on the canvas; mesh surfaces expose grid vertices. Press Escape to abort a geometry edit.</li>
+          <li>Use <strong>Clip from selection</strong> or <strong>Occluder from selection</strong> when a bezel, hand, or fold should cover part of the placed artwork.</li>
+        </ol>
+        <p>
+          To author a reusable photo template, select the base photo and choose{' '}
+          <strong>Create Mockup Template from Selection…</strong>. The photo stays as the untouched
+          base plate while you define surfaces, then save and reuse the template.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export the composed result</h2>
+        <p>
+          PNG, JPEG, WebP, SVG, and screen-PDF export compose the mockup at the requested output
+          scale. SVG includes a rasterized composition for the mockup surface, so that part is not
+          editable vector artwork. PDF/X stops with a clear message; flatten the mockup before using
+          that print route. React, Flutter, and SwiftUI code exports warn that mockups are outside
+          their vector-structure output.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>What the surface model does not do</h2>
+        <p>
+          Surfaces support flat placement, four-corner perspective, bounded front-facing cylindrical
+          arcs, and bounded folded-mesh envelopes. These are 2D mappings, not a full 3D renderer:
+          there are no cameras, hidden backsides, lighting solve, calibrated displacement maps, or
+          Photoshop smart-object re-rendering. Unsupported cases are reported rather than silently
+          approximated. PSD smart objects are detected and reported; they are not re-rendered as
+          linked mockups.
+        </p>
+        <p>
+          See the <a href={sitePath('/features/mockups')}>Mockups feature page</a> for template and
+          surface details, and <a href={sitePath('/docs/tools/export')}>Export</a> for other format
+          boundaries.
+        </p>
+      </section>
+    </main>
+  </div>
+</Layout>

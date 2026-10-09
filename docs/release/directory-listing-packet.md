@@ -13,10 +13,11 @@ Short description: Local-first design suite for vector graphics, layout,
 Category:          Design suite / creative software
 License:           FSL-1.1-MIT (source-available; converts to MIT after
                    two years per release). Not OSI-approved open source.
-Pricing:           Free. No subscription, no feature lockouts.
+Pricing:           Free Community Edition; no subscription. Capabilities already
+                   in the Community Edition are not moved behind a paid tier.
 Platform:          Linux (x86_64, aarch64), macOS (Apple Silicon),
                    Windows (x86_64, aarch64)
-Status:            Public beta (v0.2.1 as of 2026-08-24)
+Status:            Public beta (v0.5.0, published 2026-10-09)
 Homepage:          https://varve.studio
 Download:          https://varve.studio/download
 Source:            https://github.com/K-Arthur/varve
@@ -29,13 +30,17 @@ Privacy:           https://varve.studio/about/privacy
 ## Detailed description (for directories that accept a paragraph)
 
 Varve is a local-first, cross-platform design suite for vector graphics,
-page layout, typography, motion (alpha), prototyping, and print production.
+page layout, typography, motion, prototyping, and print production.
 It runs natively on Linux, macOS, and Windows, with no subscription and no
 cloud account required. Print workflows include CMYK via ICC profiles, PDF/X
 export, and crop/registration marks. Source code is available under the FSL-
 1.1-MIT license (each release converts to MIT two years after publication).
-Core editing works entirely offline; optional network features (model
-downloads, update checks, analytics) are explicit and consent-based.
+The free Community Edition has no subscription; capabilities already in that
+edition are not moved behind a paid tier. Core editing works offline; optional
+network features (model downloads, update checks, analytics) are explicit and
+consent-based. v0.5.0 has signed updater metadata for supported AppImage,
+Windows NSIS, and Apple Silicon macOS installs; platform installers themselves
+are unsigned where the release trust report says so.
 
 ## Screenshots
 
@@ -79,8 +84,8 @@ policy is published at https://varve.studio/about/privacy.
   "operatingSystems": ["Linux", "macOS", "Windows"],
   "categories": ["Design", "Vector Graphics", "Print", "Prototyping"],
   "status": "public-beta",
-  "version": "0.2.1",
-  "releaseDate": "2026-08-24",
+  "version": "0.5.0",
+  "releaseDate": "2026-10-09",
   "privacyPolicy": "https://varve.studio/about/privacy",
   "supportUrl": "https://github.com/K-Arthur/varve/discussions"
 }

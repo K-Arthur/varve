@@ -102,7 +102,7 @@ generated release snapshots. Do not hand-edit them. To refresh the local
 fallback from a published GitHub release, run:
 
 ```bash
-node scripts/release/fetch-website-release.mjs --repo K-Arthur/varve --tag v0.2.1
+node scripts/release/fetch-website-release.mjs --repo K-Arthur/varve --tag v0.5.0
 ```
 
 The deployment workflow performs the same fetch after verifying that the

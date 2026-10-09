@@ -9,11 +9,12 @@ and the generated Flatpak source inventory. It does not certify release
 artifacts; the exact-SHA candidate and publishing gates below still apply.
 
 The [0.5.0 execution log](0.5.0-release-execution.md) records the immutable
-product tag, remote evidence, pipeline recovery and remaining publication checks.
+product tag, hosted certification, recovery build, and completed October 9
+publication. Older checkpoint entries remain historical evidence.
 
 | Document | What it answers |
 |---|---|---|
-| [release-readiness-audit.md](release-readiness-audit.md) | Can this repository ship today? Evidence-backed findings, severity scorecard, and Phase 1 command results |
+| [release-readiness-audit.md](release-readiness-audit.md) | Historical 2026-08-03 readiness audit; use the current support matrix and execution record for present status |
 | [platform-support-matrix.md](platform-support-matrix.md) | Which OSes and architectures we actually support, and which we only claim to |
 | [platform-build-requirements.md](platform-build-requirements.md) | Native build/runtime packages, exact tooling pins, dependency ownership and early five-platform contracts |
 | [native-acceleration-support.md](native-acceleration-support.md) | Which GPU/NPU workload routes are implemented, verified, experimental, or unavailable |
@@ -31,7 +32,7 @@ product tag, remote evidence, pipeline recovery and remaining publication checks
 | [release-rollback-runbook.md](release-rollback-runbook.md) | Full rollback procedure: detection, containment, website re-pointing, updater recovery, communication, manual-update path |
 | [ci-secrets.md](ci-secrets.md) | Secret names, job permissions, and the enrolment steps a human must do |
 | [website.md](website.md) | Site architecture, the generated download-manifest flow, hosting and launch checklist |
-| [implementation-plan.md](implementation-plan.md) | P0–P3, with verification, risk, effort and cost per task |
+| [implementation-plan.md](implementation-plan.md) | Historical 2026-08 release implementation plan; checkboxes and costs describe that plan, not current work |
 
 ## Tooling
 
@@ -70,7 +71,7 @@ restored after qualification. This policy never enters shipped configuration:
 | `product.mjs` | Product identity constants shared by the release scripts |
 | `publish-model-assets.mjs` | Upload on-demand AI models to the models release |
 | `verify-package-install.sh` | Install-test `.deb`/`.rpm` in clean Ubuntu/Fedora containers |
-| `production/` | Qualify installed release payloads: published 0.2.1 disk seed, same-profile upgrade, save/reopen, edit/undo and PNG/SVG/PDF exports; external Linux WebDriver, Windows WebView2 and macOS Accessibility |
+| `production/` | Qualify installed release payloads against the prior published 0.2.1 disk seed: same-profile upgrade, save/reopen, edit/undo and PNG/SVG/PDF exports; native Linux, Windows, and macOS runner workflows |
 
 Signing policy and trust-gate logic is unit-tested by
 `scripts/release/signing-policy.test.mjs` (wired into `pnpm test:ci:tools`).
@@ -96,7 +97,10 @@ freeze exact master SHA
                           then public (environment approval if configured)
 ```
 
-A tag never publishes anything by itself. See
+A tag never publishes anything by itself. v0.5.0 demonstrates that platform
+code signing and updater-feed signing are separate: its Windows/macOS
+installers are unsigned, while its published Tauri update feeds carry verified
+signatures. See
 [.github/workflows/release.yml](../../.github/workflows/release.yml).
 
 When `RELEASE_EXPECT_SIGNED` is unset and signing credentials are not yet

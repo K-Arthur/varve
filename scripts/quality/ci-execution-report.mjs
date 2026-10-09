@@ -270,7 +270,9 @@ function gitValue(args, root) {
     shell: false,
   });
   if (result.status !== 0) throw new Error(result.stderr.trim() || `git ${args.join(' ')} failed`);
-  return result.stdout.trim();
+  // Preserve leading whitespace: porcelain status uses it to encode whether
+  // a tracked path changed in the index or worktree.
+  return result.stdout.trimEnd();
 }
 
 export function checkedOutIdentity(root = process.cwd()) {
@@ -286,6 +288,16 @@ export function checkedOutIdentity(root = process.cwd()) {
     commitSha: gitValue(['rev-parse', '--verify', 'HEAD^{commit}'], root),
     treeSha: gitValue(['rev-parse', '--verify', 'HEAD^{tree}'], root),
   };
+}
+
+/** Fail a cheap validation job before dependent integration lanes start. */
+export function assertCleanSource(root = process.cwd()) {
+  const identity = checkedOutIdentity(root);
+  if (!identity.clean) {
+    const paths = identity.dirtyPaths.length ? `: ${identity.dirtyPaths.join(', ')}` : '';
+    throw new Error(`execution source is not clean${paths}`);
+  }
+  return identity;
 }
 
 export function parseList(value) {
@@ -467,6 +479,11 @@ function value(args, name) {
 
 function main() {
   const args = process.argv.slice(2);
+  if (args.includes('--assert-clean')) {
+    const identity = assertCleanSource();
+    console.log(`CI source is clean: ${identity.commitSha}`);
+    return;
+  }
   const planPath = value(args, '--plan');
   const plan = planPath ? JSON.parse(readFileSync(planPath, 'utf8')) : null;
   const report = createExecutionReport({

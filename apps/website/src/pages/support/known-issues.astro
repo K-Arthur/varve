@@ -10,9 +10,64 @@ interface KnownIssue {
   description: string;
   workaround?: string;
   category: string;
+  related?: { href: string; label: string }[];
 }
 
 const issues: KnownIssue[] = [
+  {
+    title: 'Prompt-conditioned generative Fill, Replace, and Expand are not shipped',
+    status: 'partial',
+    description: 'The current local Fill and Remove paths perform promptless reconstruction; entering a prompt does not make those models follow a natural-language instruction. Prompt-conditioned modes remain gated. Browser AI-quality Expand requires the user to install the local LaMa model and still awaits independent real-photo qualification; the browser Fast/PatchMatch route stays disabled after visible edge striping.',
+    workaround: 'Use the documented promptless workflow where available, inspect the mask edge and result at 100%, and keep the source recoverable. Do not rely on a prompt to direct these local reconstruction paths.',
+    category: 'Feature & availability boundaries',
+    related: [{ href: '/docs/tools/generative-editing', label: 'Generative Editing guide' }],
+  },
+  {
+    title: 'The browser demo is a bounded sample experience',
+    status: 'experimental',
+    description: 'The browser build exposes a limited workspace set and browser-local storage. Desktop-only Print production, on-device inference, and Motion and Email authoring are outside the demo; installed-app and offline behavior also depend on browser support and storage permission.',
+    workaround: 'Review the demo guide before moving important work into the browser, and use a supported desktop installer for workflows the demo does not include.',
+    category: 'Feature & availability boundaries',
+    related: [{ href: '/docs/browser-demo', label: 'Browser Demo & Offline guide' }],
+  },
+  {
+    title: 'Presentation authoring and local plugins remain experimental',
+    status: 'experimental',
+    description: 'Presentation output is a raster screen PDF or numbered PNG archive; PDF text is not searchable and the PDF has no tagged accessibility structure. Local plugins are bounded Wasm packages for selected-layer analysis and batch renaming, not a marketplace or a general-purpose extension host.',
+    workaround: 'Check the task-specific guide before depending on either workflow for production delivery. Keep an editable source document and verify exported presentation output separately.',
+    category: 'Feature & availability boundaries',
+    related: [
+      { href: '/docs/presentations', label: 'Presentation authoring guide' },
+      { href: '/docs/plugins', label: 'Local plugins guide' },
+    ],
+  },
+  {
+    title: 'Token Sync is manual and does not write back to the source',
+    status: 'partial',
+    description: 'Varve can import and re-import supported DTCG token files, review a three-way merge, and export canonical JSON. It does not watch a file in the background, use a Git-backed source, write changes into the original file, or claim vendor-dialect interoperability.',
+    workaround: 'Keep the source under your normal version control, re-import it when it changes, review conflicts, and check exported tokens in the downstream tool that will consume them.',
+    category: 'Feature & availability boundaries',
+    related: [{ href: '/docs/tools/design-tokens', label: 'Design Tokens guide' }],
+  },
+  {
+    title: 'Mockup surfaces are bounded 2D mappings, not a full 3D renderer',
+    status: 'partial',
+    description: 'Mockups support flat, four-corner perspective, bounded front-facing cylindrical, and folded-mesh envelope surfaces. They do not provide cameras, hidden backsides, lighting, calibrated displacement maps, or Photoshop smart-object re-rendering. PDF/X stops until a mockup is flattened; code exports warn that mockups are outside vector-structure output.',
+    workaround: 'Use a supported surface and export format, then inspect the composed result. Flatten the mockup before PDF/X delivery.',
+    category: 'Feature & availability boundaries',
+    related: [{ href: '/docs/tools/mockups', label: 'Mockups guide' }],
+  },
+  {
+    title: 'RAW and model-assisted photo support is format- and route-specific',
+    status: 'partial',
+    description: 'RAW development covers a documented DNG camera subset, not every camera format or encoding. Some image workflows need an optional local model download; a capability available in the desktop app is not automatically available in the bounded browser demo.',
+    workaround: 'Check the supported inputs and model requirements in the RAW/HDR and image-tool guides before planning a production workflow.',
+    category: 'Feature & availability boundaries',
+    related: [
+      { href: '/docs/tools/raw-hdr-photo', label: 'RAW & HDR Photo guide' },
+      { href: '/docs/tools/image-enhancement', label: 'Image Enhancement guide' },
+    ],
+  },
   {
     title: 'Complex-script glyph shaping is still approximate in the live canvas',
     status: 'partial',
@@ -109,19 +164,19 @@ const issues: KnownIssue[] = [
 const categories = [...new Set(issues.map((i) => i.category))];
 ---
 
-<Layout title="Known Issues" description="Known issues in Varve: color preview boundaries, the in-progress Unicode text layout migration, collaboration scaffolding, and platform constraints.">
+<Layout title="Known Issues & Limitations" description="Current implementation gaps, experimental workflows, format and platform limits in Varve, with task-specific guides and workarounds.">
   <div class="container-custom">
     <div class="support-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href={sitePath('/support')}>Support</a> / Known Issues
       </nav>
 
-      <h1 class="page-hero-title">Known Issues</h1>
+      <h1 class="page-hero-title">Known Issues &amp; Limitations</h1>
       <p class="page-hero-sub">
-        Current limitations and known issues in Varve. These are tracked and will be addressed in future releases.
+        Current implementation gaps, experimental workflows, and platform or format limits. Status labels distinguish incomplete foundations from workflows that are gated or still experimental; linked guides describe what works today.
       </p>
       <p class="known-issues-review">
-        Color Management, Typography, and Print &amp; Export entries were reviewed on 13 August 2026 against the current engine and website implementation. The color entry distinguishes native document values and working precision from browser display surfaces; print entries reflect the current export pipeline: bleed is configurable per page, visualized on the canvas, and honored by PDF/X. “Partial” means foundations exist but the complete user-facing path is not yet guaranteed.
+        Reviewed 9 October 2026 against the v0.5.0 source tag, retained implementation, release notes, and linked guides. The color entry distinguishes native document values and working precision from browser display surfaces; print entries reflect the current export pipeline: bleed is configurable per page, visualized on the canvas, and honored by PDF/X. “Partial” means foundations exist but the complete user-facing path is not yet guaranteed. Some limits below are deliberate or qualification-dependent, not promised fixes for the next release.
       </p>
 
       {categories.map((category) => (
@@ -140,6 +195,9 @@ const categories = [...new Set(issues.map((i) => i.category))];
                     <strong>Workaround:</strong> {issue.workaround}
                   </p>
                 )}
+                {issue.related?.map((link) => (
+                  <p class="issue-guide"><a href={sitePath(link.href)}>{link.label} →</a></p>
+                ))}
               </article>
             ))}
           </div>
@@ -147,8 +205,8 @@ const categories = [...new Set(issues.map((i) => i.category))];
       ))}
 
       <ClosingCTA
-        title="Want to help fix these?"
-        accentWord="issues."
+        title="Want to help fix these"
+        accentWord="issues?"
         text="See the contribution guidelines to help implement these features."
         showDownload={false}
       />
@@ -241,5 +299,14 @@ const categories = [...new Set(issues.map((i) => i.category))];
   .issue-workaround strong {
     color: var(--text-secondary);
     font-weight: 600;
+  }
+
+  .issue-guide {
+    margin: 0.5rem 0 0;
+    font-size: var(--type-interface-readout-size);
+  }
+
+  .issue-guide a {
+    color: var(--text-link);
   }
 </style>

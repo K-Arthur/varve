@@ -67,9 +67,10 @@ fix is available.
 - A compromised credential (signing key, token, CI secret) is treated as
   compromised even if the exposure was private or masked; see
   `docs/security/security-hardening.md` → Credential compromise response.
-- The updater signing key, if ever created, is a critical release-security
-  asset: losing or leaking it affects every installed client that trusts it.
-  See `docs/release/update-strategy.md`.
+- The Tauri updater signing key is an active release-security asset: losing or
+  leaking it affects every installed client that trusts it. It is separate
+  from Windows and macOS platform-signing credentials. See
+  `docs/release/update-strategy.md` and the signing incident runbook.
 - All third-party GitHub Actions are pinned to full commit SHAs and the
   pin table is verified in CI (`scripts/pin-github-actions.mjs`).
 - Secret scanning is enabled on this repository (repository settings);
@@ -84,7 +85,11 @@ vulnerabilities, `cargo audit` reported no Rust vulnerabilities in either
 Cargo workspace, and GitHub reported one open development-only advisory
 (extract-zip), which has no upstream fixed release and is mitigated locally.
 
-### Current release review (2026-10-06)
+### Dependency advisory snapshot (2026-10-06)
+
+This records the API and lockfile state observed on that date. It is not a
+live advisory feed; check the current scanners and provider alerts before using
+it for a new release decision.
 
 The refreshed API inventory contains three open development-tool alerts:
 `extract-zip` (#46, high), `postcss-selector-parser` (#106, moderate), and
