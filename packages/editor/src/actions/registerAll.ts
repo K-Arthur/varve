@@ -1,6 +1,7 @@
 import { isTauriRuntime } from '@varve/platform';
 import { type ContactChannelId, contactMailto } from '@varve/shared';
 import { isCapabilityRestricted } from '../capabilities/restrictions';
+import { registerCalloutActions } from './calloutCommands';
 import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
 import { registerPresentationActions } from '../components/Presentation/presentationCommands';
 import type { EditorContextValue } from '../context';
@@ -148,6 +149,9 @@ export function registerEditorActions(
   // Thumbnail commands: source selection + picker entry point. Registered
   // BEFORE registerAllShortcuts() so real handlers win over no-op stubs.
   registerThumbnailActions(ctx);
+
+  // Callout/balloon commands for comic lettering discoverability.
+  registerCalloutActions(ctx);
 
   // Document color conversion dialog entry point (Assign vs Convert).
   registerColorConversionActions();
