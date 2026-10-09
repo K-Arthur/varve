@@ -1,9 +1,9 @@
-# Maintainer: Kevin Arthur <hello@kevinarthur.design>
+# Maintainer: Varve <hello at varve dot studio>
 #
-# Binary package: extracts the released AppImage rather than running it in
-# place. Extracting gives real .desktop/icon/MIME integration, avoids the FUSE
-# dependency entirely, and lets pacman own every installed file so uninstall is
-# clean — none of which an AppImage wrapper script provides.
+# Binary package: extracts the released .deb rather than running an AppImage in
+# place. Extracting gives real .desktop/icon/MIME integration, clean pacman
+# file ownership so uninstall is complete, and includes the bundled ONNX Runtime
+# for native AI features (background removal, image upscaling, tracing).
 #
 # NOTE: `sha256sums` must be updated on every release. Get the value from the
 # published SHA256SUMS.txt, which the release pipeline generates:
@@ -14,9 +14,9 @@ _appname=varve-desktop
 pkgver=0.5.0
 pkgrel=1
 pkgdesc="Local-first design suite for vector, layout, typography, motion and print"
-arch=('x86_64')
+arch=('x86_64' 'aarch64')
 url="https://github.com/K-Arthur/varve"
-license=('LicenseRef-FSL-1.1-MIT')
+license=('FSL-1.1-MIT')
 # Runtime libraries the Tauri binary links against. Deliberately not the full
 # AppImage payload: on Arch these are all present as system packages, and using
 # them keeps the install small and patched by the distro.
@@ -40,62 +40,68 @@ provides=("${_appname}")
 conflicts=("${_appname}" "${_appname}-git")
 options=('!strip' '!debug')
 
-source=("Varve-${pkgver}-linux-x86_64.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-x86_64.AppImage")
-sha256sums=('67f29114a33dd3d588c6750b03d16c814e3be6981cf04237e80dfc04d32367e5')  # from SHA256SUMS.txt
-noextract=("Varve-${pkgver}-linux-x86_64.AppImage")
+source=("Varve-${pkgver}-linux-${CARCH}.deb::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-${CARCH}.deb")
+sha256sums_x86_64=('89be69610182319529c4335c7982ec2a3fc09fb94cb2dac2e61bbdde837a75fb')
+sha256sums_aarch64=('5fc30625f738f0b8394f59180568251857cc45cc1e031d8568872def3494faf0')
+noextract=("Varve-${pkgver}-linux-${CARCH}.deb")
 
 prepare() {
   cd "${srcdir}"
-  chmod +x "Varve-${pkgver}-linux-x86_64.AppImage"
-  # --appimage-extract does not need FUSE, so this works in a clean chroot and
-  # in CI containers where /dev/fuse is unavailable.
-  "./Varve-${pkgver}-linux-x86_64.AppImage" --appimage-extract >/dev/null
+  # Extract the .deb payload (data.tar.gz) using bsdtar, which is in base-devel
+  bsdtar -xf "Varve-${pkgver}-linux-${CARCH}.deb" data.tar.gz
+  bsdtar -xf data.tar.gz
 }
 
 package() {
-  cd "${srcdir}/squashfs-root"
+  cd "${srcdir}"
 
+  # Main executable
   install -Dm755 "usr/bin/${_appname}" "${pkgdir}/usr/bin/${_appname}"
 
-  # The AppImage bundles copies of system libraries so it can run anywhere.
-  # On Arch those come from `depends` above, so they are intentionally dropped —
-  # keeping them would ship stale, unpatched duplicates of distro libraries.
-
-  # Tauri resources (bundled ONNX Runtime) must be kept: they are not in any repo.
+  # Tauri resources must be kept under /usr/lib/Varve/ where Tauri looks for them.
+  # This includes the bundled ONNX Runtime which is not in any distro repo.
   if [[ -d "usr/lib/Varve" ]]; then
-    install -dm755 "${pkgdir}/usr/lib/${_appname}"
-    cp -a "usr/lib/Varve/." "${pkgdir}/usr/lib/${_appname}/"
+    install -dm755 "${pkgdir}/usr/lib/Varve"
+    cp -a "usr/lib/Varve/." "${pkgdir}/usr/lib/Varve/"
   fi
 
-  # Desktop entry, normalised to the packaged binary path.
+  # Install license files (required for non-common licenses)
+  install -Dm644 "usr/lib/Varve/_up_/_up_/_up_/LICENSE" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  if [[ -f "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_NOTICES" ]]; then
+    install -Dm644 "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_NOTICES" \
+      "${pkgdir}/usr/share/licenses/${pkgname}/THIRD_PARTY_NOTICES"
+  fi
+  if [[ -d "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_LICENSES" ]]; then
+    cp -a "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_LICENSES" \
+      "${pkgdir}/usr/share/licenses/${pkgname}/"
+  fi
+
+  # Desktop entry, normalised to the packaged binary path
   local _desktop
   _desktop="$(find usr/share/applications -name '*.desktop' | head -1)"
   if [[ -n "${_desktop}" ]]; then
     install -Dm644 "${_desktop}" "${pkgdir}/usr/share/applications/dev.varve.desktop.desktop"
   fi
 
-  # Icons — every size the AppImage carries.
-  if [[ -d usr/share/icons/hicolor ]]; then
-    cp -a usr/share/icons "${pkgdir}/usr/share/icons"
+  # MetaInfo for GNOME Software, KDE Discover, etc.
+  if [[ -f "usr/share/metainfo/dev.varve.desktop.metainfo.xml" ]]; then
+    install -Dm644 "usr/share/metainfo/dev.varve.desktop.metainfo.xml" \
+      "${pkgdir}/usr/share/metainfo/dev.varve.desktop.metainfo.xml"
   fi
 
-  # MIME types for .varve and .strata documents, so double-click opens the app.
-  install -Dm644 /dev/stdin "${pkgdir}/usr/share/mime/packages/dev.varve.desktop.xml" <<'MIME'
-<?xml version="1.0" encoding="UTF-8"?>
-<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
-  <mime-type type="application/x-varve">
-    <comment>Varve design document</comment>
-    <glob pattern="*.varve"/>
-    <icon name="dev.varve.desktop"/>
-  </mime-type>
-  <mime-type type="application/x-strata">
-    <comment>Varve design document (legacy Strata format)</comment>
-    <glob pattern="*.strata"/>
-    <icon name="dev.varve.desktop"/>
-  </mime-type>
-</mime-info>
-MIME
+  # Icons — every size the deb carries
+  if [[ -d usr/share/icons/hicolor ]]; then
+    cp -a usr/share/icons/hicolor "${pkgdir}/usr/share/icons/"
+  fi
 
+  # MIME types for .varve and .strata documents
+  if [[ -f "usr/share/mime/packages/dev.varve.desktop.xml" ]]; then
+    install -Dm644 "usr/share/mime/packages/dev.varve.desktop.xml" \
+      "${pkgdir}/usr/share/mime/packages/dev.varve.desktop.xml"
+  fi
+
+  # Documentation
   install -Dm644 /dev/stdin "${pkgdir}/usr/share/doc/${pkgname}/README" <<'DOC'
 Varve stores documents as .varve files (legacy .strata files stay openable) and keeps everything on your machine.
 

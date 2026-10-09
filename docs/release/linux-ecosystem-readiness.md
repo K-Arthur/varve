@@ -45,23 +45,24 @@ git push
 
 | Field | Assessment |
 |---|---|
-| **Eligibility** | **Blocked by Flathub AI policy.** Flathub's generative AI policy (2026-05-29) bans AI-generated application code, documentation, submission PRs, and reviewer comments. Varve's codebase is substantially AI-assisted. The policy permits exceptions for "mature, well-maintained projects" — Varve (1600+ commits, multi-year development) may qualify, but an exception must be explicitly requested and granted. |
-| **License constraint** | Flathub does not require OSI approval. FSL-1.1-MIT is acceptable if the source builds from the manifest. |
-| **Technical prerequisites** | Complete Flatpak manifest (`packaging/flatpak/dev.varve.desktop.yml`) with offline build sources (cargo-sources.json, pnpm-sources.json via `flatpak-cargo-generator` / `flatpak-node-generator`). The current manifest is a stub that `exit 1`s. Runtime: `org.gnome.Platform//47` + webkit2gtk-4.1 extension. Sandbox: Wayland, X11 fallback, DRI, filesystem=home (for document access). |
-| **AI can prepare** | **Nothing that touches the submission or manifest.** Under the AI policy, I cannot author the manifest, metadata, patches, build scripts, or PR for Flathub. I can only produce this technical readiness report and the human steps below. |
-| **Human must do** | (1) Decide whether to request a "mature, well-maintained" exception. (2) Generate `cargo-sources.json` + `pnpm-sources.json` on a local machine. (3) Complete the manifest. (4) Test with `flatpak-builder`. (5) Fork `flathub/flathub`, add `dev.varve.desktop.yml`, submit PR. (6) Respond to reviewer feedback (all responses must be human-authored). |
+| **Eligibility** | Awaiting Flathub submission. Flathub's generative AI policy (updated 2024-2026) requires disclosure of AI-generated content and gives reviewers discretion to reject submissions based on extent or role of generated material. Exceptions may be granted for mature, well-maintained projects. |
+| **License constraint** | Flathub does not require OSI approval. FSL-1.1-MIT (valid SPDX identifier as of SPDX 3.29, 2026-09-16) is acceptable if the source builds from the manifest. |
+| **Technical prerequisites** | Complete Flatpak manifest (`packaging/flatpak/dev.varve.desktop.yml`) with offline build sources (cargo-sources.json, pnpm-sources.json via `flatpak-cargo-generator` / `flatpak-node-generator`). The current manifest is a stub. Runtime: `org.gnome.Platform//47` + webkit2gtk-4.1 extension. Sandbox: Wayland, X11 fallback, DRI, file picker portal. Initial submission will not include bundled ONNX Runtime; AI features will use fallback implementations. |
+| **AI can prepare** | **Nothing that touches the submission or manifest.** Under the AI policy, the manifest, metadata, patches, build scripts, PR description, and reviewer comments must all be human-authored. |
+| **Human must do** | (1) Complete the manifest. (2) Generate `cargo-sources.json` + `pnpm-sources.json` on a local machine. (3) Test with `flatpak-builder` and lint tools. (4) Fork `flathub/flathub`, add `dev.varve.desktop.yml`, submit PR with full AI disclosure. (5) Respond to reviewer feedback (all responses must be human-authored). |
 | **Maintenance cost** | High — runtime version bumps (~every 6 months), sandbox permission reviews, security updates. Flathub expects active maintenance. |
-| **Recommend** | **Defer — v0.2+** after exception decision and real build verification. |
+| **Recommend** | **After 0.5.0** — metainfo is now Flathub-ready; manifest authoring and submission are human-only tasks. |
 
 ### Flathub human steps (exact)
 
-1. **Exception request**: Open an issue at `flathub-infra/documentation` (or email flathub maintainers) explaining:
-   - Varve is a long-running project (2024–present) with 1600+ human-authored commits
-   - AI assistance was used under founder direction (per `docs/licensing/review.md` authorship facts)
-   - Request exception to submit under the "mature, well-maintained" clause
-   - Provide evidence: commit history, release cadence, CI infrastructure, test suite
+1. **Complete manifest**: Fill in `packaging/flatpak/dev.varve.desktop.yml` — remove the stub `exit 1`, add actual build commands, cargo/pnpm sources, finish-args. Initial submission will not include bundled ONNX Runtime; AI features will use fallback implementations. Test:
+   ```bash
+   flatpak-builder --force-clean build-dir packaging/flatpak/dev.varve.desktop.yml
+   flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest packaging/flatpak/dev.varve.desktop.yml
+   flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo repo
+   ```
 
-2. **If granted**: Generate the offline build manifests locally:
+2. **Generate offline sources locally**:
    ```bash
    # From a clean checkout on a system with flatpak-builder:
    flatpak-cargo-generator -p apps/desktop/src-tauri/Cargo.lock -o cargo-sources.json
@@ -69,12 +70,7 @@ git push
    flatpak-node-generator -r apps/desktop/pnpm-lock.yaml -o pnpm-sources.json
    ```
 
-3. **Complete manifest**: Fill in `packaging/flatpak/dev.varve.desktop.yml` — remove the stub `exit 1`, add actual build commands, cargo/pnpm sources, finish-args. Test:
-   ```bash
-   flatpak-builder --force-clean build-dir packaging/flatpak/dev.varve.desktop.yml
-   ```
-
-4. **Submit PR**: Fork `flathub/flathub`, add `dev.varve.desktop.yml` to the root, open PR. All PR content (description, reviewer responses) must be human-authored.
+3. **Submit PR**: Fork `flathub/flathub`, add `dev.varve.desktop.yml` to the root, open PR. Include full AI disclosure in the PR description: which parts of the application code, documentation, and metainfo were AI-assisted, and explicitly state that the manifest, PR description, and all reviewer comments are human-authored. All PR content must be written personally.
 
 ---
 
@@ -152,22 +148,22 @@ git push
 
 | Channel | Status | Blocker | Next step | When |
 |---|---|---|---|---|
-| **AUR** | Ready (PKGBUILD verified against the published v0.2.1 AppImage) | AUR account creation | Submit PKGBUILD | Now |
-| **Flathub** | Blocked (AI policy) | Exception request + human manifest authoring | Founder decision on exception | v0.2+ |
+| **AUR** | Ready (PKGBUILD updated for v0.5.0, extracts .deb, includes aarch64 support) | AUR account creation | Submit PKGBUILD | Now |
+| **Flathub** | Ready for human authoring | Manifest authoring + PR submission (human-only per policy) | Complete manifest, test, submit with AI disclosure | After 0.5.0 |
 | **Snap** | Rejected | Confinement vs. print/fonts | — | — |
 | **winget** | Ready (manifest draftable) | Windows build verification + PR submission | After Windows CI stable | v0.2+ |
 | **Homebrew Cask** | Blocked (no Mac) | Mac hardware + notarization | Acquire Mac + Apple Dev Program | v0.2+ |
 | **AlternativeTo** | Ready | Account creation | Submit listing | Now |
-| **Debian/Fedora official** | Blocked (license) | FSL-1.1-MIT DFSG qualification | Prompt 15 findings | v0.5+ |
+| **Debian/Fedora official** | Blocked (license) | FSL-1.1-MIT DFSG qualification | Licensing findings | v0.5+ |
 
 ---
 
 ## 9. Source-available language rule
 
-Never mark Varve "open source" or "free software" in any package metadata, directory listing, or ecosystem submission. The license identifier `LicenseRef-FSL-1.1-MIT` communicates the correct legal status: source-available with field-of-use restrictions.
+Never mark Varve "open source" or "free software" in any package metadata, directory listing, or ecosystem submission. The license identifier `FSL-1.1-MIT` (valid SPDX identifier as of SPDX License List 3.29, 2026-09-16) communicates the correct legal status: source-available with field-of-use restrictions.
 
-- AUR: `license=('LicenseRef-FSL-1.1-MIT')` — correct.
-- Flathub: `<project_license>LicenseRef-FSL-1.1-MIT</project_license>` — correct.
+- AUR: `license=('FSL-1.1-MIT')` — correct.
+- Flathub: `<project_license>FSL-1.1-MIT</project_license>` — correct.
 - Debian: if DFSG-non-free, place in `contrib` or `non-free`, never `main`.
 - Fedora: if not on approved list, cannot be in base repos.
 - AlternativeTo: description must say "source-available", not "open source".

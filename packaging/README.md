@@ -11,18 +11,19 @@ packaging/
     varve-desktop-bin/        # AUR binary package (from upstream .deb)
       PKGBUILD
       .SRCINFO
+      LICENSE                 # 0BSD license for the packaging scripts
   flatpak/
     dev.varve.desktop.yml     # Flatpak manifest (Flathub-ready)
     cargo-sources.json        # Vendored Rust crate sources (regenerate per release)
     pnpm-sources.json         # Vendored pnpm package sources (regenerate per release)
     dev.varve.desktop.desktop # Desktop entry for the sandbox
-    dev.varve.desktop.metainfo.xml  # AppStream metainfo for the sandbox
+    dev.varve.desktop.metainfo.xml  # Symlink to the canonical metainfo in apps/desktop/src-tauri/linux/
 ```
 
 ## AUR — varve-desktop-bin
 
 Binary package that extracts the upstream .deb release. Includes ONNX Runtime
-for native AI features (background removal, image upscaling).
+for native AI features (background removal, image upscaling, tracing).
 
 ### Release update procedure
 
@@ -31,7 +32,7 @@ for native AI features (background removal, image upscaling).
 # 2. Get the sha256 from the published SHA256SUMS.txt
 sha256=$(curl -sL https://github.com/K-Arthur/varve/releases/download/v$VERSION/SHA256SUMS.txt \
   | grep 'linux-x86_64.deb' | awk '{print $1}')
-# 3. Update sha256sums in PKGBUILD
+# 3. Update sha256sums_x86_64 and sha256sums_aarch64 in PKGBUILD
 # 4. Regenerate .SRCINFO
 cd packaging/aur/varve-desktop-bin
 makepkg --printsrcinfo > .SRCINFO
@@ -45,25 +46,29 @@ makepkg --verifysource
 # Create AUR account at https://aur.archlinux.org/account/register
 # Then:
 git clone ssh://aur@aur.archlinux.org/varve-desktop-bin.git /tmp/varve-aur
-cp PKGBUILD .SRCINFO /tmp/varve-aur/
+cp PKGBUILD .SRCINFO LICENSE /tmp/varve-aur/
 cd /tmp/varve-aur
-git add PKGBUILD .SRCINFO
+git add PKGBUILD .SRCINFO LICENSE
 git commit -m "varve-desktop-bin $VERSION"
 git push
 ```
 
 ## Flatpak
 
-Complete Flatpak manifest using GNOME Platform 50 (includes webkit2gtk-4.1,
+Complete Flatpak manifest using GNOME Platform 47 (includes webkit2gtk-4.1,
 GTK3, libsoup3). Builds entirely offline with vendored Cargo and pnpm sources.
+
+**Important:** Per Flathub policy, the manifest itself and all Flathub submission
+content must be human-authored. AI tools may not be used to generate, modify, or
+assist with the Flathub PR, its description, or reviewer comments.
 
 ### Building locally
 
 ```bash
 # Install the runtime + SDK
-flatpak install flathub org.gnome.Platform//50 org.gnome.Sdk//50
-flatpak install flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
-flatpak install flathub org.freedesktop.Sdk.Extension.node22//25.08
+flatpak install flathub org.gnome.Platform//47 org.gnome.Sdk//47
+flatpak install flathub org.freedesktop.Sdk.Extension.rust-stable//24.08
+flatpak install flathub org.freedesktop.Sdk.Extension.node22//24.08
 
 # Build
 cd packaging/flatpak
@@ -110,10 +115,10 @@ submission checklist.
 |---|---|
 | Primary Arch package? | **Binary** (`varve-desktop-bin`) from upstream .deb |
 | Separate source package? | No — single `-bin` package avoids duplicate/maintenance burden |
-| AppImage extraction? | Replaced with .deb extraction (complete payload incl. ONNX) |
+| Package source? | **x86_64 and aarch64 .deb** (complete payload incl. ONNX) |
 | AUR name | `varve-desktop-bin` (matches executable name, no conflicts) |
 | AppStream metadata outside Flatpak? | Yes — installed by deb/rpm/AppImage and the AUR package |
 | Flatpak offline build? | Yes — Cargo + pnpm vendored via generated source manifests |
-| ONNX in Flatpak? | Bundled from .deb (MIT-licensed, prebuilt from Microsoft) |
-| aarch64 support? | Upstream ships aarch64 AppImage/deb/rpm; AUR currently x86_64 only |
+| ONNX in Flatpak? | Initial submission will not include ONNX; AI features fall back |
+| aarch64 support? | Upstream ships aarch64 deb; AUR supports both x86_64 and aarch64 |
 | Tauri updater in package-manager builds? | Disabled — `package-manager-managed` / `store-managed` authorities |
