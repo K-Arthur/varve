@@ -17,8 +17,11 @@ exact Git pre-push refs ──> bounded local push checkpoint
 integration branch / PR ──> canonical plan ──> staged CI ──> CI / certification
   │                                                         (exact SHA)
   ▼
-freeze successful master SHA ──> Release Candidate / certification
-  │                              (triage, repair, final; exact SHA + policy hash)
+freeze successful master SHA ──> full CI / certification (if push CI was scoped)
+  │                              (exact SHA + policy hash + complete lane inventory)
+  ▼
+Release Candidate / certification
+  (final adopts complete integration evidence; triage remains diagnostic)
   ▼
 human creates immutable vX.Y.Z tag ──> release preflight
   │                                     ├─ exact certification verification
@@ -107,25 +110,45 @@ After the exact `master` SHA is frozen, request final certification:
 ```bash
 SHA="$(git rev-parse origin/master)"
 pnpm release:certify -- --sha "$SHA" --mode final
+```
+
+Reuse an already-passed full `CI / certification` check for this exact SHA and
+policy. Dispatch full CI only when the automatic push run was change-scoped and
+no complete full-profile evidence exists:
+
+```bash
+# Optional; workflow_dispatch forces the complete integration profile.
+gh workflow run ci.yml --ref master
+# Wait for its exact-SHA CI / certification check before continuing.
+```
+
+Then request the lightweight final candidate attestation once:
+
+```bash
 gh workflow run release-candidate.yml --ref master -f sha="$SHA" -f mode=final
 ```
 
 The candidate workflow requires the SHA to be reachable from `master` and the
 dispatched workflow revision to match that SHA. Keep accepted `master` frozen
 before dispatch; a mismatch fails planning before expensive jobs start. A
-`triage` dispatch deliberately skips the prior integration-certification
-prerequisite and produces a bounded, non-certifying failure report so it can
-help diagnose a red integration run. A `final` dispatch runs the prior exact-
-SHA `CI / certification` check and policy-bound integration artifact, then runs
-the extended matrix once. Each candidate matrix cell uploads an exact-source
-execution receipt; final aggregation requires every promised lane, platform,
-and browser shard before it records `POLICY_VERSION` plus the policy hash.
-The candidate commit-metadata guard fetches full history before scanning it;
-its job timeout includes checkout time. Keep this guard and the matching
-integration history guard at 10 minutes or more so a slow full-history fetch
-cannot cancel certification before the policy scan begins. The release-pipeline
-regression test enforces this minimum.
-The final evidence artifact is named
+`triage` dispatch remains a bounded, non-certifying diagnostic run. A `final`
+dispatch verifies the latest exact-SHA integration check and downloads its
+immutable plan and certification artifacts. It accepts them only when the
+integration plan is the complete current full-gate profile, every required
+platform, lane, and browser shard is present, execution receipts and archive
+digests validate, and the candidate plan has the identical lane inventory. It
+then publishes a candidate attestation bound to the exact integration run,
+attempt, plan digest, certification digest, source tree, and policy. Final mode
+does not rerun the same product suites. If coverage is partial, expired,
+superseded, or incomplete, it fails before candidate suites start and directs
+the operator to dispatch full CI for that exact master SHA. The installed
+package, upgrade, trust, and platform smoke tests still run in `release.yml`.
+
+The candidate commit-metadata guard still scans full history; its job timeout
+includes checkout time. Keep this guard and the matching integration history
+guard at 10 minutes or more so a slow full-history fetch cannot cancel
+certification before the policy scan begins. The release-pipeline regression
+test enforces this minimum. The final evidence artifact is named
 `varve-release-candidate-<sha>-<policy-hash>-run-<run_id>-attempt-<attempt>`.
 A candidate from any other SHA
 or policy is invalid, even when its tests were green.

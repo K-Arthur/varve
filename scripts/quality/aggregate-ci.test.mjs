@@ -616,11 +616,19 @@ assert.match(ci, /if: \$\{\{ always\(\) \}\}/);
 assert.match(candidate, /- run: pnpm lint/, 'candidate full JS profile must execute lint');
 assert.match(
   candidate,
-  /Verify prior exact-SHA integration certification\n\s+if: \$\{\{ inputs\.mode == 'final' \}\}/,
-  'triage does not inherit the final integration prerequisite',
+  /name: Verify complete exact-SHA integration evidence\n\s+id: verify-integration\n\s+if: \$\{\{ inputs\.mode == 'final' \}\}[\s\S]*?verify-candidate-integration\.mjs --plan ci-plan\.json/,
+  'final candidates require the full exact-SHA integration preflight while triage remains independent',
 );
 assert.match(candidate, /candidateMode|--mode "\$\{\{ inputs\.mode \}\}"/);
-assert.match(candidate, /CONCLUSION=neutral/);
+const candidateJobs = load(candidate).jobs;
+assert.equal(candidateJobs['triage-certification'].name, 'Candidate triage diagnostics');
+assert.equal(candidateJobs['triage-certification'].permissions.checks, undefined);
+assert.equal(candidateJobs.certification.permissions.checks, 'write');
+assert.match(
+  candidateJobs.certification.steps.map((step) => step.run ?? '').join('\n'),
+  /check-runs/,
+  'only final exact-SHA certification publishes the trusted candidate check',
+);
 assert.match(candidate, /-f external_id="\$\{GITHUB_RUN_ID\}:\$\{GITHUB_RUN_ATTEMPT\}"/);
 assert.match(
   candidate,

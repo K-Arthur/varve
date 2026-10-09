@@ -93,6 +93,75 @@ export function validateLocalCandidateEvidence(evidence, { commitSha, policyHash
   return errors;
 }
 
+function integrationAdoptionReference(integrationEvidence) {
+  const binding = integrationEvidence?.binding;
+  const plan = integrationEvidence?.plan;
+  const summary = integrationEvidence?.summary;
+  return {
+    workflow: 'ci.yml',
+    runId: binding?.runId ?? null,
+    runAttempt: binding?.runAttempt ?? null,
+    commitSha: integrationEvidence?.commitSha ?? null,
+    treeSha: integrationEvidence?.treeSha ?? null,
+    policyVersion: integrationEvidence?.policyVersion ?? null,
+    policyHash: integrationEvidence?.policyHash ?? null,
+    planHash: integrationEvidence?.planHash ?? null,
+    planArtifactId: plan?.artifactId ?? null,
+    planDigest: plan?.digest ?? null,
+    summaryArtifactId: summary?.artifactId ?? null,
+    summaryDigest: summary?.digest ?? null,
+  };
+}
+
+export function buildAdoptedCandidateEvidence({
+  plan,
+  integrationEvidence,
+  runId = process.env.GITHUB_RUN_ID ?? null,
+  generatedAt = new Date().toISOString(),
+} = {}) {
+  const adoptedIntegration = integrationAdoptionReference(integrationEvidence);
+  const evidence = {
+    schema: 1,
+    status: 'passed',
+    commitSha: plan?.commitSha ?? null,
+    treeSha: plan?.treeSha ?? null,
+    policyVersion: plan?.policyVersion ?? null,
+    policyHash: plan?.policyHash ?? null,
+    runId,
+    profile: 'candidate',
+    mode: 'final',
+    certifiable: true,
+    selectedLanes: Array.isArray(plan?.selectedLanes) ? [...plan.selectedLanes] : [],
+    deferredLanes: Array.isArray(plan?.deferredLanes) ? [...plan.deferredLanes] : [],
+    adoptedIntegration,
+    generatedAt,
+  };
+  return { ...evidence, evidenceHash: sha256(JSON.stringify(evidence)) };
+}
+
+export function validateAdoptedCandidateEvidence(evidence, { plan, integrationEvidence } = {}) {
+  const errors = validateLocalCandidateEvidence(evidence, {
+    commitSha: plan?.commitSha,
+    policyHash: plan?.policyHash,
+  });
+  if (evidence?.certifiable !== true) errors.push('candidate evidence is not certifiable');
+  if (evidence?.treeSha !== plan?.treeSha) errors.push('candidate evidence tree SHA mismatch');
+  if (evidence?.policyVersion !== plan?.policyVersion)
+    errors.push('candidate evidence policy version mismatch');
+  if (JSON.stringify(evidence?.selectedLanes) !== JSON.stringify(plan?.selectedLanes))
+    errors.push('candidate evidence lane selection mismatch');
+  if (evidence?.deferredLanes?.length) errors.push('candidate evidence defers lanes');
+  if (
+    JSON.stringify(evidence?.adoptedIntegration) !==
+    JSON.stringify(integrationAdoptionReference(integrationEvidence))
+  )
+    errors.push('candidate evidence does not bind the verified integration artifacts');
+  const { evidenceHash, ...body } = evidence ?? {};
+  if (!/^[a-f0-9]{64}$/.test(evidenceHash ?? '') || sha256(JSON.stringify(body)) !== evidenceHash)
+    errors.push('candidate evidence integrity hash mismatch');
+  return errors;
+}
+
 export function buildCandidateEvidence({
   commitSha,
   policyHash,

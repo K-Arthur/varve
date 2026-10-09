@@ -215,30 +215,35 @@ outcomes. These reports are diagnostic; they never grant certification.
 
 ## Remaining optimizations and acceptance criteria
 
-Complete integration-to-candidate execution adoption is **not active**. Current
-certificates lack all required command, tool, environment, and generated-runtime
-identities. Safe adoption must extend producers, certificate aggregation,
-candidate preflight, and the remote verifier together. It must reject missing
-metadata, expired artifacts, mismatched bytes, partial coverage, and newer red or
-queued producer runs. Candidate-only native, platform, and visual requirements
-still execute. Recheck adopted producers after candidate execution.
+Final integration-to-candidate adoption is now implemented. The final
+candidate workflow reuses the latest successful exact-SHA full integration
+certificate instead of rerunning its product suites. It validates both full
+plans, identical lane and shard inventories, every execution receipt and browser
+inventory, source/tree/policy identity, immutable artifact IDs and digests, and
+the newest producer run/attempt. Candidate evidence records the producer
+workflow, run, attempt, plan digest, and certification digest; the remote full
+gate revalidates that binding and checks for superseding runs before passing.
+Missing, partial, expired, changed, or superseded evidence fails before the
+candidate suites start. A push-triggered change-scoped CI run is insufficient;
+the operator dispatches `ci.yml` for the frozen SHA when a full profile has not
+already passed. Triage retains its bounded diagnostic matrix. Release workflow
+package installation, upgrade, signing/trust, and platform smoke gates remain
+separate and still execute.
 
 ## 0.5.0 release-path audit (October 9)
 
 The completed 0.5.0 integration and final candidate both validated source
-`5ac27d597d193e0f2f17483e94b21e6181d0112c`. The candidate currently repeats
-the integration's JavaScript, Rust, WASM, website, 24-shard browser, visual,
-model, and benchmark categories; only its platform-installed qualification is
+`5ac27d597d193e0f2f17483e94b21e6181d0112c`. The candidate repeated the
+integration's JavaScript, Rust, WASM, website, 24-shard browser, visual, model,
+and benchmark categories; only its platform-installed qualification was
 inherently candidate-specific. A separate duplicate integration run
 (`37889319985`) also repeated 24 browser shards at the same source and policy,
-costing 8.6 runner-hours. The exact-SHA candidate preflight proves integration
-already passed, but the current receipt format does not yet prove enough runtime
-and generated-artifact identity to safely adopt those executions. Do not
-manually suppress a category. Implement adoption only with exact producer
-run/attempt and artifact digest, source/tree/policy identity, command and tool
-versions, hosted runner image, generated WASM digest, complete project/case
-inventory, and a check for any newer failed or queued producer. Mismatch or
-missing evidence must execute the lane; it must never become a skip.
+costing 8.6 runner-hours. The later paired run records confirmed the duplicate
+product suites, and the final-candidate path now adopts the complete exact-SHA
+integration evidence instead. Adoption is restricted to the latest successful
+full producer and its immutable artifacts; it never turns a missing or partial
+lane into a pass. The actual 0.5.0 duplicate work is historical and is not
+retroactively recovered.
 
 The paired integration/candidate inventory audit found matching selected
 commands, projects, and case IDs for 24 browser shards plus the production-demo

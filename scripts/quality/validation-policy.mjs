@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const POLICY_VERSION = '2026-10-04.validation-profiles.v6';
+export const POLICY_VERSION = '2026-10-09.validation-profiles.v7';
 // 1,907 Chromium cases at the release checkpoint. Sixteen single-worker hosted
 // jobs ran 30-40 minutes each and the slowest shard twice hit the 40-minute job
 // ceiling (runs 37380722267 and 37391728360 lost shard 11 to a timeout, which
@@ -80,6 +80,7 @@ export const POLICY_FILES = [
   'scripts/release/website-release-data-check.mjs',
   'scripts/release/write-artifact-provenance.mjs',
   'scripts/release/write-candidate-evidence.mjs',
+  'scripts/release/verify-candidate-integration.mjs',
   'scripts/release/production/contracts.test.mjs',
   'scripts/validate-workflows.mjs',
   'justfile',

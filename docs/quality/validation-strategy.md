@@ -67,7 +67,7 @@ when it is allowed to run:
 | `commit` | pre-commit | staged format/lint, cheap policy checks, and direct tests; never browser, visual, native, benchmark, or release suites |
 | `push` | developer machine | exact Git pre-push refs, net-diff checks, outgoing-history security/policy scan, bounded direct tests/typechecks, and an explicit list of CI deferrals |
 | `integration` | `CI / certification` | the canonical planner's selected categories for the exact checked-out SHA; required before the integration branch or `master` is accepted |
-| `candidate` | `Release Candidate / certification` | a frozen exact SHA, extended cross-platform/browser/visual/native/package matrix, policy hash, and immutable evidence artifact before a release tag |
+| `candidate` | `Release Candidate / certification` | a frozen exact SHA, complete current full-integration evidence with matching lane/shard inventory, candidate history scan, policy hash, and immutable attestation before a release tag; triage remains diagnostic |
 
 `globalImpact`, `integrationRequired`, `releaseCandidateRequired`, and
 `localFullRequested` are separate fields. A global-impact plan means that
@@ -511,11 +511,18 @@ cannot satisfy protected checks or release provenance.
 
 `release-candidate.yml` freezes one SHA and emits
 `varve-release-candidate-<sha>-<policy-hash>-run-<run_id>-attempt-<attempt>` plus a stable
-`Release Candidate / certification` check. Its `triage` mode is explicitly
-non-certifying and may run without a successful prior integration check so it
-can collect bounded failures; only `final` produces passed candidate evidence.
-`release.yml` verifies both exact-SHA checks and the policy hash before
-installing large release dependencies.
+`Release Candidate / certification` check. Its `triage` mode remains a bounded,
+non-certifying diagnostic matrix. Final mode verifies the latest exact-SHA
+integration run, its immutable plan and certification artifacts, full lane and
+shard coverage, source/tree/policy identity, archive digests, and matching
+candidate lane inventory. It issues a candidate attestation that references
+those artifacts instead of rerunning the full product matrix. Missing,
+partial, expired, or superseded evidence fails before expensive candidate
+tests start. If push CI selected only affected lanes, manually dispatch `ci.yml`
+for the frozen SHA; `workflow_dispatch` forces the full integration profile.
+The candidate history scan and release workflow's installed-package/platform
+qualification remain separate gates. `release.yml` verifies both exact-SHA
+checks and the policy hash before installing large release dependencies.
 CI is authoritative; local affected validation is only the unmerged feedback
 loop.
 

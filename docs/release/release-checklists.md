@@ -23,7 +23,8 @@ destroy their work.
       exact source SHA, and current validation-policy hash
 - [ ] Integration `CI / certification` passes for the exact master SHA
 - [ ] `Release Candidate / certification` passes for that same SHA and policy
-      hash; use triage/final mode and targeted reruns for classified failures
+      hash; final mode must adopt a complete full-integration lane/shard
+      inventory, and triage remains diagnostic-only
 - [ ] A Linux package built **in CI** (not on the dev machine — glibc)
 - [ ] The release workflow's automated gates all pass before a draft exists:
       gate job (frontend built before desktop compile), bundle matrix,

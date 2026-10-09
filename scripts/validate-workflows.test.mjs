@@ -786,8 +786,8 @@ assert.deepEqual(
   const candidate = fs.readFileSync('.github/workflows/release-candidate.yml', 'utf-8');
   assert.match(
     candidate,
-    /verify-certification\.mjs --integration-only[\s\S]*--policy-hash/,
-    'candidate certification must start from an exact-SHA integration certification',
+    /verify-candidate-integration\.mjs --plan ci-plan\.json/,
+    'final candidate certification must adopt complete exact-SHA integration evidence',
   );
   for (const name of ['release.yml', 'website-deploy.yml', 'ci.yml', 'build.yml']) {
     const content = fs.readFileSync(`.github/workflows/${name}`, 'utf-8');
