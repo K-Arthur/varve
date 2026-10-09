@@ -1,5 +1,5 @@
 {
-  "id": "id-1791544487916-bo0mfx83k",
+  "id": "id-1791546883858-7yoaj8f6n",
   "formatVersion": "2.33",
   "name": "Halloween Cookies",
   "nextId": 10000,
@@ -1684,13 +1684,7 @@
       "opacity": 1,
       "blendMode": "normal",
       "rotation": 0,
-      "text": {
-        "ops": [
-          {
-            "insert": "Perfect!"
-          }
-        ]
-      },
+      "text": "Perfect!",
       "transform": [
         1,
         0,
@@ -3206,13 +3200,7 @@
       "opacity": 1,
       "blendMode": "normal",
       "rotation": 0,
-      "text": {
-        "ops": [
-          {
-            "insert": "Did I use\nmagic flour...?"
-          }
-        ]
-      },
+      "text": "Did I use\nmagic flour...?",
       "transform": [
         1,
         0,
@@ -3495,11 +3483,11 @@
     "nextId": 1
   },
   "savedAreaSelections": [],
-  "activePageId": "id-1791544487916-6qxwq171g",
+  "activePageId": "id-1791546883858-qoryka5ty",
   "globalChildren": [],
   "pages": [
     {
-      "id": "id-1791544487916-6qxwq171g",
+      "id": "id-1791546883858-qoryka5ty",
       "name": "Page 1",
       "order": "a0",
       "width": 780,
