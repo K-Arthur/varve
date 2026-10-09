@@ -95,6 +95,8 @@ export interface ExportOptions {
   color?: import('@varve/engine').RasterExportColorPolicy;
   /** Metadata policy applied to the encoded PNG/JPEG bytes. */
   metadata?: { policy: MetadataPolicy; content?: MetadataContent };
+  /** Include AI disclosure metadata (IPTC DigitalSourceType) if document contains AI edits. Defaults to true. */
+  includeAiDisclosure?: boolean;
   /** Render a frame into its declared local width/height and clip exactly to that slide. */
   frameLocal?: boolean;
 }
@@ -616,6 +618,38 @@ export async function exportNodeAsRaster(
         blob = new Blob([withText.slice()], { type: 'image/png' });
         warnings.push(
           `metadata: embedded ${entries.map((e) => e.keyword).join(', ')} per export policy`,
+        );
+      }
+    }
+  }
+
+  // AI disclosure: embed XMP metadata if document contains AI edits and disclosure is enabled (default).
+  if (opts.includeAiDisclosure !== false) {
+    const { getDocumentAiDisclosure, generateAiDisclosureXmp } = await import(
+      '../../export/aiDisclosure'
+    );
+    const { insertPngXmp, insertJpegXmp } = await import('../../export/xmpInjection');
+
+    const disclosure = getDocumentAiDisclosure(doc, flattened.ids);
+    if (disclosure) {
+      const xmp = generateAiDisclosureXmp(disclosure);
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+
+      if (opts.format === 'image/png') {
+        const withXmp = insertPngXmp(bytes, xmp);
+        blob = new Blob([withXmp.slice()], { type: 'image/png' });
+        warnings.push(
+          `AI disclosure: embedded IPTC DigitalSourceType metadata (${disclosure.tools.join(', ')})`,
+        );
+      } else if (opts.format === 'image/jpeg') {
+        const withXmp = insertJpegXmp(bytes, xmp);
+        blob = new Blob([withXmp.slice()], { type: 'image/jpeg' });
+        warnings.push(
+          `AI disclosure: embedded IPTC DigitalSourceType metadata (${disclosure.tools.join(', ')})`,
+        );
+      } else if (opts.format === 'image/webp') {
+        warnings.push(
+          'AI disclosure: WebP cannot embed XMP metadata via this pipeline; disclosure not written',
         );
       }
     }
