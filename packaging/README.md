@@ -22,7 +22,7 @@ packaging/
 
 ## AUR — varve-desktop-bin
 
-Binary package that extracts the upstream .deb release. Includes ONNX Runtime
+Binary package that extracts the upstream AppImage release. Includes ONNX Runtime
 for native AI features (background removal, image upscaling, tracing).
 
 ### Release update procedure
@@ -31,7 +31,7 @@ for native AI features (background removal, image upscaling, tracing).
 # 1. Update pkgver in PKGBUILD
 # 2. Get the sha256 from the published SHA256SUMS.txt
 sha256=$(curl -sL https://github.com/K-Arthur/varve/releases/download/v$VERSION/SHA256SUMS.txt \
-  | grep 'linux-x86_64.deb' | awk '{print $1}')
+  | grep 'linux-x86_64.AppImage' | awk '{print $1}')
 # 3. Update sha256sums_x86_64 and sha256sums_aarch64 in PKGBUILD
 # 4. Regenerate .SRCINFO
 cd packaging/aur/varve-desktop-bin
@@ -113,12 +113,12 @@ submission checklist.
 
 | Question | Answer |
 |---|---|
-| Primary Arch package? | **Binary** (`varve-desktop-bin`) from upstream .deb |
+| Primary Arch package? | **Binary** (`varve-desktop-bin`) from upstream AppImage |
 | Separate source package? | No — single `-bin` package avoids duplicate/maintenance burden |
-| Package source? | **x86_64 and aarch64 .deb** (complete payload incl. ONNX) |
+| Package source? | **x86_64 and aarch64 AppImage** (complete payload incl. ONNX) |
 | AUR name | `varve-desktop-bin` (matches executable name, no conflicts) |
 | AppStream metadata outside Flatpak? | Yes — installed by deb/rpm/AppImage and the AUR package |
 | Flatpak offline build? | Yes — Cargo + pnpm vendored via generated source manifests |
 | ONNX in Flatpak? | Initial submission will not include ONNX; AI features fall back |
-| aarch64 support? | Upstream ships aarch64 deb; AUR supports both x86_64 and aarch64 |
+| aarch64 support? | Upstream ships aarch64 AppImage; AUR supports both x86_64 and aarch64 |
 | Tauri updater in package-manager builds? | Disabled — `package-manager-managed` / `store-managed` authorities |

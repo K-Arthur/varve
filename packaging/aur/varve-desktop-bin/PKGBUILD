@@ -1,9 +1,9 @@
 # Maintainer: Varve <hello at varve dot studio>
 #
-# Binary package: extracts the released .deb rather than running an AppImage in
-# place. Extracting gives real .desktop/icon/MIME integration, clean pacman
-# file ownership so uninstall is complete, and includes the bundled ONNX Runtime
-# for native AI features (background removal, image upscaling, tracing).
+# Binary package: extracts the released AppImage rather than running it in
+# place. Extracting gives real .desktop/icon/MIME integration, avoids the FUSE
+# dependency entirely, and lets pacman own every installed file so uninstall is
+# clean — none of which an AppImage wrapper script provides.
 #
 # NOTE: `sha256sums` must be updated on every release. Get the value from the
 # published SHA256SUMS.txt, which the release pipeline generates:
@@ -40,26 +40,32 @@ provides=("${_appname}")
 conflicts=("${_appname}" "${_appname}-git")
 options=('!strip' '!debug')
 
-source=("Varve-${pkgver}-linux-${CARCH}.deb::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-${CARCH}.deb")
-sha256sums_x86_64=('89be69610182319529c4335c7982ec2a3fc09fb94cb2dac2e61bbdde837a75fb')
-sha256sums_aarch64=('5fc30625f738f0b8394f59180568251857cc45cc1e031d8568872def3494faf0')
-noextract=("Varve-${pkgver}-linux-${CARCH}.deb")
+source=("Varve-${pkgver}-linux-${CARCH}.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-${CARCH}.AppImage")
+sha256sums_x86_64=('fb0c188286fbd92479f88dd0eefc4547d3544b33e7dc5120abd399bfdf2237af')
+sha256sums_aarch64=('4684fef861cdf3dd51cfd326f5a9452d29d733af9e9d4c53b18f06fc0ab8c404')
+noextract=("Varve-${pkgver}-linux-${CARCH}.AppImage")
 
 prepare() {
   cd "${srcdir}"
-  # Extract the .deb payload (data.tar.gz) using bsdtar, which is in base-devel
-  bsdtar -xf "Varve-${pkgver}-linux-${CARCH}.deb" data.tar.gz
-  bsdtar -xf data.tar.gz
+  chmod +x "Varve-${pkgver}-linux-${CARCH}.AppImage"
+  # --appimage-extract does not need FUSE, so this works in a clean chroot and
+  # in CI containers where /dev/fuse is unavailable.
+  "./Varve-${pkgver}-linux-${CARCH}.AppImage" --appimage-extract >/dev/null
 }
 
 package() {
-  cd "${srcdir}"
+  cd "${srcdir}/squashfs-root"
 
   # Main executable
   install -Dm755 "usr/bin/${_appname}" "${pkgdir}/usr/bin/${_appname}"
 
-  # Tauri resources must be kept under /usr/lib/Varve/ where Tauri looks for them.
-  # This includes the bundled ONNX Runtime which is not in any distro repo.
+  # The AppImage bundles copies of system libraries so it can run anywhere.
+  # On Arch those come from `depends` above, so they are intentionally dropped —
+  # keeping them would ship stale, unpatched duplicates of distro libraries.
+
+  # Tauri resources (bundled ONNX Runtime) must be kept under /usr/lib/Varve/
+  # where Tauri looks for them. This includes ONNX Runtime which is not in any
+  # distro repo.
   if [[ -d "usr/lib/Varve" ]]; then
     install -dm755 "${pkgdir}/usr/lib/Varve"
     cp -a "usr/lib/Varve/." "${pkgdir}/usr/lib/Varve/"
@@ -90,12 +96,12 @@ package() {
       "${pkgdir}/usr/share/metainfo/dev.varve.desktop.metainfo.xml"
   fi
 
-  # Icons — every size the deb carries
+  # Icons — every size the AppImage carries
   if [[ -d usr/share/icons/hicolor ]]; then
     cp -a usr/share/icons/hicolor "${pkgdir}/usr/share/icons/"
   fi
 
-  # MIME types for .varve and .strata documents
+  # MIME types for .varve and .strata documents, so double-click opens the app
   if [[ -f "usr/share/mime/packages/dev.varve.desktop.xml" ]]; then
     install -Dm644 "usr/share/mime/packages/dev.varve.desktop.xml" \
       "${pkgdir}/usr/share/mime/packages/dev.varve.desktop.xml"
