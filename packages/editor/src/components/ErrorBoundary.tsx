@@ -25,6 +25,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
+    // Window-level ResizeObserver / AbortError / GPU-loss diagnostics never
+    // reach this class — CrashCenter filters those. A throw during render is
+    // a real subtree failure even when the message looks like a cancellation:
+    // ignoring it here would re-render the same child and loop.
     return { hasError: true, error };
   }
 

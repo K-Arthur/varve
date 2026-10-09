@@ -36,5 +36,7 @@ export async function revealMainWindow(): Promise<void> {
  * Called once React is about to mount.
  */
 export function dismissBootFallback(): void {
+  const markBooted = (window as Window & { __varveMarkBooted?: () => void }).__varveMarkBooted;
+  markBooted?.();
   document.getElementById('varve-boot-fallback')?.remove();
 }
