@@ -72,12 +72,14 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
   const handleDownload = useCallback(async () => {
     // Block download if AI features are disabled
     if (!aiEnabled) {
-      setError({
-        message: 'AI features are disabled',
-        details: 'Enable AI features in Settings to download AI models.',
-        severity: 'error',
-        userMessage: 'AI features are disabled. Enable them in Settings to download models.',
-      });
+      const error: NormalizedModelDownloadError = {
+        category: 'permission',
+        userMessage: 'AI features are disabled',
+        detail: 'Enable AI features in Settings to download AI models.',
+        retryable: false,
+        technicalMessage: 'AI features disabled by user setting',
+      };
+      setError(error);
       updateStatus('error');
       return;
     }

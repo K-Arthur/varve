@@ -26,7 +26,7 @@ import {
   isImageShape,
   nodeHasStyle,
 } from '@varve/scene';
-import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
+import { Icon, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
 import type { ParentIndexCache } from '../../scene/parentIndexCache';
@@ -891,7 +891,7 @@ export const LayersRow = memo(function LayersRow({
                   role="img"
                   aria-label={`AI-edited: ${aiEditInfo.label} with ${aiEditInfo.model}`}
                 >
-                  <SolidIcon icon="SparklesFill" size={12} />
+                  <Icon name="Sparkles" size={12} />
                 </span>
               </Tooltip>
             </span>

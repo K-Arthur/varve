@@ -14,7 +14,7 @@
 import { useSettings } from '../components/Settings/SettingsContext';
 
 export function useAiFeaturesEnabled(): boolean {
-  const settings = useSettings();
+  const { settings } = useSettings();
   return settings.ai.enabled;
 }
 

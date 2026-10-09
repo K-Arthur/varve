@@ -7077,7 +7077,7 @@ export function EditorProvider({
         // Check if AI features are enabled
         const settings = loadSettings();
         if (!settings.ai.enabled) {
-          toast({
+          toastHandler?.({
             message: 'AI features are disabled',
             description: 'Enable AI features in Settings to use Generative Edit.',
             type: 'info',
