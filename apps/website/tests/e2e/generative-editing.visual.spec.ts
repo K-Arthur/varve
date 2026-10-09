@@ -13,6 +13,10 @@ test.describe('generative editing marketing pages', () => {
     await preparePage(page, 'light');
     await page.goto('/features/generative-editing?test-motion=static');
     await expect(page.getByRole('heading', { name: /make room in an image/i })).toBeVisible();
+    await expect(
+      page.getByText(/browser path is exposed but awaits independent real-photo review/i),
+    ).toBeVisible();
+    await expect(page.getByText(/browser fast\/patchmatch expand stays disabled/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: /one image workflow/i })).toBeVisible();
     await expect(
       page.getByRole('heading', { name: /promptless local expansion, before and after/i }),
@@ -82,6 +86,11 @@ test.describe('generative editing marketing pages', () => {
     await page.goto('/docs/tools/generative-editing?test-motion=static');
     await expect(
       page.getByRole('heading', { name: 'Generative Editing', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        /Browser AI-quality reconstruction is exposed after optional LaMa installation/i,
+      ),
     ).toBeVisible();
     await expect(page.getByRole('heading', { name: /build and refine the mask/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /review and accept/i })).toBeVisible();

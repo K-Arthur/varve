@@ -160,9 +160,11 @@ When a new phrase is proposed, check it against both lists before it ships.
 - Optional model tools run locally, and Varve does not train models on user
   documents. Assistive tracing, enhancement, background removal, selection,
   depth and palette tools coexist with explicit mask-guided Fill/Remove and
-  bounded desktop promptless Expand. Model downloads require the user's
-  choice. Prompt-conditioned generation remains gated, and browser AI-quality
-  Expand is implemented but pending qualification; there is no shipped hosted
+  bounded promptless Expand: desktop photo review is limited to Linux x86_64,
+  while the browser AI-quality path is exposed after a local model download but
+  awaits independent real-photo review. Browser Fast/PatchMatch Expand stays
+  disabled after edge striping. Model downloads require the user's choice.
+  Prompt-conditioned generation remains gated; there is no shipped hosted
   text-to-image service. Link the
   [generative capability boundary](../architecture/generative-editing-system.md#current-capability-boundary)
   when discussing these features.

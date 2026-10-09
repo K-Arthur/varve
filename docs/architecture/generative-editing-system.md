@@ -48,9 +48,11 @@ local provider and is not persisted as if it conditioned the result.
 Prompt-conditioned Replace and Expand use the same session and job contract but
 remain capability-gated until a verified prompt-conditioned model exists.
 Desktop promptless Expand is available within the limited photographic boundary
-that was measured; the browser Fast/PatchMatch path is intentionally
-unavailable for Expand because its real-photo output showed visible edge
-striping — that rejection is unchanged. See [the Expand
+that was measured on Linux x86_64. Browser AI-quality Expand is exposed after
+the local LaMa model is installed, but still awaits an independent real-photo
+browser review. The browser Fast/PatchMatch path is intentionally unavailable
+for Expand because its real-photo output showed visible edge striping — that
+rejection is unchanged. See [the Expand
 qualification](../audits/generative-expand-qualification-2026-09-13.md) and the
 rejected browser evidence recorded there.
 
