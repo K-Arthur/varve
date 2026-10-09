@@ -2,7 +2,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { buildCandidateEvidence } from './certification.mjs';
+import { buildAdoptedCandidateEvidence, buildCandidateEvidence } from './certification.mjs';
 
 function value(args, name) {
   const index = args.indexOf(name);
@@ -12,16 +12,35 @@ function value(args, name) {
 function main() {
   const args = process.argv.slice(2);
   const plan = JSON.parse(readFileSync(value(args, '--plan') ?? 'ci-plan.json', 'utf8'));
-  const aggregate = JSON.parse(
-    readFileSync(value(args, '--aggregate') ?? 'ci-certification.json', 'utf8'),
-  );
   const mode = plan.candidateMode ?? 'final';
-  const evidence = buildCandidateEvidence({
-    commitSha: plan.commitSha,
-    policyHash: plan.policyHash,
-    aggregate,
-    mode,
-  });
+  let evidence;
+  if (mode === 'final') {
+    if (!process.env.VARVE_CANDIDATE_ADOPTION_JSON)
+      throw new Error('final candidate evidence requires verified integration adoption metadata');
+    const adoption = JSON.parse(process.env.VARVE_CANDIDATE_ADOPTION_JSON);
+    if (
+      adoption.commitSha !== plan.commitSha ||
+      adoption.treeSha !== plan.treeSha ||
+      adoption.policyVersion !== plan.policyVersion ||
+      adoption.policyHash !== plan.policyHash ||
+      adoption.planHash !== plan.planHash
+    )
+      throw new Error('integration adoption metadata does not match the final candidate plan');
+    evidence = buildAdoptedCandidateEvidence({
+      plan,
+      integrationEvidence: adoption.integrationEvidence,
+    });
+  } else {
+    const aggregate = JSON.parse(
+      readFileSync(value(args, '--aggregate') ?? 'ci-certification.json', 'utf8'),
+    );
+    evidence = buildCandidateEvidence({
+      commitSha: plan.commitSha,
+      policyHash: plan.policyHash,
+      aggregate,
+      mode,
+    });
+  }
   const output = value(args, '--output') ?? 'candidate-certification.json';
   writeFileSync(output, `${JSON.stringify(evidence, null, 2)}\n`);
   console.log(`${evidence.status}: ${output} (${evidence.commitSha}, ${evidence.policyHash})`);

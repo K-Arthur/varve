@@ -1,16 +1,22 @@
 # Varve — Update and Release Channel Strategy
 
 **Decision record date:** 2026-08-03
-**Current state:** updater infrastructure is implemented behind the consent,
-package-authority, release-signing, and acceptance-test gates recorded in [the
-update-system audit](../architecture/update-system-audit-2026-08-13.md). The
-current published beta remains an explicitly unsigned/manual-download release
-for platform installers; updater availability is independently derived from
-the published feed and build mode.
+**Current state (verified 2026-10-09):** Varve v0.5.0 is published with a
+signed Tauri update feed for Linux AppImage (x86_64 and ARM64), Windows NSIS
+(x86_64 and ARM64), and Apple Silicon macOS. Update-feed signatures are
+separate from platform code signing: the Windows and macOS installers remain
+unsigned, and the macOS DMG is not notarized. In-app eligibility also depends
+on install authority and writability. Debian/RPM packages, unsupported or
+non-writable copies, and development builds remain manual-only. See the
+[current platform matrix](platform-support-matrix.md) and
+[update-system audit](../architecture/update-system-audit-2026-08-13.md).
 
 ---
 
-## 1. What existed before the updater implementation
+## Historical snapshot: before the updater implementation
+
+The following inventory is a dated pre-implementation snapshot, not the
+current repository state.
 
 Audited, not assumed:
 
@@ -48,8 +54,8 @@ The following was the correct pre-updater decision for the first release:
    first release is infrastructure built against guesses.
 
 That decision remains useful as the fallback for unsupported, externally
-managed, development, and not-yet-validated builds. It is no longer the whole
-product requirement: the consent-first updater is being added incrementally.
+managed, development, and not-yet-validated builds. The consent-first updater
+is now shipped for the supported package types listed above.
 
 **Historical v1 snapshot (audited 2026-08-06):**
 
@@ -70,7 +76,12 @@ product requirement: the consent-first updater is being added incrementally.
 
 ---
 
-## 3. Production enablement gates
+## Historical initial production-enablement checklist
+
+This checklist records the gates proposed before updater implementation.
+The v0.5.0 release passed its current exact-source candidate, native package
+qualification, updater-signature, and publication gates; the initial checklist
+below is not the current release status.
 
 All of these should be true first:
 
@@ -86,16 +97,15 @@ All of these should be true first:
 - [ ] A dedicated updater key-management procedure exists and has been
       rehearsed (§5 and the signing runbooks).
 
-The audit and capability matrix are maintained separately so this historical
-decision record does not silently become a claim that package-specific
-self-update is safe before its acceptance tests pass.
+See the current implementation and release evidence below; the initial gate
+list is preserved as design history.
 
-## 4. Current implementation boundary
+## Shipped implementation boundary
 
 The first implementation increment is deliberately conservative:
 
-- Tauri v2.10.1 updater and v2.3.1 process plugins are registered only for the
-  desktop app. The embedded public key is a dedicated updater key, separate
+- Tauri updater and process plugins are registered only for the desktop app.
+  The embedded public key is a dedicated updater key, separate
   from Windows Authenticode and Apple Developer ID trust.
 - Stable and beta feeds are static JSON files generated from the exact signed
   updater artifacts after the existing release trust gate. Website deployment
@@ -264,9 +274,10 @@ Covered assertions:
 - a feed whose signature does not match the payload fails closed: error
   state, no install offer, app still running.
 
-Not covered by the slice (documented gaps): the read-only/disk-full install
-failure paths, Windows NSIS and macOS installed-app upgrades (require
-platform runners), and the production feed (never used for tests).
+The gaps listed for the August 2026 first implementation slice are historical.
+The v0.5.0 release workflow now exercises installed upgrade flows on all five
+native target architectures and verifies the published feed. Keep the specific
+failure-mode requirements below as ongoing acceptance criteria.
 
 ---
 
@@ -292,10 +303,11 @@ pnpm tauri signer generate -w ~/.varve/updater.key
 | Key password | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secret | Anywhere alongside the key |
 | Public key | `tauri.conf.json`, committed | — |
 
-`.gitignore` excludes updater key files. The working key generated during this
-implementation is outside the repository at `~/.varve/updater.key`; it is not
-committed or used as a CI credential. A protected release secret must be
-provisioned before the release workflow can build updater artifacts.
+`.gitignore` excludes updater key files. Release signing uses the protected
+`TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secrets; the public key is committed in
+`tauri.conf.json`. The published v0.5.0 feed contains signed updater
+metadata. Never put the private key in the repository, logs, or documentation.
 
 **Rotation** is a slow operation and must be planned as one: the public key is
 compiled into every already-installed client, so a rotated key cannot sign

@@ -37,6 +37,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       commit_sha: ${{ steps.plan.outputs.commit_sha }}
+      tree_sha: ${{ steps.plan.outputs.tree_sha }}
       plan_hash: ${{ steps.plan.outputs.plan_hash }}
       policy_hash: ${{ steps.plan.outputs.policy_hash }}
       full: ${{ steps.plan.outputs.full }}
@@ -44,6 +45,7 @@ jobs:
       e2e_shards: ${{ steps.plan.outputs.e2e_shards }}
       e2e_shard_count: ${{ steps.plan.outputs.e2e_shard_count }}
       plan_artifact_id: ${{ steps.upload-plan.outputs.artifact-id }}
+      adoption_json: ${{ steps.verify-integration.outputs.adoption_json }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -64,18 +66,11 @@ jobs:
             exit 1
           fi
           git merge-base --is-ancestor "$ACTUAL_SHA" origin/master
+          TREE_SHA="$(git rev-parse --verify "${ACTUAL_SHA}^{tree}")"
+          echo "tree_sha=${TREE_SHA}" >> "$GITHUB_OUTPUT"
           node scripts/quality/ci-plan.mjs --base "$ACTUAL_SHA" --head "$ACTUAL_SHA" \
             --force-full --profile candidate --mode "${{ inputs.mode }}" \
             --output ci-plan.json --github-output "$GITHUB_OUTPUT"
-      - name: Verify prior exact-SHA integration certification
-        if: ${{ inputs.mode == 'final' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          node scripts/release/verify-certification.mjs --integration-only \
-            --sha "${{ steps.plan.outputs.commit_sha }}" --repo "${GITHUB_REPOSITORY}" \
-            --policy-hash "${{ steps.plan.outputs.policy_hash }}"
       - name: Upload exact candidate plan
         id: upload-plan
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -83,6 +78,16 @@ jobs:
           name: varve-candidate-plan-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: ci-plan.json
           retention-days: 90
+      - name: Verify complete exact-SHA integration evidence
+        id: verify-integration
+        if: ${{ inputs.mode == 'final' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EXPECTED_SHA: ${{ steps.plan.outputs.commit_sha }}
+          EXPECTED_TREE_SHA: ${{ steps.plan.outputs.tree_sha }}
+          EXPECTED_POLICY_HASH: ${{ steps.plan.outputs.policy_hash }}
+        run: node scripts/release/verify-candidate-integration.mjs --plan ci-plan.json
 
   attribution-check:
     name: Candidate commit metadata
@@ -104,6 +109,7 @@ jobs:
 
   pipeline-validate:
     name: Candidate preflight policy
+    if: ${{ inputs.mode == 'triage' }}
     runs-on: ubuntu-latest
     # Match the CI pipeline gate: pnpm bootstrap latency is external to the
     # validation work and must not cancel candidate certification prematurely.
@@ -173,6 +179,7 @@ jobs:
 
   js:
     name: Candidate JS and unit certification
+    if: ${{ inputs.mode == 'triage' }}
     runs-on: ubuntu-latest
     # Same complete JS workload and setup allowance as integration CI.
     timeout-minutes: 45
@@ -213,6 +220,7 @@ jobs:
 
   rust:
     name: Candidate Rust (${{ matrix.os }})
+    if: ${{ inputs.mode == 'triage' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     needs: [changes, pipeline-validate]
@@ -253,6 +261,7 @@ jobs:
 
   wasm:
     name: Candidate WASM
+    if: ${{ inputs.mode == 'triage' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     needs: [changes, pipeline-validate]
@@ -306,6 +315,7 @@ jobs:
 
   website-e2e:
     name: Candidate website functional and accessibility
+    if: ${{ inputs.mode == 'triage' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [changes, pipeline-validate]
@@ -383,6 +393,7 @@ jobs:
 
   e2e:
     name: Candidate browser E2E ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_shard_count }}
+    if: ${{ inputs.mode == 'triage' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     needs: [changes, pipeline-validate, wasm]
@@ -546,6 +557,7 @@ jobs:
 
   e2e-visual:
     name: Candidate visual regression
+    if: ${{ inputs.mode == 'triage' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
     needs: [changes, pipeline-validate, wasm]
@@ -629,6 +641,7 @@ jobs:
 
   desktop-e2e:
     name: Candidate native desktop (${{ matrix.name }})
+    if: ${{ inputs.mode == 'triage' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 50
     needs: [changes, pipeline-validate, rust, wasm]
@@ -700,6 +713,7 @@ jobs:
 
   models:
     name: Candidate model policy
+    if: ${{ inputs.mode == 'triage' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [changes, pipeline-validate]
@@ -728,6 +742,7 @@ jobs:
 
   bench:
     name: Candidate benchmark corpus
+    if: ${{ inputs.mode == 'triage' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [changes, pipeline-validate]
@@ -773,15 +788,14 @@ jobs:
             test-results/
           if-no-files-found: ignore
 
-  certification:
-    name: Release Candidate / certification
+  triage-certification:
+    name: Candidate triage diagnostics
     permissions:
       contents: read
       actions: read
-      checks: write
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: ${{ always() }}
+    if: ${{ always() && inputs.mode == 'triage' }}
     needs: [changes, attribution-check, pipeline-validate, rust, wasm, js, website-e2e, e2e, e2e-visual, desktop-e2e, bench, models]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -817,8 +831,8 @@ jobs:
           else
             aggregate_status=$?
           fi
-          # Triage is a bounded diagnostic run. Preserve its failure set and
-          # publish a neutral check, but reserve a red job for final mode.
+          # Triage is diagnostic only. Preserve its bounded failure set, but
+          # do not publish a certifying check.
           if [[ '${{ inputs.mode }}' == 'triage' ]]; then
             exit 0
           fi
@@ -855,19 +869,60 @@ jobs:
             candidate-certification.json
             ci-certification.json
           retention-days: 90
+  certification:
+    name: Release Candidate / certification
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ always() && inputs.mode == 'final' }}
+    needs: [changes, attribution-check]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        id: checkout
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - name: Download exact candidate plan
+        id: download-plan
+        if: ${{ always() && needs.changes.outputs.plan_artifact_id != '' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.run_id }}
+          artifact-ids: ${{ needs.changes.outputs.plan_artifact_id }}
+          path: candidate-plan
+      - name: Write adopted exact-SHA candidate evidence
+        id: evidence
+        if: >-
+          always() &&
+          steps.checkout.outcome == 'success' &&
+          steps.download-plan.outcome == 'success' &&
+          needs.attribution-check.result == 'success' &&
+          needs.changes.outputs.adoption_json != ''
+        env:
+          VARVE_CANDIDATE_ADOPTION_JSON: ${{ needs.changes.outputs.adoption_json }}
+        run: node scripts/release/write-candidate-evidence.mjs --plan candidate-plan/ci-plan.json --output candidate-certification.json
+      - name: Upload immutable adopted candidate evidence
+        id: upload-evidence
+        if: ${{ always() && steps.evidence.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-release-candidate-${{ inputs.sha }}-${{ needs.changes.outputs.policy_hash }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: candidate-certification.json
+          retention-days: 90
       - name: Publish exact-SHA candidate check
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          CANDIDATE_SHA: ${{ needs.changes.outputs.commit_sha }}
+          CANDIDATE_SHA: ${{ inputs.sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          CONCLUSION=neutral
-          if [[ '${{ inputs.mode }}' == 'final' ]]; then
-            CONCLUSION=failure
-            if [[ "${{ steps.aggregate.outcome }}" == "success" && "${{ steps.evidence.outcome }}" == "success" && "${{ steps.upload-evidence.outcome }}" == "success" ]]; then CONCLUSION=success; fi
-          fi
+          CONCLUSION=failure
+          if [[ "${{ steps.evidence.outcome }}" == "success" && "${{ steps.upload-evidence.outcome }}" == "success" && "${{ needs.attribution-check.result }}" == "success" ]]; then CONCLUSION=success; fi
           gh api --method POST "repos/${REPOSITORY}/check-runs" \
             -f name='Release Candidate / certification' \
             -f external_id="${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}" \
@@ -877,11 +932,10 @@ jobs:
             -f conclusion="${CONCLUSION}" \
             -f 'output[title]=Frozen exact-SHA candidate' \
             -f "output[summary]=${CONCLUSION}: ${CANDIDATE_SHA}"
-      - name: Fail candidate certification when any required evidence failed
+      - name: Fail candidate certification when adoption evidence is incomplete
         if: >-
           always() &&
-          inputs.mode == 'final' &&
-          (steps.aggregate.outcome != 'success' ||
-           steps.evidence.outcome != 'success' ||
-           steps.upload-evidence.outcome != 'success')
+          (steps.evidence.outcome != 'success' ||
+           steps.upload-evidence.outcome != 'success' ||
+           needs.attribution-check.result != 'success')
         run: exit 1

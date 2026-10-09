@@ -155,18 +155,18 @@ product page.
 ## Download
 
 Get application installers from the [Varve download page](https://varve.studio/download/)
-or the [Varve v0.2.1 release](https://github.com/K-Arthur/varve/releases/tag/v0.2.1).
+or the [Varve v0.5.0 release](https://github.com/K-Arthur/varve/releases/tag/v0.5.0).
 Optional AI models are published as separate releases.
 
 ## Platform support
 
 | Platform | Package | Status | Signing |
 |---|---|---|---|
-| Linux x86_64 | AppImage · `.deb` · `.rpm` | Supported in the published release | Unsigned — SHA-256 checksums, SBOM, and build provenance published |
-| Linux ARM64 | AppImage · `.deb` · `.rpm` | Supported in the published release | Unsigned — SHA-256 checksums, SBOM, and build provenance published |
-| macOS 13+ Apple Silicon (arm64) | `.dmg` | Experimental — CI-built and smoke-tested | Unsigned, not notarized |
-| Windows 10 (1809+) / 11 x86_64 | NSIS `.exe` | Experimental — CI-built and smoke-tested | Unsigned |
-| Windows 10 (1809+) / 11 ARM64 | NSIS `.exe` | Experimental — CI-built and smoke-tested | Unsigned |
+| Linux x86_64 | AppImage · `.deb` · `.rpm` | Tier 1 on tested Arch/CachyOS; best effort on other distributions | Unsigned — SHA-256 checksums, SBOM, and build provenance published |
+| Linux ARM64 | AppImage · `.deb` · `.rpm` | Best effort — native ARM64 release qualification passed | Unsigned — SHA-256 checksums, SBOM, and build provenance published |
+| macOS 13+ Apple Silicon (arm64) | `.dmg` | Best effort — release qualification passed; ongoing Mac hardware coverage is limited | Unsigned, not notarized |
+| Windows 10 (1809+) / 11 x86_64 | NSIS `.exe` | Best effort — native release qualification passed | Unsigned |
+| Windows 10 (1809+) / 11 ARM64 | NSIS `.exe` | Best effort — native ARM64 release qualification passed | Unsigned |
 | macOS Intel (x86_64) | — | Not published | — |
 
 Minimum 4 GB RAM (8 GB recommended), 500 MB storage. Full detail and the
@@ -184,9 +184,10 @@ and may be used for:
 - **Online font and icon search**, when you invoke those providers.
 - **Update checks**, only after you enable them. The published stable feed
   carries Tauri-signed metadata for Linux AppImage and Windows NSIS builds
-  on both x86_64 and ARM64. macOS, the Linux `.deb`/`.rpm` packages, and
-  non-AppImage installs update manually. Update checks send only your
-  current version, platform, architecture, and release channel — no
+  on both x86_64 and ARM64, plus Apple Silicon macOS app updates. Installed
+  Debian/RPM packages and unsupported or non-writable copies update manually.
+  Tauri update signatures are separate from platform code signing. Update
+  checks send only your current version, platform, architecture, and release channel — no
   document data or device identifiers.
 - **Optional cloud providers**, only when you configure and invoke one (for
   example, a user-supplied background-removal endpoint).
@@ -284,8 +285,9 @@ scripts/    release, screenshot, and quality-gate tooling
 ## Project status
 
 Varve is in **public beta**. The latest published application release is
-`v0.2.1` until the 0.5.0 candidate is certified and published. Published
-installers cover Linux, macOS (Apple Silicon), and Windows. This checkout
+`v0.5.0`, published on 2026-10-09 after the tagged candidate passed the
+release and publication gates. Published installers cover Linux, macOS
+(Apple Silicon), and Windows. This checkout
 targets source version `<!-- VARVE_VERSION -->0.5.0<!-- /VARVE_VERSION -->`.
 Versioning follows [SemVer](https://semver.org/); release notes are kept in
 [CHANGELOG.md](CHANGELOG.md). Published v0.2.1 used document schema 2.21; this

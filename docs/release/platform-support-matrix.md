@@ -1,8 +1,63 @@
 # Varve — Platform & Architecture Support Matrix
 
-**Last verified:** 2026-09-12
-**Applies to:** the current release line (v0.2.1 published 2026-08-25;
-v0.2.0 published 2026-08-21; v0.1.2 published 2026-08-16)
+**Last verified:** 2026-10-09
+**Applies to:** published release v0.5.0 (2026-10-09)
+
+This page separates what shipped from the level of platform evidence behind
+it. The v0.5.0 release and its five native targets passed the exact-source
+candidate and release workflows; see the
+[release execution record](0.5.0-release-execution.md) and the
+[published release](https://github.com/K-Arthur/varve/releases/tag/v0.5.0).
+Passing a hosted native runner is release qualification, not proof of broad
+hardware coverage or a support guarantee for every device in that OS family.
+
+## Current v0.5.0 support matrix
+
+Tier 1 means the application is used on maintainer hardware and the release
+package checks pass for that environment. Tier 2 means the exact release passed
+native install/upgrade and workflow checks, but ongoing coverage on
+representative user hardware is limited. Tier 3 means the route lacks installed
+product qualification. These tiers describe evidence and support expectations;
+they do not imply code signing or a warranty.
+
+| Platform | Published packages | v0.5.0 evidence | Tier | Update path |
+|---|---|---|---|---|
+| Linux x86_64, Arch/CachyOS | AppImage, `.deb`, `.rpm` | Used on the maintainer's Linux workstation; release packages passed native install/upgrade checks | **Tier 1 — Supported** on the tested Arch/CachyOS environment | Writable AppImage can self-update; `.deb`/`.rpm` update manually |
+| Linux x86_64, Debian/Ubuntu | AppImage, `.deb`, `.rpm` | Clean-package checks and native installed-app qualification passed on the Ubuntu 22.04 release runner | **Tier 2 — Best effort** | Writable AppImage can self-update; package-manager installs update manually |
+| Linux x86_64, Fedora/RHEL | AppImage, `.deb`, `.rpm` | RPM install checks passed in the Fedora release container; no representative Fedora desktop hardware matrix | **Tier 2 — Best effort** | Writable AppImage can self-update; RPM installs update manually |
+| Linux ARM64 | AppImage, `.deb`, `.rpm` | Native ARM64 build and installed-package qualification passed on the Ubuntu 22.04 ARM runner | **Tier 2 — Best effort** | Writable AppImage can self-update; package-manager installs update manually |
+| Windows 10 (1809+) / 11 x86_64 | NSIS `.exe` | Native install, upgrade, reopen, and export qualification passed on the Windows x64 runner | **Tier 2 — Best effort** | Supported NSIS installs can self-update |
+| Windows 10 (1809+) / 11 ARM64 | NSIS `.exe` | Native ARM64 install, upgrade, reopen, and export qualification passed on the Windows ARM runner | **Tier 2 — Best effort** | Supported NSIS installs can self-update |
+| macOS 13+ Apple Silicon | `.dmg` | Native installed-app qualification passed on the macOS ARM64 runner; no maintainer-owned Mac for ongoing hardware coverage | **Tier 2 — Best effort** | Installed writable app can self-update; mounted or translocated copies cannot |
+| macOS Intel | — | No artifact is built or published | **Not supported** | — |
+
+The minimum Linux ABI baseline is glibc 2.35. Linux AppImages use the host's
+WebKitGTK libraries and may require FUSE2; see
+[Linux build requirements](platform-build-requirements.md) and the
+[download page](https://varve.studio/download) for per-package requirements.
+Windows and macOS installers are unsigned; the macOS DMG is also not
+notarized. Checksums, SBOMs, and build provenance do not mean an installer is
+platform-signed.
+
+The published v0.5.0 update feed contains signed metadata for Linux AppImage
+(x86_64 and ARM64), Windows NSIS (x86_64 and ARM64), and macOS Apple Silicon.
+Updater signatures are separate from OS code signing. Package-managed Linux
+installs, non-writable or unsupported copies, and development builds remain
+manual-only. See the [update guide](update-strategy.md).
+
+### ChromeOS and Chromebook routes
+
+No physical Chromebook has been qualified. The browser demo, installed web
+app, and ARM64 Linux package inside ChromeOS Linux remain **Tier 3 —
+Experimental**. Native ARM64 Linux qualification does not establish Crostini
+GUI, portal, graphics, printing, or device-input compatibility. See the
+[ChromeOS guide](chromeos-linux.md) for current routes and limitations.
+
+## Historical v0.2.1 evidence (through 2026-09-12)
+
+The material below records the previous release's evidence and the decisions
+made from it. It is retained as history; the current v0.5.0 status is the
+matrix above.
 
 The guiding rule: **do not advertise a platform we have not run the application on.**
 A successful `cargo build` is not evidence that an application works. Every "Supported" claim
@@ -10,7 +65,7 @@ below is backed by an actual launch on real hardware; everything else is labelle
 
 ---
 
-## 1. Release tiers
+### Previous release tier definitions
 
 | Tier | Meaning | What we promise |
 |---|---|---|
@@ -21,7 +76,7 @@ below is backed by an actual launch on real hardware; everything else is labelle
 
 ---
 
-## 2. The matrix
+### Previous v0.2.1 matrix
 
 | OS | Arch | Build | Package | Signing | Tested | Min OS | Tier | Confidence |
 |---|---|---|---|---|---|---|---|---|
@@ -36,7 +91,7 @@ below is backed by an actual launch on real hardware; everything else is labelle
 
 Legend: ✅ verified · ⚠️ runner smoke passed once, no ongoing hardware testing · ⬜ planned · ❌ absent
 
-## 2b. ChromeOS and Chromebook routes
+### Previous ChromeOS and Chromebook stage evidence
 
 ChromeOS routes are intentionally separate from native Linux ARM64. The Lenovo
 Chromebook Duet 11M889 has not been run in this project, so none of these rows
@@ -80,7 +135,7 @@ instructions: [`docs/release/chromeos-linux.md`](chromeos-linux.md).
 
 ---
 
-## 2a. Container install-test status (2026-08-04, fresh Varve 0.1.0 build)
+### Historical container install-test status (2026-08-04, fresh Varve 0.1.0 build)
 
 `just verify-packages` (podman, rootless) against `.deb`/`.rpm` built on
 this machine on 2026-08-04:
@@ -104,7 +159,7 @@ a stale pre-fix artifact).
 
 ---
 
-## 3. Linux — detail
+### Historical Linux release detail
 
 ### ARM64 release path — evidence gained, Tier 2 as of v0.2.1
 
@@ -163,7 +218,7 @@ Untested and needing a VM pass before Tier 2 is claimed:
 
 ---
 
-## 4. Windows — detail
+### Historical Windows release detail
 
 **Status: built in CI and published with v0.1.0 (2026-08-09) — runner smoke
 passed, no systematic on-hardware testing.** The `release.yml` windows job
@@ -198,7 +253,7 @@ with a Microsoft-trusted identity — and, as of the current onboarding flow, co
 
 ---
 
-## 5. macOS — detail
+### Historical macOS release detail
 
 **Status: built in CI (aarch64 DMG) and published with v0.1.0 (2026-08-09) —
 runner smoke passed, no Mac hardware in the project.** The release matrix

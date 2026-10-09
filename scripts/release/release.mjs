@@ -50,7 +50,7 @@ export function candidateNextAction({ dirty, changelogSection, upstream, ahead, 
     return 'Fetch and reconcile incoming history, then validate and push the reviewed candidate.';
   if (ahead > 0)
     return 'Push reviewed master through its normal hook and verify the accepted remote SHA.';
-  return 'Verify exact-SHA integration certification, then request final release-candidate certification.';
+  return 'Verify full exact-SHA integration coverage, then request the lightweight final candidate attestation.';
 }
 
 function cleanState() {
@@ -131,11 +131,18 @@ export function certify({ sha = head(), mode = 'final' } = {}) {
   if (!cleanState()) throw new Error('release:certify requires a clean worktree');
   console.log(`Candidate ${mode} request for exact SHA ${sha}`);
   console.log(`Policy: ${POLICY_VERSION} (${computePolicyHash({ root: ROOT })})`);
+  if (mode === 'final') {
+    console.log(
+      'The final candidate reuses only complete, latest integration evidence for this exact SHA. If its automatic CI run was change-scoped, first dispatch the full integration gate:',
+    );
+    console.log(`Run: gh workflow run ci.yml --ref master`);
+    console.log('Wait for CI / certification to pass before requesting the candidate attestation.');
+  }
   console.log(
     `Run: gh workflow run release-candidate.yml --ref master -f sha=${sha} -f mode=${mode}`,
   );
   console.log(
-    'This command only prints the remote certification request; it does not create a tag.',
+    'This command only prints the remote certification steps; it does not dispatch workflows or create a tag.',
   );
   return { sha, mode };
 }

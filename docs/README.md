@@ -468,7 +468,7 @@ The following dated files were moved from `docs/architecture/` to
 | `release/release-checklists.md` | Alpha/beta/RC/stable checklists + rollback runbooks |
 | `release/release-candidate-runbook.md` | Exact-SHA candidate certification, resumable packaging, and release-data deployment |
 | `release/ci-secrets.md` | Secret names, permissions, enrolment |
-| `release/update-strategy.md` | Updater status and future key management |
+| `release/update-strategy.md` | Current updater support, package eligibility, safety boundaries, and key management |
 | `release/website.md` | Website architecture and launch plan |
 | `release/budget-plan.md` | Launch budget (CAD $200) and purchase triggers |
 | `release/distribution-decision-matrix.md` | Distribution channel decisions |

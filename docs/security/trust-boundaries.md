@@ -77,9 +77,10 @@ permissions needed for GitHub Pages (`contents: read`, `pages: write`,
 ### Zone F — Application release/signing
 
 The privileged production boundary: packaging, Windows signing, macOS
-signing/notarization, future updater signing, provenance, attestations,
-checksums, draft/release publication. Its credentials must never become
-available to ordinary CI, website builds, fork PRs, or unrelated workflows.
+signing/notarization, Tauri updater signing, provenance, attestations,
+checksums, draft/release publication. The updater private key is separate from
+platform-signing credentials. Release credentials must never become available
+to ordinary CI, website builds, fork PRs, or unrelated workflows.
 
 ### Zone G — Future backend (does not exist yet)
 
@@ -287,10 +288,10 @@ Names and classes only — no values.
 |---|---|---|---|
 | `SITE_URL`, `SITE_BASE`, `ANALYTICS_DOMAIN` | Public | Website build | Yes (by design) |
 | `VITE_BASE_URL`, `VARVE_APP_VERSION`, `VARVE_BUILD_CHANNEL`, `VARVE_RELEASE_ID`, `VARVE_GIT_COMMIT` | Public | Desktop build | Yes (by design) |
-| Updater public key (`TAURI_SIGNING_PUBLIC_KEY` class) | Public | Desktop | Yes (by design, future) |
+| Updater public key (`TAURI_SIGNING_PUBLIC_KEY` class) | Public | Desktop | Yes (by design; embedded in the Tauri configuration) |
 | `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_API_ISSUER`, `APPLE_API_KEY`, `APPLE_API_KEY_P8_BASE64`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Signing | `release.yml` bundle job (macOS) | Never |
 | `AZURE_SIGNING_CLIENT_ID`, `AZURE_SIGNING_CLIENT_SECRET`, `AZURE_SIGNING_TENANT_ID` | Signing | `release.yml` bundle job (Windows) | Never |
-| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (future updater) | Signing | Future updater signing step | Never |
+| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Signing | `release.yml` updater-artifact signing step | Never |
 | `RELEASE_EXPECT_SIGNED`, `AZURE_SIGNING_ACCOUNT/PROFILE/ENDPOINT` | Signing (repository variables, non-secret) | `release.yml` | Never |
 | `GITHUB_TOKEN` | Runtime | Every workflow (default, read-only) | Never |
 | `OPENAI_API_KEY` class, `DATABASE_*`, `STRIPE_*`, `SMTP_*`, `JWT_*`, `AWS_*` … | Backend | Future API server | Never |

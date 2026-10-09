@@ -56,6 +56,7 @@ const integrationWorkflow = readFileSync('.github/workflows/ci.yml', 'utf8');
 const verifierSource = readFileSync('scripts/quality/verify.mjs', 'utf8');
 const strictBrowserFlags = STRICT_BROWSER_FLAGS;
 assert.ok(POLICY_FILES.includes('scripts/release/production/contracts.test.mjs'));
+assert.ok(POLICY_FILES.includes('scripts/release/verify-candidate-integration.mjs'));
 
 // Execute the actual early native dependency probe: wrong architectures and
 // runtime versions must fail before producing an acceptance receipt.
@@ -553,8 +554,9 @@ for (const id of ['e2e', 'e2e-visual']) {
       .find((step) => step.name === 'Visual E2E (candidate)')
       .run.split('--project=chromium-visual-gpu').length - 1,
     2,
-    'both candidate triage and final visual commands execute the GPU project',
+    'candidate diagnostic visual execution retains the GPU project',
   );
+  assert.ok(visual.if.includes("inputs.mode == 'triage'"));
 }
 {
   const website = load(websiteWorkflow);
@@ -594,7 +596,37 @@ for (const id of ['e2e', 'e2e-visual']) {
 }
 
 assert.match(workflowJob(candidateWorkflow, 'desktop-e2e'), /needs:.*rust/);
-assert.match(workflowJob(candidateWorkflow, 'certification'), /needs:.*rust/);
+assert.match(workflowJob(candidateWorkflow, 'triage-certification'), /needs:.*rust/);
+{
+  const candidate = load(candidateWorkflow);
+  assert.ok(candidate.jobs.changes.outputs.tree_sha.includes('steps.plan.outputs.tree_sha'));
+  assert.ok(candidate.jobs.certification.if.includes("inputs.mode == 'final'"));
+  assert.ok(candidate.jobs.certification.needs.includes('attribution-check'));
+  for (const id of [
+    'pipeline-validate',
+    'js',
+    'rust',
+    'wasm',
+    'website-e2e',
+    'e2e',
+    'e2e-visual',
+    'desktop-e2e',
+    'models',
+    'bench',
+  ])
+    assert.ok(
+      candidate.jobs[id].if.includes("inputs.mode == 'triage'"),
+      `${id} remains diagnostic-only`,
+    );
+  assert.match(
+    workflowJob(candidateWorkflow, 'changes'),
+    /verify-candidate-integration\.mjs --plan ci-plan\.json/,
+    'final candidate must verify complete integration receipts before adoption',
+  );
+  const adopted = workflowJob(candidateWorkflow, 'certification');
+  assert.match(adopted, /candidate-certification\.json/);
+  assert.doesNotMatch(adopted, /ci-certification\.json/);
+}
 const candidateBrowserCommands = candidateWorkflow
   .split('\n')
   .filter(
@@ -693,7 +725,7 @@ const localCandidate = {
 assert.match(candidateNextAction({ ...localCandidate, dirty: true }), /commit/);
 assert.match(candidateNextAction({ ...localCandidate, ahead: 38 }), /Push reviewed master/);
 assert.match(candidateNextAction({ ...localCandidate, behind: 1 }), /reconcile incoming/);
-assert.match(candidateNextAction(localCandidate), /exact-SHA integration certification/);
+assert.match(candidateNextAction(localCandidate), /full exact-SHA integration coverage/);
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

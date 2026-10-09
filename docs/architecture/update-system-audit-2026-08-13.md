@@ -4,6 +4,10 @@ This is the baseline audit for the consent-first in-app update work. It records
 what existed before the updater implementation so release and security claims
 remain evidence-based.
 
+> **Historical snapshot (2026-08-13).** This audit records the system before
+> updater implementation. The current updater contract and support limits are
+> in [`../release/update-strategy.md`](../release/update-strategy.md).
+
 ## Capability matrix before implementation
 
 | Area | Current evidence | Classification | Consequence |
@@ -94,4 +98,3 @@ Sources: [Tauri updater documentation](https://v2.tauri.app/plugin/updater/),
   package, including an AppImage vertical slice.
 - Document migration compatibility is checked before enabling automatic install
   for a release containing a persistent schema migration.
-

@@ -57,7 +57,7 @@ pipeline reads.
 | `APPLE_ID`, `APPLE_PASSWORD` | Fallback notarization auth (app-specific password) | same | revoke app-specific password | Never |
 | `APPLE_TEAM_ID` | Team ID (identifier) | same | only when team changes | Publicly visible in signed binaries — harmless |
 | `AZURE_SIGNING_CLIENT_ID`, `AZURE_SIGNING_CLIENT_SECRET`, `AZURE_SIGNING_TENANT_ID` | Azure Artifact Signing service principal | `release.yml` bundle job (Windows) | calendar rotation; [signing-rotation-runbook.md](../release/signing-rotation-runbook.md) | Never |
-| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Updater minisign key — **not created until the updater ships** | future updater job | separate, offline-backup rotation; rotating breaks existing installs' update trust | Never |
+| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Active Tauri updater minisign key; separate from platform code-signing credentials | `release.yml` updater-artifact signing step | Separate, offline-backup rotation; rotation requires a staged public-key transition because installed clients trust the embedded key | Never |
 | `GITHUB_TOKEN` | Default actions token | every workflow | automatic per run; repo default is read-only | Never (runtime only) |
 
 Repository variables (not secrets): `RELEASE_EXPECT_SIGNED`,
@@ -119,7 +119,7 @@ confuse them:
 | `SHA256SUMS.txt` | "These are the bytes of the release" | `verify` job, only **after** the trust gate |
 | SBOM (CycloneDX) | "What components are in the release" | per-platform + combined, validated |
 | GitHub artifact attestations | "GitHub built this artifact from commit X of repo Y" | `verify` job, on the **final** bytes |
-| Updater signatures (future) | "This update manifest was signed by Varve's minisign key" | future updater pipeline, separate key |
+| Tauri updater signatures | "This update manifest was signed by Varve's minisign key" | Release pipeline; separate key and verification from OS code signing |
 
 Pipeline invariants (enforced by `scripts/validate-workflows.mjs` +
 `scripts/security/workflow-policy.mjs`):

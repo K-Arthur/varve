@@ -10,7 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
-## [0.5.0] - 2026-10-06
+## [0.5.0] - 2026-10-09
 
 Varve remains in public beta. This release adds broad authoring workflows while
 keeping optional, hardware-dependent, and format-limited capabilities clearly
@@ -98,6 +98,11 @@ marked.
 - **Bounded browser demo** — `/try/` remains a sample-document experience with
   browser-local storage and a limited workspace set; desktop-only print,
   inference, and other capabilities are not implied by the demo.
+- **Consent-first desktop updates** — Published, signed update feeds support
+  Linux AppImage (x86_64 and ARM64), Windows NSIS (x86_64 and ARM64), and
+  installed Apple Silicon macOS apps. Checks are user-controlled, downloads
+  are signature-verified, and installation uses the save/quit flow. Debian and
+  RPM packages, plus unsupported or non-writable installs, update manually.
 
 ## [0.2.1] - 2026-08-24
 

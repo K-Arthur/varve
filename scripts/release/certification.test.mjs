@@ -3,9 +3,14 @@
 /** Exact-SHA integration/candidate evidence tests. */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { POLICY_VERSION } from '../quality/validation-policy.mjs';
 import {
+  buildAdoptedCandidateEvidence,
   buildCandidateEvidence,
   CANDIDATE_CHECK_NAME,
   candidateArtifactName,
@@ -13,6 +18,7 @@ import {
   findExactIntegrationArtifact,
   findSuccessfulExactCheck,
   integrationArtifactName,
+  validateAdoptedCandidateEvidence,
   validateLocalCandidateEvidence,
   verifyRemoteCertification,
 } from './certification.mjs';
@@ -155,6 +161,110 @@ assert.ok(
 );
 assert.equal(evidence.policyVersion, POLICY_VERSION);
 assert.equal(parseCertificationArgs(['--integration-only']).integrationOnly, true);
+
+const adoptionPlan = {
+  commitSha: sha,
+  treeSha: 'e'.repeat(40),
+  policyVersion: POLICY_VERSION,
+  policyHash,
+  profile: 'candidate',
+  candidateMode: 'final',
+  selectedLanes: ['e2e:all', 'js-unit:all'],
+  deferredLanes: [],
+};
+const integrationEvidence = {
+  commitSha: sha,
+  treeSha: adoptionPlan.treeSha,
+  policyVersion: POLICY_VERSION,
+  policyHash,
+  planHash: 'f'.repeat(64),
+  binding: { runId: 17, runAttempt: 2 },
+  plan: { artifactId: 701, digest: `sha256:${'1'.repeat(64)}` },
+  summary: { artifactId: 702, digest: `sha256:${'2'.repeat(64)}` },
+};
+const adoptedEvidence = buildAdoptedCandidateEvidence({
+  plan: adoptionPlan,
+  integrationEvidence,
+  runId: 18,
+  generatedAt: '2026-10-09T00:00:00Z',
+});
+assert.deepEqual(
+  validateAdoptedCandidateEvidence(adoptedEvidence, {
+    plan: adoptionPlan,
+    integrationEvidence,
+  }),
+  [],
+);
+for (const changed of [
+  {
+    ...adoptedEvidence,
+    adoptedIntegration: { ...adoptedEvidence.adoptedIntegration, runAttempt: 1 },
+  },
+  { ...adoptedEvidence, selectedLanes: ['js-unit:all'] },
+  { ...adoptedEvidence, deferredLanes: ['e2e:all'] },
+  { ...adoptedEvidence, evidenceHash: '0'.repeat(64) },
+]) {
+  assert.notDeepEqual(
+    validateAdoptedCandidateEvidence(changed, { plan: adoptionPlan, integrationEvidence }),
+    [],
+  );
+}
+{
+  const folder = mkdtempSync(join(tmpdir(), 'varve-candidate-evidence-'));
+  try {
+    const planPath = join(folder, 'plan.json');
+    const evidencePath = join(folder, 'candidate.json');
+    const planHash = '9'.repeat(64);
+    const planForWriter = { ...adoptionPlan, planHash };
+    writeFileSync(planPath, JSON.stringify(planForWriter));
+    const adoption = {
+      commitSha: sha,
+      treeSha: adoptionPlan.treeSha,
+      policyVersion: POLICY_VERSION,
+      policyHash,
+      planHash,
+      integrationEvidence,
+    };
+    execFileSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL('./write-candidate-evidence.mjs', import.meta.url)),
+        '--plan',
+        planPath,
+        '--output',
+        evidencePath,
+      ],
+      {
+        env: { ...process.env, VARVE_CANDIDATE_ADOPTION_JSON: JSON.stringify(adoption) },
+      },
+    );
+    const written = JSON.parse(readFileSync(evidencePath, 'utf8'));
+    assert.deepEqual(
+      validateAdoptedCandidateEvidence(written, {
+        plan: planForWriter,
+        integrationEvidence,
+      }),
+      [],
+    );
+    assert.throws(
+      () =>
+        execFileSync(
+          process.execPath,
+          [
+            fileURLToPath(new URL('./write-candidate-evidence.mjs', import.meta.url)),
+            '--plan',
+            planPath,
+            '--output',
+            evidencePath,
+          ],
+          { env: { ...process.env, VARVE_CANDIDATE_ADOPTION_JSON: '' } },
+        ),
+      /final candidate evidence requires verified integration adoption metadata/,
+    );
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+}
 
 const triageEvidence = buildCandidateEvidence({
   commitSha: sha,
