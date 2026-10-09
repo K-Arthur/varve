@@ -80,13 +80,13 @@ describe('ErrorBoundary', () => {
   });
 
   it('still shows the fallback for a genuine render crash', () => {
-    function EngineBomb() {
-      throw new TypeError("Cannot read properties of null (reading 'engine')");
-      return null;
+    function EngineBomb({ shouldThrow }: { shouldThrow?: boolean }) {
+      if (shouldThrow) throw new TypeError("Cannot read properties of null (reading 'engine')");
+      return <div>OK</div>;
     }
     const { container } = render(
       <ErrorBoundary>
-        <EngineBomb />
+        <EngineBomb shouldThrow={true} />
       </ErrorBoundary>,
     );
     expect(container.textContent).toContain('Something went wrong');
