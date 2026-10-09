@@ -677,10 +677,13 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
       }
       // Check if the node has AI edit history by looking for generativeEdits
       const doc = ctx.document;
-      if (!doc.generativeEdits) {
+      if (!doc?.generativeEdits) {
         return false;
       }
-      const nodeId = ctx.selectedNodes[0].id;
+      const nodeId = ctx.selectedNodes[0]?.id;
+      if (!nodeId) {
+        return false;
+      }
       return Object.values(doc.generativeEdits).some(
         (edit) => edit.resultNodeId === nodeId || edit.sourceNodeId === nodeId,
       );

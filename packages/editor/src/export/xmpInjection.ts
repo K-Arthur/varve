@@ -146,7 +146,9 @@ export function insertJpegXmp(bytes: Uint8Array, xmpString: string): Uint8Array 
 function crc32(data: Uint8Array): number {
   let crc = 0xffffffff;
   for (let i = 0; i < data.length; i++) {
-    crc ^= data[i];
+    const byte = data[i];
+    if (byte === undefined) continue;
+    crc ^= byte;
     for (let j = 0; j < 8; j++) {
       crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
     }

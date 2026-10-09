@@ -9,7 +9,7 @@ import {
 describe('getDocumentAiDisclosure', () => {
   it('returns null for documents without generative edits', () => {
     const doc: Partial<Document> = {
-      version: 226,
+      formatVersion: '2.26',
       name: 'Test',
       generativeEdits: undefined,
     };
@@ -18,7 +18,7 @@ describe('getDocumentAiDisclosure', () => {
 
   it('returns null for documents with empty generative edits', () => {
     const doc: Partial<Document> = {
-      version: 226,
+      formatVersion: '2.26',
       name: 'Test',
       generativeEdits: {},
     };
@@ -27,7 +27,7 @@ describe('getDocumentAiDisclosure', () => {
 
   it('extracts AI disclosure for document with generative edits', () => {
     const doc: Partial<Document> = {
-      version: 226,
+      formatVersion: '2.26',
       name: 'Test',
       generativeEdits: {
         'edit-1': {
@@ -67,7 +67,7 @@ describe('getDocumentAiDisclosure', () => {
 
   it('filters tools by provided node IDs', () => {
     const doc: Partial<Document> = {
-      version: 226,
+      formatVersion: '2.26',
       name: 'Test',
       generativeEdits: {
         'edit-1': {
