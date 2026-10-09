@@ -1,0 +1,46 @@
+.ai-provenance {
+  padding: var(--spacing-2) 0;
+}
+
+.ai-provenance__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  margin: 0;
+}
+
+.ai-provenance__item {
+  display: grid;
+  grid-template-columns: 4rem 1fr;
+  gap: var(--spacing-2);
+  align-items: baseline;
+}
+
+.ai-provenance__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.ai-provenance__value {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  margin: 0;
+  word-break: break-word;
+}
+
+.ai-provenance__value--mode {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.ai-provenance__note {
+  margin-top: var(--spacing-3);
+  padding-top: var(--spacing-3);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+}
