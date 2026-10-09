@@ -93,13 +93,16 @@ test('candidate branches bound red attempts while retaining complete inventory a
       ),
       'Use the canonical planner shard count',
     );
-  assert.ok(
-    calls.find(
-      (call) =>
-        call.name === 'Visual E2E (candidate)' && call.command.startsWith('pnpm e2e:visual '),
-    ),
-    'Final visuals retain the existing alias and its three DPR projects',
-  );
+  const visualCommands = calls.filter((call) => call.name === 'Visual E2E (candidate)');
+  assert.equal(visualCommands.length, 2);
+  for (const { command } of visualCommands) {
+    assert.ok(command.startsWith('pnpm exec playwright test '));
+    assert.deepEqual(
+      [...command.matchAll(/--project=(\S+)/g)].map((match) => match[1]),
+      ['chromium-visual-1x', 'chromium-visual-2x', 'chromium-visual-3x', 'chromium-visual-gpu'],
+      'Candidate visuals certify every DPR project and GPU-backed rendering',
+    );
+  }
 });
 
 test('negative control: a raw Playwright branch is rejected', () => {
@@ -111,15 +114,12 @@ test('negative control: a raw Playwright branch is rejected', () => {
   assert.throws(() => browserCalls(raw), /direct browser execution must use the heavy lease/);
 });
 
-test('negative control: a raw visual alias is rejected', () => {
+test('negative control: raw visual execution is rejected', () => {
   const raw = structuredClone(workflows[1]);
   const step = Object.values(raw.jobs)
     .flatMap((job) => job.steps ?? [])
     .find((step) => step.name === 'Visual E2E (candidate)');
-  step.run = step.run.replace(
-    /node scripts\/quality\/heavy-lease\.mjs "[^"\n]+" -- (?=pnpm e2e:visual)/,
-    '',
-  );
+  step.run = step.run.replace(/node scripts\/quality\/heavy-lease\.mjs "[^"\n]+" -- /g, '');
   assert.throws(() => browserCalls(raw), /direct browser execution must use the heavy lease/);
 });
 

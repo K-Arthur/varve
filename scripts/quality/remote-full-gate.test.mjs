@@ -252,7 +252,7 @@ function fixtureBrowserEvidence(lanes, _cell, plan, index) {
                 'chromium-visual-1x',
                 'chromium-visual-2x',
                 'chromium-visual-3x',
-                ...(plan.profile === 'integration' ? ['chromium-visual-gpu'] : []),
+                'chromium-visual-gpu',
               ]
             : ['chromium'];
       const allSuites = Array.from(
