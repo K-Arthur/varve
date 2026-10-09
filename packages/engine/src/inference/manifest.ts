@@ -434,7 +434,9 @@ export function resetManifestCache(): void {
 
 /** Compute SHA-256 hex digest from an ArrayBuffer. */
 export async function sha256Hex(data: ArrayBuffer): Promise<string> {
-  const hash = await crypto.subtle.digest('SHA-256', data);
+  // Node's SubtleCrypto.digest is stricter than the spec and may reject
+  // ArrayBuffers that don't come from its own allocation. Wrap in Uint8Array.
+  const hash = await crypto.subtle.digest('SHA-256', new Uint8Array(data));
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
