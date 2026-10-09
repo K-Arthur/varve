@@ -449,6 +449,20 @@ export function repairDocument(doc: DocumentLike): RepairResult {
   for (const nid of Object.keys(next.nodes)) {
     let current = next.nodes[nid]!;
 
+    // Coerce malformed text fields to strings (0.5.0 bug — some documents
+    // created with Quill Delta objects instead of strings). A non-string
+    // text field crashes rendering and selection.
+    if (current.kind === 'text') {
+      const textNode = current as { text: unknown };
+      if (typeof textNode.text !== 'string') {
+        current = { ...textNode, text: '' } as SceneNode;
+        changed = true;
+        console.warn(
+          `TextNode ${nid} has invalid text field (type: ${typeof textNode.text}). Coerced to empty string during document load.`,
+        );
+      }
+    }
+
     if (current.kind === 'adjustment') {
       const adj = current as AdjustmentNode;
       if (adj.scope) {

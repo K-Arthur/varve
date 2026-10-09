@@ -6,6 +6,13 @@ export interface ErrorBoundaryProps {
   onError?: (error: Error) => void;
   /** If true, shows expandable error details with copy-to-clipboard. */
   showDetails?: boolean;
+  /**
+   * When this value changes, drop a captured error. Children remount only
+   * if the fallback was showing — a healthy document switch must not
+   * remount Layers/canvas (that resets panel-local expansion and hides
+   * newly opened trees).
+   */
+  resetKey?: string | number;
 }
 
 interface ErrorBoundaryState {
@@ -14,6 +21,7 @@ interface ErrorBoundaryState {
   key: number;
   detailsOpen: boolean;
   copied: boolean;
+  resetKey: string | number | undefined;
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
@@ -21,7 +29,32 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null, key: 0, detailsOpen: false, copied: false };
+    this.state = {
+      hasError: false,
+      error: null,
+      key: 0,
+      detailsOpen: false,
+      copied: false,
+      resetKey: props.resetKey,
+    };
+  }
+
+  static getDerivedStateFromProps(
+    props: ErrorBoundaryProps,
+    state: ErrorBoundaryState,
+  ): Partial<ErrorBoundaryState> | null {
+    if (props.resetKey === undefined || props.resetKey === state.resetKey) return null;
+    if (state.hasError) {
+      return {
+        hasError: false,
+        error: null,
+        key: state.key + 1,
+        detailsOpen: false,
+        copied: false,
+        resetKey: props.resetKey,
+      };
+    }
+    return { resetKey: props.resetKey };
   }
 
   static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
