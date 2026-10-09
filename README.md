@@ -368,7 +368,8 @@ background removal, image enhancement, object selection, depth-aware effects,
 palette extraction, and local asset search. Some small baseline models ship
 with the app; larger models are downloaded on demand, verified against a
 checksum when available, and run locally. There is no Varve-hosted inference
-service.
+service. How the product itself is developed, including AI-assistance
+disclosure, is at [How Varve is built](https://varve.studio/about/how-its-built).
 </details>
 
 <details>

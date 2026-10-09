@@ -80,6 +80,12 @@ Real-ESRGAN general x4 model (BSD-3-Clause)
   Licensed under SIL Open Font License 1.1.
   Source: https://scripts.sil.org/OFL
 
+@fontsource-variable/fraunces (SIL OFL 1.1)
+  Fraunces (c) 2019 The Fraunces Project Authors
+  https://github.com/undercasetype/Fraunces
+  Licensed under SIL Open Font License 1.1.
+  Source: https://scripts.sil.org/OFL
+
 opentype.js (MIT)
   Copyright (c) Frederik De Bleser
   https://github.com/opentypejs/opentype.js
@@ -299,6 +305,11 @@ Lucide icons (ISC)
   Copyright (c) Lucide Contributors
   https://lucide.dev
   Licensed under ISC License.
+
+Tabler icons (MIT)
+  Copyright (c) Paweł Kuna
+  https://github.com/tabler/tabler-icons
+  Licensed under MIT License.
 
 Phosphor icons (MIT)
   Copyright (c) Phosphor Icons
