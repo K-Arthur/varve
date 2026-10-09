@@ -83,7 +83,17 @@ export function getNodeAiEditInfo(doc: Document, nodeId: NodeId): AiEditInfo | n
  */
 export function formatAiEditTimestamp(timestamp: number): string {
   try {
+    // Check for invalid timestamp first
+    if (!Number.isFinite(timestamp)) {
+      return 'unknown';
+    }
+
     const date = new Date(timestamp);
+    // Detect invalid date
+    if (Number.isNaN(date.getTime())) {
+      return 'unknown';
+    }
+
     // Use relative time for recent edits
     const now = Date.now();
     const diff = now - timestamp;
