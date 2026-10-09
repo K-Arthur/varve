@@ -120,17 +120,19 @@ TitleBar X    File menu/Shortcuts  OS event (Alt+F4, WM close, Cmd+Q,
   `tests/e2e/crash/safe-mode-counter.spec.ts`).
 - **Native recovery authority**: desktop startup reads the prior process result
   from `view_state[app-setting:native-clean-shutdown]`, then commits `false`
-  before the webview starts. `RecoveryManager` uses that cached prior value on
-  Tauri and treats an unavailable IPC read as unclean, preserving recovery
-  sessions. Its read is stable for React effect replay in one webview and a
-  later webview reload in the still-running process is treated as unclean.
-  `CrashCenter` uses the same async native read for crash-loop tracking, so a
-  stale WebView marker cannot count a clean native Quit as a startup failure.
-  After a coordinator-approved app exit, Rust commits `true` to the
-  same SQLite store before approving the exit token. A Home-only exit keeps the
-  marker unclean because Home has no editor coordinator to reconcile recovery
-  sessions. Verified updater restarts set the marker clean before relaunch and
-  re-arm it unclean if relaunch fails. Web builds continue using localStorage.
+  before the webview starts. When upgrading from a release without that native
+  key, `RecoveryManager` and `CrashCenter` fall back to the prior WebView marker
+  captured before the current run is armed; this preserves clean upgrades and
+  clears stale crash-loop counts from older releases. Once a native value
+  exists, it is authoritative. An unavailable IPC read remains unclean for
+  crash-loop tracking and preserves recovery sessions. The cached result is
+  stable for React effect replay in one webview; a later webview reload in the
+  still-running process is treated as unclean. After a coordinator-approved
+  app exit, Rust commits `true` to the same SQLite store before approving the
+  exit token. A Home-only exit keeps the marker unclean because Home has no
+  editor coordinator to reconcile recovery sessions. Verified updater restarts
+  set the marker clean before relaunch and re-arm it unclean if relaunch fails.
+  Web builds continue using localStorage.
 - **Native authority**: Rust prevents close/exit, asks the webview; one-shot
   per-window tokens prevent recursion. Auxiliary windows close freely
   (ADR-0211 D1).

@@ -73,12 +73,22 @@ describe('RecoveryManager native shutdown classification', () => {
     expect(screen.getByTestId('recovery-dialog')).toHaveAttribute('data-open', 'false');
   });
 
-  it('fails conservatively when the native marker cannot be read', async () => {
+  it('uses the prior WebView marker when upgrading from a release without native shutdown state', async () => {
     mocks.readNativePreviousCleanShutdown.mockResolvedValue(null);
     render(<RecoveryManager />);
 
+    await waitFor(() => expect(mocks.deleteSession).toHaveBeenCalledWith('recovery-1'));
+    expect(screen.getByTestId('recovery-dialog')).toHaveAttribute('data-open', 'false');
+  });
+
+  it('preserves recovery sessions when native shutdown state is unavailable', async () => {
+    mocks.readNativePreviousCleanShutdown.mockRejectedValue(
+      new Error('native database unavailable'),
+    );
+    render(<RecoveryManager />);
+
     await waitFor(() =>
-      expect(screen.getByTestId('recovery-dialog')).toHaveAttribute('data-open', 'true'),
+      expect(screen.getByTestId('recovery-dialog')).toHaveAttribute('data-open', 'false'),
     );
     expect(mocks.deleteSession).not.toHaveBeenCalled();
   });

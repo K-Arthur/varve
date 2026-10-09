@@ -84,18 +84,16 @@ const nativeClientSessionId = uuid();
 
 /**
  * Read the shutdown result captured by the native process before it armed
- * itself as unclean. `null` means this bridge is unavailable; native callers
- * should treat that as unclean so recovery data is retained.
+ * itself as unclean. `null` means the native marker did not exist yet (an
+ * older release); callers may then use the prior WebView marker. Bridge errors
+ * reject so callers can preserve recovery data conservatively.
  */
 export async function readNativePreviousCleanShutdown(): Promise<boolean | null> {
-  try {
-    const value = await core().invoke('native_previous_clean_shutdown', {
-      sessionId: nativeClientSessionId,
-    });
-    return typeof value === 'boolean' ? value : null;
-  } catch {
-    return null;
-  }
+  const value = await core().invoke('native_previous_clean_shutdown', {
+    sessionId: nativeClientSessionId,
+  });
+  if (value === null || typeof value === 'boolean') return value;
+  throw new Error('Native shutdown marker returned an invalid response');
 }
 
 /** Update the durable native marker around a verified updater relaunch. */

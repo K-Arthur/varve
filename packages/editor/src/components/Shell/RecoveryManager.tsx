@@ -5,7 +5,10 @@ import { useEditor } from '../../context';
 // Leaf import, not the lifecycle barrel: the barrel exports LifecycleProvider
 // which imports RecoveryManager — a barrel import here would create a cycle
 // (architecture audit enforces zero new cycles).
-import { getSharedShutdownMarker } from '../../lifecycle/lifecycleMarker';
+import {
+  getSharedShutdownMarker,
+  resolvePreviousCleanShutdown,
+} from '../../lifecycle/lifecycleMarker';
 import { getSharedRecoveryManager, type RecoverySession } from '../../recovery';
 import { RecoveryDialog } from '../RecoveryDialog';
 
@@ -37,9 +40,8 @@ export function RecoveryManager(_props: RecoveryManagerProps) {
       // localStorage to disk. The Rust process records this decision in the
       // synchronous SQLite store before approving exit; an unavailable native
       // read is conservatively treated as unclean so recovery data survives.
-      const clean = isTauriRuntime()
-        ? (await readNativePreviousCleanShutdown()) === true
-        : previousWasClean === true;
+      const nativeClean = isTauriRuntime() ? await readNativePreviousCleanShutdown() : null;
+      const clean = resolvePreviousCleanShutdown(nativeClean, previousWasClean) === true;
       if (!(await mgr.hasSessions()) || !mounted) return;
 
       if (!clean) {

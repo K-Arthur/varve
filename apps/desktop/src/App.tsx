@@ -524,7 +524,11 @@ export function App() {
         // Use the same native process-start result as document recovery;
         // WebView localStorage is only authoritative in browser builds.
         readUncleanShutdown={async () => {
-          if (isTauriRuntime()) return (await readNativePreviousCleanShutdown()) !== true;
+          if (isTauriRuntime()) {
+            const nativeClean = await readNativePreviousCleanShutdown();
+            if (nativeClean !== null) return !nativeClean;
+            return readUncleanShutdownMarker((key) => localStorage.getItem(key));
+          }
           return readUncleanShutdownMarker((key) => localStorage.getItem(key));
         }}
         documentSchemaVersion={currentDocumentSchemaVersion()}

@@ -30,8 +30,7 @@ export class ShutdownMarker implements LifecycleMarker {
   }
 
   /** Read the previous run's marker once; arm the current run as unclean.
-   *  Returns whether the previous session ended cleanly (null if the
-   *  storage is unavailable). Idempotent. */
+   *  Returns its result, or null when no valid marker is available. Idempotent. */
   begin(): boolean | null {
     if (this.begun) return this.previous;
     this.begun = true;
@@ -41,7 +40,7 @@ export class ShutdownMarker implements LifecycleMarker {
     } catch {
       this.readFailed = true;
     }
-    this.previous = this.readFailed ? null : raw === 'true';
+    this.previous = this.readFailed || (raw !== 'true' && raw !== 'false') ? null : raw === 'true';
     try {
       this.storage.setItem(this.key, 'false');
     } catch {
@@ -52,6 +51,10 @@ export class ShutdownMarker implements LifecycleMarker {
 
   previousSessionWasClean(): boolean | null {
     return this.begun ? this.previous : this.begin();
+  }
+
+  previousSessionResultIfStarted(): boolean | null | undefined {
+    return this.begun ? this.previous : undefined;
   }
 
   /** Written only by the coordinator after completed finalization. */
@@ -91,11 +94,22 @@ let shared: ShutdownMarker | null = null;
  * function exists to require.
  */
 export function readUncleanShutdownMarker(getItem: (key: string) => string | null): boolean {
+  const previous = shared?.previousSessionResultIfStarted();
+  if (previous !== undefined) return previous === false;
   try {
     return getItem(CLEAN_SHUTDOWN_KEY) === 'false';
   } catch {
     return false;
   }
+}
+
+/** Native state is authoritative when present; otherwise migrate from the
+ * previous release's WebView marker. `null` from both means no evidence. */
+export function resolvePreviousCleanShutdown(
+  nativeClean: boolean | null,
+  legacyClean: boolean | null,
+): boolean | null {
+  return nativeClean ?? legacyClean;
 }
 
 /** App-wide singleton. LifecycleProvider installs the real localStorage

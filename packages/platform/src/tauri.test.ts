@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe('createTauriPlatform', () => {
-  it('reads the native previous-process marker and preserves uncertainty', async () => {
+  it('reads clean, interrupted, and legacy-missing native process markers', async () => {
     const invoke = vi.fn().mockResolvedValue(true);
     globalWithTauri.__TAURI__ = {
       core: { invoke },
@@ -30,10 +30,22 @@ describe('createTauriPlatform', () => {
       sessionId: expect.any(String),
     });
 
-    invoke.mockRejectedValueOnce(new Error('native database unavailable'));
+    invoke.mockResolvedValueOnce(null);
     await expect(readNativePreviousCleanShutdown()).resolves.toBeNull();
+    invoke.mockResolvedValueOnce(false);
+    await expect(readNativePreviousCleanShutdown()).resolves.toBe(false);
+  });
+
+  it('propagates bridge failures and rejects malformed native marker values', async () => {
+    const invoke = vi.fn().mockRejectedValue(new Error('native database unavailable'));
+    globalWithTauri.__TAURI__ = {
+      core: { invoke },
+      event: { listen: async () => () => {} },
+    };
+
+    await expect(readNativePreviousCleanShutdown()).rejects.toThrow(/database unavailable/i);
     invoke.mockResolvedValueOnce('true');
-    await expect(readNativePreviousCleanShutdown()).resolves.toBeNull();
+    await expect(readNativePreviousCleanShutdown()).rejects.toThrow(/invalid response/i);
   });
 
   it('updates native shutdown state for verified updater restarts', async () => {

@@ -21,8 +21,8 @@ const NATIVE_SHUTDOWN_KEY: &str = "app-setting:native-clean-shutdown";
 /// arms itself as unclean. Unlike WebView localStorage, this state is committed
 /// by the native SQLite store before the process is allowed to exit.
 pub struct NativeShutdownState {
-    previous_clean: bool,
-    frontend_session: Mutex<Option<(String, bool)>>,
+    previous_clean: Option<bool>,
+    frontend_session: Mutex<Option<(String, Option<bool>)>>,
 }
 
 impl NativeShutdownState {
@@ -30,8 +30,7 @@ impl NativeShutdownState {
         let previous_clean = store
             .get_view_state(NATIVE_SHUTDOWN_KEY)
             .map_err(|error| format!("Could not read native shutdown state: {error}"))?
-            .as_deref()
-            == Some("true");
+            .map(|value| value == "true");
         store
             .set_view_state(NATIVE_SHUTDOWN_KEY, "false")
             .map_err(|error| format!("Could not arm native shutdown state: {error}"))?;
@@ -41,16 +40,15 @@ impl NativeShutdownState {
         })
     }
 
-    pub fn previous_clean_for_session(&self, session_id: &str) -> bool {
+    pub fn previous_clean_for_session(&self, session_id: &str) -> Option<bool> {
         let Ok(mut current) = self.frontend_session.lock() else {
-            return false;
+            return Some(false);
         };
-        if let Some((current_id, result)) = current.as_ref() {
-            if current_id == session_id {
-                return *result;
-            }
-        }
-        let result = current.is_none() && self.previous_clean;
+        let result = match current.as_ref() {
+            Some((current_id, result)) if current_id == session_id => *result,
+            Some(_) => Some(false),
+            None => self.previous_clean,
+        };
         *current = Some((session_id.to_string(), result));
         result
     }
@@ -159,7 +157,7 @@ pub fn approve_window_close(app: AppHandle<Wry>, label: String) -> Result<(), St
 pub fn native_previous_clean_shutdown(
     state: State<'_, NativeShutdownState>,
     session_id: String,
-) -> bool {
+) -> Option<bool> {
     state.previous_clean_for_session(&session_id)
 }
 
@@ -209,8 +207,8 @@ mod tests {
 
         let first = NativeShutdownState::begin(&store).expect("first startup");
         assert!(
-            !first.previous_clean_for_session("first-page"),
-            "a fresh profile is not a clean exit"
+            first.previous_clean_for_session("first-page").is_none(),
+            "a fresh profile has no prior native marker"
         );
         assert_eq!(
             store
@@ -221,19 +219,19 @@ mod tests {
 
         let interrupted_restart = NativeShutdownState::begin(&store).expect("restart");
         assert!(
-            !interrupted_restart.previous_clean_for_session("interrupted-page"),
+            interrupted_restart.previous_clean_for_session("interrupted-page") == Some(false),
             "a process that did not approve a clean exit remains recoverable"
         );
 
         write_clean_shutdown_state(&store, true).expect("commit clean exit");
         let clean_restart = NativeShutdownState::begin(&store).expect("clean restart");
-        assert!(clean_restart.previous_clean_for_session("clean-page"));
+        assert_eq!(clean_restart.previous_clean_for_session("clean-page"), Some(true));
         assert!(
-            clean_restart.previous_clean_for_session("clean-page"),
+            clean_restart.previous_clean_for_session("clean-page") == Some(true),
             "React remounts in one webview retain the same startup result"
         );
         assert!(
-            !clean_restart.previous_clean_for_session("reloaded-page"),
+            clean_restart.previous_clean_for_session("reloaded-page") == Some(false),
             "a later webview session in the running native process is unclean"
         );
         assert_eq!(

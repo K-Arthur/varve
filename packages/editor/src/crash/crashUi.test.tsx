@@ -22,6 +22,7 @@ import {
   unknownConsent,
 } from '@varve/crash';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resolvePreviousCleanShutdown } from '../lifecycle/lifecycleMarker';
 import { CrashCenterController, type CrashUiState } from './crashController';
 import { CrashRecoveryDialog, CrashReviewDialog } from './crashDialogs';
 
@@ -327,6 +328,23 @@ describe('controller + dialog flow (integration)', () => {
     expect(reset.failures).toEqual([]);
     expect(reset.lastClean).toEqual(expect.any(Number));
     clean.dispose();
+    localStorage.clear();
+  });
+
+  it('clears legacy false crash-loop entries after a clean pre-native upgrade shutdown', async () => {
+    localStorage.clear();
+    localStorage.setItem(
+      CRASH_LOOP_STORAGE_KEY,
+      JSON.stringify({ failures: [Date.now() - 2_000, Date.now() - 1_000] }),
+    );
+    const legacyClean = resolvePreviousCleanShutdown(null, true);
+    const upgraded = makeController({ unclean: legacyClean === false }).controller;
+
+    await upgraded.boot();
+
+    expect(upgraded.getState().safeModeVisible).toBe(false);
+    expect(JSON.parse(localStorage.getItem(CRASH_LOOP_STORAGE_KEY) ?? '{}').failures).toEqual([]);
+    upgraded.dispose();
     localStorage.clear();
   });
 

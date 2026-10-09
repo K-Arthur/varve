@@ -4,6 +4,7 @@ import {
   getSharedShutdownMarker,
   readUncleanShutdownMarker,
   resetSharedShutdownMarker,
+  resolvePreviousCleanShutdown,
   ShutdownMarker,
   type ShutdownMarkerStorage,
 } from '../lifecycleMarker';
@@ -31,9 +32,19 @@ describe('shutdown marker', () => {
     expect(marker.begin()).toBe(true);
   });
 
-  it('reports an absent marker as unclean', () => {
+  it('reports an absent prior marker as unknown', () => {
     const marker = new ShutdownMarker(memoryStorage({}));
-    expect(marker.previousSessionWasClean()).toBe(false);
+    expect(marker.previousSessionWasClean()).toBeNull();
+  });
+
+  it('preserves an explicit legacy clean or interrupted marker', () => {
+    expect(new ShutdownMarker(memoryStorage({ [CLEAN_SHUTDOWN_KEY]: 'true' })).begin()).toBe(true);
+    expect(new ShutdownMarker(memoryStorage({ [CLEAN_SHUTDOWN_KEY]: 'false' })).begin()).toBe(
+      false,
+    );
+    expect(
+      new ShutdownMarker(memoryStorage({ [CLEAN_SHUTDOWN_KEY]: 'invalid' })).begin(),
+    ).toBeNull();
   });
 
   it('marks clean only via markClean', () => {
@@ -109,5 +120,15 @@ describe('readUncleanShutdownMarker', () => {
       return 'false';
     });
     expect(seen).toEqual([CLEAN_SHUTDOWN_KEY]);
+  });
+});
+
+describe('native shutdown marker migration', () => {
+  it('uses a legacy marker only when no native marker exists', () => {
+    expect(resolvePreviousCleanShutdown(null, true)).toBe(true);
+    expect(resolvePreviousCleanShutdown(null, false)).toBe(false);
+    expect(resolvePreviousCleanShutdown(null, null)).toBeNull();
+    expect(resolvePreviousCleanShutdown(false, true)).toBe(false);
+    expect(resolvePreviousCleanShutdown(true, false)).toBe(true);
   });
 });
