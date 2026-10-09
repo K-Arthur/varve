@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockDownloadModel, mockGetModelLoader } = vi.hoisted(() => ({
@@ -27,7 +28,12 @@ vi.mock('@varve/engine', async (importOriginal) => {
   };
 });
 
+import { SettingsProvider } from '../Settings/SettingsContext';
 import { ModelDownloadDialog } from './ModelDownloadDialog';
+
+function renderDialog(ui: ReactElement) {
+  return render(<SettingsProvider>{ui}</SettingsProvider>);
+}
 
 describe('ModelDownloadDialog — consent gate', () => {
   beforeEach(() => {
@@ -40,7 +46,7 @@ describe('ModelDownloadDialog — consent gate', () => {
   });
 
   it('does not start downloading on mount — requires explicit user confirmation', () => {
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={() => {}}
@@ -51,7 +57,7 @@ describe('ModelDownloadDialog — consent gate', () => {
   });
 
   it('discloses model name, size, purpose, and network source before download starts', () => {
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={() => {}}
@@ -68,7 +74,7 @@ describe('ModelDownloadDialog — consent gate', () => {
   });
 
   it('only calls downloadModel after the user clicks the explicit Download action', () => {
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={() => {}}
@@ -98,7 +104,7 @@ describe('ModelDownloadDialog — consent gate', () => {
           });
         }),
     );
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={onClose}
@@ -130,7 +136,7 @@ describe('ModelDownloadDialog — consent gate', () => {
       },
     );
     const onClose = vi.fn();
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={onClose}
@@ -155,7 +161,7 @@ describe('ModelDownloadDialog — consent gate', () => {
 
   it('lets the user cancel without ever triggering a download', () => {
     const onClose = vi.fn();
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={onClose}
@@ -173,7 +179,7 @@ describe('ModelDownloadDialog — consent gate', () => {
         'Storage quota exceeded. Free disk space or delete old models in Settings, Offline Models.',
       ),
     );
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={() => {}}
@@ -186,7 +192,7 @@ describe('ModelDownloadDialog — consent gate', () => {
 
   it('never renders a blank error panel for a string rejection (Tauri Err(String))', async () => {
     mockDownloadModel.mockRejectedValue('permission denied');
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={() => {}}
@@ -202,7 +208,7 @@ describe('ModelDownloadDialog — consent gate', () => {
 
   it('never renders a blank error panel for an object rejection', async () => {
     mockDownloadModel.mockRejectedValue({ code: 'command_error', message: 'connection refused' });
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={() => {}}
@@ -216,7 +222,7 @@ describe('ModelDownloadDialog — consent gate', () => {
 
   it('shows a Retry button only when the failure is retryable', async () => {
     mockDownloadModel.mockRejectedValue('Model download failed: connection refused');
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={() => {}}
@@ -230,7 +236,7 @@ describe('ModelDownloadDialog — consent gate', () => {
 
   it('omits Retry for permanent integrity failures', async () => {
     mockDownloadModel.mockRejectedValue(new Error('Model failed SHA-256 verification'));
-    render(
+    renderDialog(
       <ModelDownloadDialog
         modelId="birefnet-general-lite"
         onClose={() => {}}

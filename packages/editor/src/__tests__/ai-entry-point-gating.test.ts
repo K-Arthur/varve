@@ -90,19 +90,19 @@ describe('AI Entry Point Gating Audit', () => {
       // Find the function/method in the file
       // Try multiple patterns: arrow function, method, regular function, useCallback
       const patterns = [
-        // Object property: functionName: (params) => { ... }
+        // Object property: functionName: async (params): ReturnType => { ... }
         new RegExp(
-          `${entryPoint.function}:\\s*(?:async\\s+)?\\([^)]*\\)\\s*=>\\s*\\{[\\s\\S]*?(?=\\n\\s{2,6}\\w+:|\\n\\s*\\})`,
+          `${entryPoint.function}:\\s*(?:async\\s+)?\\([^)]*\\)\\s*(?::\\s*[^=]+)?\\s*=>\\s*\\{[\\s\\S]*?(?=\\n\\s{2,6}\\w+:|\\n\\s*\\})`,
           'm',
         ),
         // const functionName = useCallback((params) => { ... }, [deps])
         new RegExp(
-          `(?:const|let)\\s+${entryPoint.function}\\s*=\\s*useCallback\\s*\\(\\s*(?:async\\s+)?\\([^)]*\\)\\s*=>\\s*\\{[\\s\\S]*?(?=\\},\\s*\\[)`,
+          `(?:const|let)\\s+${entryPoint.function}\\s*=\\s*useCallback\\s*\\(\\s*(?:async\\s+)?\\([^)]*\\)\\s*(?::\\s*[^=]+)?\\s*=>\\s*\\{[\\s\\S]*?(?=\\},\\s*\\[)`,
           'm',
         ),
-        // const functionName = (params) => { ... }
+        // const functionName = (params): ReturnType => { ... }
         new RegExp(
-          `(?:const|let)\\s+${entryPoint.function}\\s*=\\s*(?:async\\s+)?\\([^)]*\\)\\s*=>\\s*\\{[\\s\\S]*?(?=\\n\\s*(?:const|let|function|export|\\}))`,
+          `(?:const|let)\\s+${entryPoint.function}\\s*=\\s*(?:async\\s+)?\\([^)]*\\)\\s*(?::\\s*[^=]+)?\\s*=>\\s*\\{[\\s\\S]*?(?=\\n\\s*(?:const|let|function|export|\\}))`,
           'm',
         ),
         // function functionName(params) { ... }
