@@ -1,16 +1,15 @@
 {
-  "id": "id-1791546883858-7yoaj8f6n",
+  "id": "97121e73-8d8c-485e-a3ed-5bd0e456791d",
   "formatVersion": "2.33",
   "name": "Halloween Cookies",
-  "nextId": 10000,
   "rootChildren": [
-    "n1000"
+    "n1_9e657fc74d8449e1"
   ],
   "nodes": {
-    "n1000": {
-      "id": "n1000",
+    "n1_9e657fc74d8449e1": {
+      "id": "n1_9e657fc74d8449e1",
       "kind": "group",
-      "name": "Page 1 content",
+      "name": "Canvas 1 content",
       "layerColor": null,
       "order": "a0",
       "visible": true,
@@ -18,14 +17,6 @@
       "opacity": 1,
       "blendMode": "normal",
       "rotation": 0,
-      "children": [
-        "n1001",
-        "n1002",
-        "n1003",
-        "n1004",
-        "n1005",
-        "n1006"
-      ],
       "transform": [
         1,
         0,
@@ -33,1652 +24,27 @@
         1,
         0,
         0
-      ]
-    },
-    "n1001": {
-      "id": "n1001",
-      "kind": "frame",
-      "name": "Panel 1",
-      "layerColor": null,
-      "order": "p00",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
+      ],
       "fill": {
         "space": "rgb",
-        "r": 240,
-        "g": 235,
-        "b": 220,
-        "a": 255
-      },
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        40,
-        40
-      ],
-      "w": 340,
-      "h": 340,
-      "children": [
-        "n1007",
-        "n1013",
-        "n1015",
-        "n1017"
-      ],
-      "clipContent": true,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 3,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "panel": {
-        "semantic": true,
-        "order": 0
-      }
-    },
-    "n1002": {
-      "id": "n1002",
-      "kind": "frame",
-      "name": "Panel 2",
-      "layerColor": null,
-      "order": "p01",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 240,
-        "g": 235,
-        "b": 220,
-        "a": 255
-      },
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        400,
-        40
-      ],
-      "w": 340,
-      "h": 340,
-      "children": [
-        "n1024",
-        "n1020",
-        "n1022"
-      ],
-      "clipContent": true,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 3,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "panel": {
-        "semantic": true,
-        "order": 1
-      }
-    },
-    "n1003": {
-      "id": "n1003",
-      "kind": "frame",
-      "name": "Panel 3",
-      "layerColor": null,
-      "order": "p10",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 240,
-        "g": 235,
-        "b": 220,
-        "a": 255
-      },
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        40,
-        400
-      ],
-      "w": 340,
-      "h": 340,
-      "children": [
-        "n1025",
-        "n1031",
-        "n1033",
-        "n1035",
-        "n1038",
-        "n1042"
-      ],
-      "clipContent": true,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 3,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "panel": {
-        "semantic": true,
-        "order": 2
-      }
-    },
-    "n1004": {
-      "id": "n1004",
-      "kind": "frame",
-      "name": "Panel 4",
-      "layerColor": null,
-      "order": "p11",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 240,
-        "g": 235,
-        "b": 220,
-        "a": 255
-      },
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        400,
-        400
-      ],
-      "w": 340,
-      "h": 340,
-      "children": [
-        "n1043",
-        "n1044",
-        "n1046",
-        "n1048",
-        "n1051"
-      ],
-      "clipContent": true,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 3,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "panel": {
-        "semantic": true,
-        "order": 3
-      }
-    },
-    "n1005": {
-      "id": "n1005",
-      "kind": "frame",
-      "name": "Panel 5",
-      "layerColor": null,
-      "order": "p20",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 240,
-        "g": 235,
-        "b": 220,
-        "a": 255
-      },
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        40,
-        760
-      ],
-      "w": 340,
-      "h": 340,
-      "children": [
-        "n1052",
-        "n1053",
-        "n1055"
-      ],
-      "clipContent": true,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 3,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "panel": {
-        "semantic": true,
-        "order": 4
-      }
-    },
-    "n1006": {
-      "id": "n1006",
-      "kind": "frame",
-      "name": "Panel 6",
-      "layerColor": null,
-      "order": "p21",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 240,
-        "g": 235,
-        "b": 220,
-        "a": 255
-      },
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        400,
-        760
-      ],
-      "w": 340,
-      "h": 340,
-      "children": [
-        "n1058",
-        "n1064",
-        "n1066",
-        "n1070",
-        "n1073",
-        "n1079"
-      ],
-      "clipContent": true,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 3,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "panel": {
-        "semantic": true,
-        "order": 5
-      }
-    },
-    "n1007": {
-      "id": "n1007",
-      "kind": "shape",
-      "name": "Counter",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 220,
-        "g": 180,
-        "b": 140,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 10,
-        "y": 200,
-        "w": 320,
-        "h": 120
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1008": {
-      "id": "n1008",
-      "kind": "shape",
-      "name": "Head",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 220,
-        "b": 177,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 90,
-        "cy": 100,
-        "rx": 35,
-        "ry": 40
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1009": {
-      "id": "n1009",
-      "kind": "shape",
-      "name": "Hair",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 101,
-        "g": 67,
-        "b": 33,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 90,
-        "cy": 75,
-        "rx": 38,
-        "ry": 25
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1010": {
-      "id": "n1010",
-      "kind": "shape",
-      "name": "Left Eye",
-      "layerColor": null,
-      "order": "a2",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 77,
-        "cy": 95,
-        "rx": 3,
-        "ry": 3
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1011": {
-      "id": "n1011",
-      "kind": "shape",
-      "name": "Right Eye",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 103,
-        "cy": 95,
-        "rx": 3,
-        "ry": 3
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1012": {
-      "id": "n1012",
-      "kind": "path",
-      "name": "Mouth",
-      "layerColor": null,
-      "order": "a4",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "points": [
-        {
-          "x": 82,
-          "y": 112,
-          "type": "point"
-        },
-        {
-          "x": 90,
-          "y": 114,
-          "type": "point"
-        },
-        {
-          "x": 98,
-          "y": 112,
-          "type": "point"
-        }
-      ],
-      "closed": false,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1013": {
-      "id": "n1013",
-      "kind": "group",
-      "name": "Character",
-      "layerColor": null,
-      "order": "a5",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1008",
-        "n1009",
-        "n1010",
-        "n1011",
-        "n1012"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1014": {
-      "id": "n1014",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 180,
-        "y": 230,
-        "w": 30,
-        "h": 35
-      },
-      "cornerRadius": 15,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1015": {
-      "id": "n1015",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1014"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1016": {
-      "id": "n1016",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 140,
+        "r": 0,
+        "g": 0,
         "b": 0,
-        "a": 255
+        "a": 0
       },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 235,
-        "cy": 245,
-        "rx": 15,
-        "ry": 15
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1018": {
-      "id": "n1018",
-      "kind": "shape",
-      "name": "Stem",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 80,
-        "g": 120,
-        "b": 40,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 232,
-        "y": 225,
-        "w": 6,
-        "h": 8
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1017": {
-      "id": "n1017",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
       "children": [
-        "n1016",
-        "n1018"
+        "n2_4554e8bddbbea2da",
+        "n6_342cc49a1ff1e0d5"
       ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
+      "effects": []
     },
-    "n1019": {
-      "id": "n1019",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 100,
-        "y": 120,
-        "w": 30,
-        "h": 35
-      },
-      "cornerRadius": 15,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1020": {
-      "id": "n1020",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1019"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1021": {
-      "id": "n1021",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 140,
-        "b": 0,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 195,
-        "cy": 145,
-        "rx": 15,
-        "ry": 15
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1023": {
-      "id": "n1023",
-      "kind": "shape",
-      "name": "Stem",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 80,
-        "g": 120,
-        "b": 40,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 192,
-        "y": 125,
-        "w": 6,
-        "h": 8
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1022": {
-      "id": "n1022",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1021",
-        "n1023"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1024": {
-      "id": "n1024",
-      "kind": "shape",
-      "name": "Hand",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 220,
-        "b": 177,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 120,
-        "cy": 80,
-        "rx": 25,
-        "ry": 15
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1025": {
-      "id": "n1025",
-      "kind": "shape",
-      "name": "Counter",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 220,
-        "g": 180,
-        "b": 140,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 10,
-        "y": 200,
-        "w": 320,
-        "h": 120
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1026": {
-      "id": "n1026",
-      "kind": "shape",
-      "name": "Head",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 220,
-        "b": 177,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 90,
-        "cy": 120,
-        "rx": 35,
-        "ry": 40
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1027": {
-      "id": "n1027",
-      "kind": "shape",
-      "name": "Hair",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 101,
-        "g": 67,
-        "b": 33,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 90,
-        "cy": 95,
-        "rx": 38,
-        "ry": 25
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1028": {
-      "id": "n1028",
-      "kind": "shape",
-      "name": "Left Eye",
-      "layerColor": null,
-      "order": "a2",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 77,
-        "cy": 115,
-        "rx": 3,
-        "ry": 3
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1029": {
-      "id": "n1029",
-      "kind": "shape",
-      "name": "Right Eye",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 103,
-        "cy": 115,
-        "rx": 3,
-        "ry": 3
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1030": {
-      "id": "n1030",
-      "kind": "path",
-      "name": "Mouth",
-      "layerColor": null,
-      "order": "a4",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "points": [
-        {
-          "x": 80,
-          "y": 130,
-          "type": "point"
-        },
-        {
-          "x": 90,
-          "y": 137,
-          "type": "point"
-        },
-        {
-          "x": 100,
-          "y": 130,
-          "type": "point"
-        }
-      ],
-      "closed": false,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1031": {
-      "id": "n1031",
-      "kind": "group",
-      "name": "Character",
-      "layerColor": null,
-      "order": "a5",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1026",
-        "n1027",
-        "n1028",
-        "n1029",
-        "n1030"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1032": {
-      "id": "n1032",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 120,
-        "y": 230,
-        "w": 30,
-        "h": 35
-      },
-      "cornerRadius": 15,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1033": {
-      "id": "n1033",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1032"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1034": {
-      "id": "n1034",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 140,
-        "b": 0,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 175,
-        "cy": 245,
-        "rx": 15,
-        "ry": 15
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1036": {
-      "id": "n1036",
-      "kind": "shape",
-      "name": "Stem",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 80,
-        "g": 120,
-        "b": 40,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 172,
-        "y": 225,
-        "w": 6,
-        "h": 8
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1035": {
-      "id": "n1035",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1034",
-        "n1036"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1037": {
-      "id": "n1037",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 200,
-        "y": 230,
-        "w": 30,
-        "h": 35
-      },
-      "cornerRadius": 15,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1038": {
-      "id": "n1038",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1037"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1039": {
-      "id": "n1039",
+    "n4_65dac3ef5d4b8d4e": {
+      "id": "n4_65dac3ef5d4b8d4e",
       "kind": "text",
-      "name": "Text",
+      "name": "Text: Perfect!",
+      "nameMode": "automatic",
       "layerColor": null,
-      "order": "b0",
+      "order": "a3",
       "visible": true,
       "locked": false,
       "opacity": 1,
@@ -1690,9 +56,18 @@
         0,
         0,
         1,
-        150,
-        60
+        18,
+        18
       ],
+      "w": 80,
+      "h": 38.4,
+      "fill": {
+        "space": "rgb",
+        "r": 16,
+        "g": 21,
+        "b": 31,
+        "a": 255
+      },
       "fontSize": 16,
       "fontFamily": "IBM Plex Sans Variable",
       "fontWeight": 400,
@@ -1700,20 +75,16 @@
       "lineHeight": 1.2,
       "letterSpacing": 0,
       "textAlign": "left",
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
+      "textResizing": "fixed",
+      "textMode": "point",
+      "textWrapShape": "ellipse",
       "strokes": [],
       "effects": []
     },
-    "n1040": {
-      "id": "n1040",
+    "n3_7b85d02008ee3d56": {
+      "id": "n3_7b85d02008ee3d56",
       "kind": "shape",
-      "name": "Balloon Body",
+      "name": "Speech balloon",
       "layerColor": null,
       "order": "a0",
       "visible": true,
@@ -1721,613 +92,21 @@
       "opacity": 1,
       "blendMode": "normal",
       "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 138,
-        "y": 48,
-        "w": 104,
-        "h": 64
-      },
-      "cornerRadius": 28,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1041": {
-      "id": "n1041",
-      "kind": "path",
-      "name": "Balloon Tail",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "points": [
-        {
-          "x": 180,
-          "y": 112,
-          "type": "point"
-        },
-        {
-          "x": 130,
-          "y": 100,
-          "type": "point"
-        },
-        {
-          "x": 200,
-          "y": 112,
-          "type": "point"
-        }
-      ],
-      "closed": true,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1042": {
-      "id": "n1042",
-      "kind": "group",
-      "name": "Speech Balloon",
-      "layerColor": null,
-      "order": "b0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1040",
-        "n1041",
-        "n1039"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ],
-      "callout": {
-        "version": 1,
-        "kind": "speech",
-        "bodyNodeId": "n1040",
-        "textNodeId": "n1039",
-        "tailNodeIds": [
-          "n1041"
-        ],
-        "padding": 12,
-        "parametric": true,
-        "tails": [
-          {
-            "nodeIds": [
-              "n1041"
-            ],
-            "style": "pointed",
-            "curve": 0,
-            "baseWidth": 20
-          }
-        ]
-      }
-    },
-    "n1043": {
-      "id": "n1043",
-      "kind": "shape",
-      "name": "Counter",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 220,
-        "g": 180,
-        "b": 140,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 10,
-        "y": 200,
-        "w": 320,
-        "h": 120
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1044": {
-      "id": "n1044",
-      "kind": "shape",
-      "name": "Door",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 160,
-        "g": 120,
-        "b": 80,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 10,
-        "y": 60,
-        "w": 60,
-        "h": 140
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1045": {
-      "id": "n1045",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 120,
-        "y": 230,
-        "w": 30,
-        "h": 35
-      },
-      "cornerRadius": 15,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1046": {
-      "id": "n1046",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1045"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1047": {
-      "id": "n1047",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 140,
-        "b": 0,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 175,
-        "cy": 245,
-        "rx": 15,
-        "ry": 15
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1049": {
-      "id": "n1049",
-      "kind": "shape",
-      "name": "Stem",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 80,
-        "g": 120,
-        "b": 40,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 172,
-        "y": 225,
-        "w": 6,
-        "h": 8
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1048": {
-      "id": "n1048",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1047",
-        "n1049"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1050": {
-      "id": "n1050",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 200,
-        "y": 230,
-        "w": 30,
-        "h": 35
-      },
-      "cornerRadius": 15,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1051": {
-      "id": "n1051",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1050"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1052": {
-      "id": "n1052",
-      "kind": "shape",
-      "name": "Counter",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 220,
-        "g": 180,
-        "b": 140,
-        "a": 255
-      },
       "shape": {
         "kind": "rect",
         "x": 0,
-        "y": 180,
-        "w": 340,
-        "h": 160
+        "y": 0,
+        "w": 116,
+        "h": 74.4
       },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
+      "transform": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
       ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1053": {
-      "id": "n1053",
-      "kind": "shape",
-      "name": "Glow",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 0.3,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 150,
-        "b": 50,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 95,
-        "cy": 227,
-        "rx": 25,
-        "ry": 25
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1054": {
-      "id": "n1054",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
       "fill": {
         "space": "rgb",
         "r": 255,
@@ -2335,42 +114,33 @@
         "b": 255,
         "a": 255
       },
-      "shape": {
-        "kind": "rect",
-        "x": 80,
-        "y": 210,
-        "w": 30,
-        "h": 35
-      },
-      "cornerRadius": 15,
       "strokes": [
         {
-          "fill": {
+          "color": {
             "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
+            "r": 0,
+            "g": 0,
+            "b": 0,
             "a": 255
           },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
+          "weight": 2,
+          "align": "center",
+          "dashPattern": [],
+          "dashOffset": 0,
+          "cap": "round",
+          "join": "miter",
+          "miterLimit": 4,
+          "visible": true,
+          "id": "stroke-n3_7b85d02008ee3d56-0"
         }
       ],
       "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
+      "cornerRadius": 28
     },
-    "n1056": {
-      "id": "n1056",
-      "kind": "shape",
-      "name": "Left Eye",
+    "n5_fd6e28f27e93e283": {
+      "id": "n5_fd6e28f27e93e283",
+      "kind": "path",
+      "name": "Balloon tail",
       "layerColor": null,
       "order": "a1",
       "visible": true,
@@ -2378,22 +148,6 @@
       "opacity": 1,
       "blendMode": "normal",
       "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 90,
-        "cy": 222,
-        "rx": 3,
-        "ry": 3
-      },
-      "strokes": [],
-      "effects": [],
       "transform": [
         1,
         0,
@@ -2401,355 +155,61 @@
         1,
         0,
         0
-      ]
-    },
-    "n1057": {
-      "id": "n1057",
-      "kind": "shape",
-      "name": "Right Eye",
-      "layerColor": null,
-      "order": "a2",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 100,
-        "cy": 222,
-        "rx": 3,
-        "ry": 3
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1055": {
-      "id": "n1055",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1054",
-        "n1056",
-        "n1057"
       ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1058": {
-      "id": "n1058",
-      "kind": "shape",
-      "name": "Counter",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 220,
-        "g": 180,
-        "b": 140,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 10,
-        "y": 200,
-        "w": 320,
-        "h": 120
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1059": {
-      "id": "n1059",
-      "kind": "shape",
-      "name": "Head",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
       "fill": {
         "space": "rgb",
         "r": 255,
-        "g": 220,
-        "b": 177,
+        "g": 255,
+        "b": 255,
         "a": 255
       },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 90,
-        "cy": 100,
-        "rx": 35,
-        "ry": 40
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1060": {
-      "id": "n1060",
-      "kind": "shape",
-      "name": "Hair",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 101,
-        "g": 67,
-        "b": 33,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 90,
-        "cy": 75,
-        "rx": 38,
-        "ry": 25
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1061": {
-      "id": "n1061",
-      "kind": "shape",
-      "name": "Left Eye",
-      "layerColor": null,
-      "order": "a2",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 77,
-        "cy": 95,
-        "rx": 3,
-        "ry": 8
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1062": {
-      "id": "n1062",
-      "kind": "shape",
-      "name": "Right Eye",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 103,
-        "cy": 95,
-        "rx": 3,
-        "ry": 8
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1063": {
-      "id": "n1063",
-      "kind": "path",
-      "name": "Mouth",
-      "layerColor": null,
-      "order": "a4",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
       "points": [
         {
-          "x": 87,
-          "y": 110,
-          "type": "point"
+          "x": 48,
+          "y": 71.4,
+          "handleIn": null,
+          "handleOut": null
         },
         {
-          "x": 85,
-          "y": 115,
-          "type": "point"
+          "x": 58,
+          "y": 109.4,
+          "handleIn": null,
+          "handleOut": null
         },
         {
-          "x": 90,
-          "y": 117,
-          "type": "point"
-        },
-        {
-          "x": 95,
-          "y": 115,
-          "type": "point"
-        },
-        {
-          "x": 93,
-          "y": 110,
-          "type": "point"
+          "x": 68,
+          "y": 71.4,
+          "handleIn": null,
+          "handleOut": null
         }
       ],
       "closed": false,
       "strokes": [
         {
-          "fill": {
+          "color": {
             "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
+            "r": 0,
+            "g": 0,
+            "b": 0,
             "a": 255
           },
           "weight": 2,
-          "position": "center",
-          "dashPattern": []
+          "align": "center",
+          "dashPattern": [],
+          "dashOffset": 0,
+          "cap": "round",
+          "join": "miter",
+          "miterLimit": 4,
+          "visible": true,
+          "id": "stroke-n5_fd6e28f27e93e283-0"
         }
       ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
+      "effects": []
     },
-    "n1064": {
-      "id": "n1064",
+    "n2_4554e8bddbbea2da": {
+      "id": "n2_4554e8bddbbea2da",
       "kind": "group",
-      "name": "Character",
+      "name": "Speech balloon",
       "layerColor": null,
       "order": "a5",
       "visible": true,
@@ -2757,480 +217,96 @@
       "opacity": 1,
       "blendMode": "normal",
       "rotation": 0,
-      "children": [
-        "n1059",
-        "n1060",
-        "n1061",
-        "n1062",
-        "n1063"
+      "transform": [
+        1,
+        0,
+        0,
+        1,
+        200,
+        200
       ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1065": {
-      "id": "n1065",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
       "fill": {
         "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 120,
-        "y": 220,
-        "w": 30,
-        "h": 35
-      },
-      "cornerRadius": 15,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1067": {
-      "id": "n1067",
-      "kind": "shape",
-      "name": "Left Eye",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 130,
-        "cy": 232,
-        "rx": 3,
-        "ry": 3
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1068": {
-      "id": "n1068",
-      "kind": "shape",
-      "name": "Right Eye",
-      "layerColor": null,
-      "order": "a2",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 140,
-        "cy": 232,
-        "rx": 3,
-        "ry": 3
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1066": {
-      "id": "n1066",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1065",
-        "n1067",
-        "n1068"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1069": {
-      "id": "n1069",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 140,
+        "r": 0,
+        "g": 0,
         "b": 0,
-        "a": 255
+        "a": 0
       },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 175,
-        "cy": 240,
-        "rx": 15,
-        "ry": 15
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1071": {
-      "id": "n1071",
-      "kind": "shape",
-      "name": "Stem",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 80,
-        "g": 120,
-        "b": 40,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 172,
-        "y": 220,
-        "w": 6,
-        "h": 8
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1070": {
-      "id": "n1070",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
       "children": [
-        "n1069",
-        "n1071"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1072": {
-      "id": "n1072",
-      "kind": "shape",
-      "name": "Cookie Body",
-      "layerColor": null,
-      "order": "a0",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "rect",
-        "x": 200,
-        "y": 220,
-        "w": 30,
-        "h": 35
-      },
-      "cornerRadius": 15,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2.5,
-          "position": "center",
-          "dashPattern": []
-        }
+        "n3_7b85d02008ee3d56",
+        "n5_fd6e28f27e93e283",
+        "n4_65dac3ef5d4b8d4e"
       ],
       "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
+      "callout": {
+        "version": 1,
+        "kind": "speech",
+        "bodyNodeId": "n3_7b85d02008ee3d56",
+        "textNodeId": "n4_65dac3ef5d4b8d4e",
+        "tailNodeIds": [
+          "n5_fd6e28f27e93e283"
+        ],
+        "tails": [
+          {
+            "nodeIds": [
+              "n5_fd6e28f27e93e283"
+            ],
+            "style": "pointed"
+          }
+        ],
+        "padding": 18,
+        "fitToText": false,
+        "fitPolicy": "reflow",
+        "parametric": true
+      }
     },
-    "n1074": {
-      "id": "n1074",
-      "kind": "shape",
-      "name": "Left Eye",
-      "layerColor": null,
-      "order": "a1",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 210,
-        "cy": 232,
-        "rx": 3,
-        "ry": 3
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1075": {
-      "id": "n1075",
-      "kind": "shape",
-      "name": "Right Eye",
-      "layerColor": null,
-      "order": "a2",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 220,
-        "cy": 232,
-        "rx": 3,
-        "ry": 3
-      },
-      "strokes": [],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1073": {
-      "id": "n1073",
-      "kind": "group",
-      "name": "Cookie",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "children": [
-        "n1072",
-        "n1074",
-        "n1075"
-      ],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1076": {
-      "id": "n1076",
+    "n8_8cfd92d8576c1af9": {
+      "id": "n8_8cfd92d8576c1af9",
       "kind": "text",
-      "name": "Text",
+      "name": "Text: Hmm...",
+      "nameMode": "automatic",
       "layerColor": null,
-      "order": "b0",
+      "order": "a3",
       "visible": true,
       "locked": false,
       "opacity": 1,
       "blendMode": "normal",
       "rotation": 0,
-      "text": "Did I use\nmagic flour...?",
+      "text": "Hmm...",
       "transform": [
         1,
         0,
         0,
         1,
-        150,
-        40
+        18,
+        18
       ],
-      "w": 120,
-      "fontSize": 14,
+      "w": 60,
+      "h": 38.4,
+      "fill": {
+        "space": "rgb",
+        "r": 16,
+        "g": 21,
+        "b": 31,
+        "a": 255
+      },
+      "fontSize": 16,
       "fontFamily": "IBM Plex Sans Variable",
       "fontWeight": 400,
       "fontStyle": "normal",
       "lineHeight": 1.2,
       "letterSpacing": 0,
       "textAlign": "left",
-      "fill": {
-        "space": "rgb",
-        "r": 30,
-        "g": 30,
-        "b": 30,
-        "a": 255
-      },
+      "textResizing": "fixed",
+      "textMode": "point",
+      "textWrapShape": "ellipse",
       "strokes": [],
       "effects": []
     },
-    "n1077": {
-      "id": "n1077",
+    "n7_477d6e9e8ba6aa6f": {
+      "id": "n7_477d6e9e8ba6aa6f",
       "kind": "shape",
-      "name": "Balloon Body",
+      "name": "Speech balloon",
       "layerColor": null,
       "order": "a0",
       "visible": true,
@@ -3238,36 +314,13 @@
       "opacity": 1,
       "blendMode": "normal",
       "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
       "shape": {
         "kind": "rect",
-        "x": 138,
-        "y": 28,
-        "w": 249,
-        "h": 64
+        "x": 0,
+        "y": 0,
+        "w": 96,
+        "h": 74.4
       },
-      "cornerRadius": 48,
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
       "transform": [
         1,
         0,
@@ -3275,12 +328,41 @@
         1,
         0,
         0
-      ]
+      ],
+      "fill": {
+        "space": "rgb",
+        "r": 255,
+        "g": 255,
+        "b": 255,
+        "a": 255
+      },
+      "strokes": [
+        {
+          "color": {
+            "space": "rgb",
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 255
+          },
+          "weight": 2,
+          "align": "center",
+          "dashPattern": [],
+          "dashOffset": 0,
+          "cap": "round",
+          "join": "miter",
+          "miterLimit": 4,
+          "visible": true,
+          "id": "stroke-n7_477d6e9e8ba6aa6f-0"
+        }
+      ],
+      "effects": [],
+      "cornerRadius": 28
     },
-    "n1080": {
-      "id": "n1080",
-      "kind": "shape",
-      "name": "Bubble 1",
+    "n9_a3d8d0cbe53f9bb3": {
+      "id": "n9_a3d8d0cbe53f9bb3",
+      "kind": "path",
+      "name": "Balloon tail",
       "layerColor": null,
       "order": "a1",
       "visible": true,
@@ -3288,35 +370,6 @@
       "opacity": 1,
       "blendMode": "normal",
       "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 222.57552520308528,
-        "cy": 62.456890756733216,
-        "rx": 10,
-        "ry": 10
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
       "transform": [
         1,
         0,
@@ -3324,19 +377,7 @@
         1,
         0,
         0
-      ]
-    },
-    "n1081": {
-      "id": "n1081",
-      "kind": "shape",
-      "name": "Bubble 2",
-      "layerColor": null,
-      "order": "a2",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
+      ],
       "fill": {
         "space": "rgb",
         "r": 255,
@@ -3344,160 +385,148 @@
         "b": 255,
         "a": 255
       },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 202.61328780462793,
-        "cy": 63.68533613509982,
-        "rx": 7,
-        "ry": 7
-      },
+      "points": [
+        {
+          "x": 38,
+          "y": 71.4,
+          "handleIn": null,
+          "handleOut": null
+        },
+        {
+          "x": 48,
+          "y": 109.4,
+          "handleIn": null,
+          "handleOut": null
+        },
+        {
+          "x": 58,
+          "y": 71.4,
+          "handleIn": null,
+          "handleOut": null
+        }
+      ],
+      "closed": false,
       "strokes": [
         {
-          "fill": {
+          "color": {
             "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
+            "r": 0,
+            "g": 0,
+            "b": 0,
             "a": 255
           },
           "weight": 2,
-          "position": "center",
-          "dashPattern": []
+          "align": "center",
+          "dashPattern": [],
+          "dashOffset": 0,
+          "cap": "round",
+          "join": "miter",
+          "miterLimit": 4,
+          "visible": true,
+          "id": "stroke-n9_a3d8d0cbe53f9bb3-0"
         }
       ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
+      "effects": []
     },
-    "n1082": {
-      "id": "n1082",
-      "kind": "shape",
-      "name": "Bubble 3",
-      "layerColor": null,
-      "order": "a3",
-      "visible": true,
-      "locked": false,
-      "opacity": 1,
-      "blendMode": "normal",
-      "rotation": 0,
-      "fill": {
-        "space": "rgb",
-        "r": 255,
-        "g": 255,
-        "b": 255,
-        "a": 255
-      },
-      "shape": {
-        "kind": "ellipse",
-        "cx": 100,
-        "cy": 70,
-        "rx": 5,
-        "ry": 5
-      },
-      "strokes": [
-        {
-          "fill": {
-            "space": "rgb",
-            "r": 30,
-            "g": 30,
-            "b": 30,
-            "a": 255
-          },
-          "weight": 2,
-          "position": "center",
-          "dashPattern": []
-        }
-      ],
-      "effects": [],
-      "transform": [
-        1,
-        0,
-        0,
-        1,
-        0,
-        0
-      ]
-    },
-    "n1079": {
-      "id": "n1079",
+    "n6_342cc49a1ff1e0d5": {
+      "id": "n6_342cc49a1ff1e0d5",
       "kind": "group",
-      "name": "Thought Balloon",
+      "name": "Speech balloon",
       "layerColor": null,
-      "order": "b0",
+      "order": "a5",
       "visible": true,
       "locked": false,
       "opacity": 1,
       "blendMode": "normal",
       "rotation": 0,
-      "children": [
-        "n1077",
-        "n1080",
-        "n1081",
-        "n1082",
-        "n1076"
-      ],
       "transform": [
         1,
         0,
         0,
         1,
-        0,
-        0
+        500,
+        200
       ],
+      "fill": {
+        "space": "rgb",
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0
+      },
+      "children": [
+        "n7_477d6e9e8ba6aa6f",
+        "n9_a3d8d0cbe53f9bb3",
+        "n8_8cfd92d8576c1af9"
+      ],
+      "effects": [],
       "callout": {
         "version": 1,
-        "kind": "thought",
-        "bodyNodeId": "n1077",
-        "textNodeId": "n1076",
+        "kind": "speech",
+        "bodyNodeId": "n7_477d6e9e8ba6aa6f",
+        "textNodeId": "n8_8cfd92d8576c1af9",
         "tailNodeIds": [
-          "n1080",
-          "n1081",
-          "n1082"
+          "n9_a3d8d0cbe53f9bb3"
         ],
-        "padding": 12,
-        "parametric": true,
         "tails": [
           {
             "nodeIds": [
-              "n1080",
-              "n1081",
-              "n1082"
+              "n9_a3d8d0cbe53f9bb3"
             ],
-            "style": "thought",
-            "bubbleCount": 3
+            "style": "pointed"
           }
-        ]
+        ],
+        "padding": 18,
+        "fitToText": false,
+        "fitPolicy": "reflow",
+        "parametric": true
       }
     }
   },
   "components": {},
   "patternDefinitions": {},
+  "nextId": 10,
   "selectionSets": {
-    "sets": [],
-    "nextId": 1
+    "version": 1,
+    "sets": []
   },
   "savedAreaSelections": [],
-  "activePageId": "id-1791546883858-qoryka5ty",
-  "globalChildren": [],
-  "pages": [
+  "gridSettings": {
+    "documentGrid": {
+      "id": "grid-document-default",
+      "type": "document",
+      "name": "Document Grid",
+      "visible": false,
+      "snapEnabled": true,
+      "color": "var(--color-border-subtle)",
+      "opacity": 0.4,
+      "scope": "document",
+      "spacingX": 8,
+      "spacingY": 8,
+      "subdivisions": 4,
+      "offsetX": 0,
+      "offsetY": 0
+    },
+    "pixelGrid": {
+      "id": "grid-pixel-default",
+      "type": "pixel",
+      "name": "Pixel Grid",
+      "visible": false,
+      "snapEnabled": false,
+      "color": "var(--color-border-subtle)",
+      "opacity": 0.5,
+      "scope": "document",
+      "showAtHighZoom": true,
+      "zoomThreshold": 4
+    }
+  },
+  "designCanvases": [
     {
-      "id": "id-1791546883858-qoryka5ty",
-      "name": "Page 1",
+      "id": "canvas-n1_9e657fc74d8449e1",
+      "name": "Canvas 1",
       "order": "a0",
-      "width": 780,
-      "height": 1140,
-      "backgrounds": [],
-      "contentRoot": "n1000"
+      "contentRoot": "n1_9e657fc74d8449e1"
     }
   ],
-  "documentUnit": "px",
-  "physicalWidth": 780,
-  "physicalHeight": 1140,
-  "dpi": 300
+  "activeDesignCanvasId": "canvas-n1_9e657fc74d8449e1"
 }
