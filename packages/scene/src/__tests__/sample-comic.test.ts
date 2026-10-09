@@ -48,7 +48,7 @@ describe('halloween-cookies.varve', () => {
       (n): n is Extract<typeof n, { kind: 'group' }> => n.kind === 'group' && !!n.callout,
     );
 
-    expect(callouts.length).toBe(2); // Speech and thought balloons
+    expect(callouts.length).toBe(5); // Speech, thought, shout, and 2 captions
 
     for (const callout of callouts) {
       expect(callout.callout).toBeDefined();
@@ -65,7 +65,9 @@ describe('halloween-cookies.varve', () => {
       const textNode = result.document.nodes[callout.callout!.textNodeId];
       expect(textNode).toBeDefined();
       expect(textNode?.kind).toBe('text');
-      expect(typeof (textNode as any).text).toBe('string');
+      if (textNode?.kind === 'text') {
+        expect(typeof textNode.text).toBe('string');
+      }
     }
   });
 });
