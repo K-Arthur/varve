@@ -86,10 +86,23 @@ async function removeBackgroundViaCloud(
   throw lastError ?? new Error('Cloud inference failed');
 }
 
+function getAiFeaturesEnabled(): boolean {
+  try {
+    const raw = localStorage.getItem('varve-editor-settings');
+    if (!raw) return true;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const ai = parsed.ai as Record<string, unknown> | undefined;
+    return ai?.enabled !== false;
+  } catch {
+    return true;
+  }
+}
+
 export const cloudRemovalProvider: RemovalProvider = {
   id: 'cloud',
 
   isAvailable: async (_options: BackgroundRemovalOptions): Promise<boolean> => {
+    if (!getAiFeaturesEnabled()) return false;
     const config = loadCloudConfig();
     if (!config) return false;
     return config.enabled && config.apiUrl.length > 0 && config.apiKey.length > 0;

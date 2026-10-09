@@ -53,6 +53,11 @@ const AI_ENTRY_POINTS = [
     function: 'openBatchBgRemove',
     description: 'Batch background removal',
   },
+  {
+    file: 'packages/engine/src/backgroundRemoval/providers/cloudProvider.ts',
+    function: 'isAvailable',
+    description: 'Cloud background removal provider',
+  },
 ] as const;
 
 /**
