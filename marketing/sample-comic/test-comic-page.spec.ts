@@ -2,9 +2,9 @@
  * Test the generated comic page in the web build
  */
 
-import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { expect, test } from '@playwright/test';
 
 test.describe('Halloween Cookies Comic Page', () => {
   test('should load and render the comic page', async ({ page }) => {

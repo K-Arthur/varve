@@ -1,5 +1,5 @@
-import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
+import { chromium } from 'playwright';
 
 const DEMO_FILE_ID = 'varve-demo-sample';
 
