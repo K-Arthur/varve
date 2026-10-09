@@ -465,13 +465,16 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
   const startObjectSelection = useCallback(async () => {
     if (!node) return;
-    const { checkAiFeaturesEnabled } = await import('../../../features/useAiFeaturesEnabled');
-    if (!checkAiFeaturesEnabled(toastHandler, 'Object Selection')) return;
+    const { getAiFeaturesEnabled } = await import('../../../features/useAiFeaturesEnabled');
+    if (!getAiFeaturesEnabled()) {
+      announce('Object Selection requires AI features. Enable them in Settings.');
+      return;
+    }
     setTool('sam2Segment');
     announce(
       'Object Selection active. Prompt polarity controls new points; Shift temporarily excludes. Use two taps or a drag for a box hint.',
     );
-  }, [announce, node, setTool, toastHandler]);
+  }, [announce, node, setTool]);
 
   const configureObjectSelectionTool = useCallback(
     (mode: Sam2PromptMode, polarity: Sam2PromptPolarity) => {

@@ -1131,7 +1131,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-accent-teal-10);
+  color: var(--color-accent-teal);
   flex-shrink: 0;
   opacity: 0.8;
   transition: opacity var(--duration-quick) var(--ease-standard);
@@ -1142,7 +1142,7 @@
   opacity: 1;
 }
 
-[data-badge-group='ai'] {
+[data-badge-group="ai"] {
   /* AI badge is unobtrusive but always visible when present */
   opacity: 1;
 }

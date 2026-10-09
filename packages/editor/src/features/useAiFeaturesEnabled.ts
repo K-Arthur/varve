@@ -40,14 +40,25 @@ export function getAiFeaturesEnabled(): boolean {
  * Use this at AI entry points to gate access and inform the user.
  */
 export function checkAiFeaturesEnabled(
-  toastHandler: ((message: string, options?: { variant?: string }) => void) | undefined,
+  toastHandler:
+    | ((opts: {
+        message: string;
+        title?: string;
+        description?: string;
+        type?: 'default' | 'info' | 'success' | 'warning' | 'error' | 'loading';
+        duration?: number;
+        id?: string;
+        dedupeKey?: string;
+      }) => void)
+    | null
+    | undefined,
   featureName?: string,
 ): boolean {
   if (!getAiFeaturesEnabled()) {
     const message = featureName
       ? `${featureName} requires AI features. Enable them in Settings to continue.`
       : 'AI features are disabled. Enable them in Settings to use this feature.';
-    toastHandler?.(message, { variant: 'info' });
+    toastHandler?.({ message, type: 'info' });
     return false;
   }
   return true;
