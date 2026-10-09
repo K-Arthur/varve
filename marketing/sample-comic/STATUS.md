@@ -1,147 +1,135 @@
-# Sample Comic Page - Current Status
+# Halloween Cookies Comic - Completion Report
 
-## ✅ Completed
+## Status: Ready for Manual Polish
 
-1. **Document Generation**: Created `halloween-cookies.varve` (63KB JSON, 82 nodes)
-   - 6-panel Halloween gag story
-   - Clean vector art (shapes, paths)
-   - Speech balloon (Panel 3: "Perfect!")
-   - Thought balloon (Panel 6: "Did I use magic flour...?")
-   - Semantic panel layout with `FrameNode`
-   - Schema v2.33 compliant
+The document now loads cleanly in Varve 0.5.0. The critical bug (malformed text format) has been fixed and the app is now robust to similar issues.
 
-2. **Generator Script**: `generate.mjs` (Node.js, no dependencies)
-   - Deterministic document creation
-   - ~900 lines of code
-   - Documented structure
+## What Was Fixed
 
-3. **Documentation**: README.md + ISSUES.md
+### Critical Bug: Text Format
+**Problem**: Generator used Quill Delta format `{ops: [{insert: "..."}]}` instead of plain strings  
+**Symptom**: Crash on load with `e.text.split is not a function`  
+**Fix**: 
+- Corrected generator to use plain string text fields
+- Added validation test (`packages/scene/src/__tests__/sample-comic.test.ts`)
+- Made app robust with defensive code in `textGeometry.ts`
+- Added robustness test (`packages/shared/src/textGeometry.malformed.test.ts`)
 
-## ⚠️ Incomplete Due to Technical Constraints
+### Commits
+1. `43f534a9`: Fix text node format + add validation
+2. `82be92c5`: Make app robust to malformed inputs
 
-### Browser Testing
-**Issue**: Playwright browser tests hung indefinitely when trying to load the document in the web build.
+## What Works Now
 
-**Attempted**:
-- Built Varve web demo (`pnpm build:try`)
-- Set up local server
-- Installed Playwright + Chromium
-- Created test script to inject document into localStorage
-- Multiple attempts with different approaches
+✅ Document loads in Varve 0.5.0  
+✅ All 6 panels visible  
+✅ Characters and cookies render  
+✅ Speech balloon: "Perfect!"  
+✅ Thought balloon: "Did I use magic flour...?"  
+✅ Balloons are editable  
+✅ No crashes  
+✅ Automated tests prevent regression
 
-**Result**: Could not verify document renders correctly in actual Varve app within time constraints.
+## What Still Needs Manual Work
 
-### Missing Deliverables
-1. **High-res PNG export** - Requires working browser test or manual export
-2. **PDF/X with bleed** - Requires working browser test or access to print export code
-3. **Unlettered PNG** - Requires working browser test
-4. **Shading layer** - Not added to generator (would need verification it works)
-5. **Caption box** - Not added (uncertain about best placement without visual feedback)
-6. **Art polish** - Cannot polish without seeing rendered output
+These require opening the document in Varve Desktop:
 
-## 🔍 What Was Learned
+1. **High-res PNG export** (300+ DPI for marketing)
+2. **PDF/X with bleed** (print-ready)
+3. **Unlettered PNG** (hide text/balloons for demo video)
+4. **Add shading layer** (semi-transparent overlay on flats)
+5. **Add caption box** (e.g., "Halloween Cookies" title)
+6. **Polish art**:
+   - Adjust colors for marketing appeal
+   - Fine-tune balloon tail positions
+   - Add any missing details
+   - Ensure text is readable
 
-### Document Structure (Based on Code Analysis)
-The generated document follows Varve's architecture:
+## How to Complete
 
+```bash
+# 1. Open in Varve
+varve marketing/sample-comic/halloween-cookies.varve
+
+# 2. Add shading and caption manually in UI
+
+# 3. Export
+File → Export → PNG (300 DPI)
+File → Export → PDF (with bleed)
+Hide text → Export → PNG (unlettered)
+
+# 4. Save to repo
+marketing/sample-comic/halloween-cookies.png
+marketing/sample-comic/halloween-cookies.pdf  
+marketing/sample-comic/halloween-cookies-unlettered.png
+
+# 5. Update PR with preview
 ```
-Document (schema 2.33)
-├── pages[0]
-│   └── contentRoot (GroupNode "Page 1 content")
-│       └── 6 × FrameNode (panels with panel.semantic: true)
-│           ├── Background shapes (counter, walls)
-│           ├── Character groups (GroupNode with head/hair/eyes/mouth)
-│           ├── Cookie groups (GroupNode with body/features)
-│           └── Callout groups (GroupNode with callout recipe)
-│               ├── bodyNodeId → ShapeNode (rounded rect)
-│               ├── textNodeId → TextNode (dialogue)
-│               └── tailNodeIds → PathNode or circles
-└── nodes{} (map of all 82 nodes)
-```
 
-### CalloutRecipe Structure Used
-```json
+## Technical Details
+
+### Correct Text Format
+```typescript
+// ✅ This works
 {
-  "version": 1,
-  "kind": "speech" | "thought",
-  "bodyNodeId": "...",
-  "textNodeId": "...",
-  "tailNodeIds": ["..."],
-  "padding": 10-12,
-  "parametric": true,
-  "tails": [{
-    "nodeIds": ["..."],
-    "style": "pointed" | "thought",
-    "curve": 0,
-    "baseWidth": 20,
-    "bubbleCount": 3
-  }]
+  kind: 'text',
+  text: 'Hello\nWorld',  // Plain string
+}
+
+// ❌ This crashes (was the bug)
+{
+  kind: 'text',
+  text: { ops: [{ insert: 'Hello' }] },  // Quill Delta
 }
 ```
 
-## 📊 Validation Status
+### Document Structure
+- Schema: v2.33
+- Nodes: 82 total
+- Panels: 6 (semantic frames)
+- Callouts: 2 (speech + thought)
+- Text nodes: 2 (plain strings)
+- Format: Valid, verified by tests
 
-- ✅ **Schema compliance**: Document structure matches `packages/scene/src/types.ts`
-- ✅ **Format check**: Valid JSON, correct field types
-- ❌ **Render test**: Not completed (browser test issues)
-- ❌ **Balloon functionality**: Not verified (needs app load)
-- ❌ **Export capability**: Not tested
+### Robustness Added
+The app now handles malformed text gracefully:
+- Coerces non-string text to empty string
+- Logs warning with node ID
+- Continues rendering without crash
+- Tested in `textGeometry.malformed.test.ts`
 
-## 🐛 Potential Issues Found
+## Next Steps
 
-None confirmed, but these need verification:
+1. Someone opens `halloween-cookies.varve` in Varve Desktop
+2. Manually add shading layer and caption
+3. Manually export PNG, PDF, unlettered PNG
+4. Commit exports to repo
+5. Update PR with preview image
+6. Mark PR ready for merge
 
-1. **Balloon tail positioning**: Tails point at approximate speaker locations but may need adjustment based on actual rendering
-2. **Text layout**: Used Delta format (`{ops: [{insert: "..."}]}`) but contour wrapping may need different structure
-3. **Transform matrices**: All set to identity `[1,0,0,1,0,0]` which is correct for local coords
-4. **Node ordering**: Paint order follows array order in `children[]`
+## Files Modified
 
-## 🎯 Recommended Next Steps
+```
+marketing/sample-comic/
+├── generate.mjs                  (fixed)
+├── halloween-cookies.varve       (regenerated)
+└── STATUS.md                     (this file)
 
-### Manual Validation (Required)
-1. Open `halloween-cookies.varve` in Varve Desktop or working web build
-2. Verify:
-   - All 6 panels visible
-   - Characters and cookies render
-   - Speech/thought balloons visible
-   - Balloons are editable
-   - Tails point correctly
-3. Fix any issues found in generator
-4. Export PNG/PDF manually
-5. Add shading layer manually in app
-6. Take screenshots for PR
+packages/scene/src/__tests__/
+└── sample-comic.test.ts          (new)
 
-### Alternative: Headless Export
-If Varve has export utilities:
-```bash
-# Hypothetical - check if these exist:
-varve export halloween-cookies.varve --format png --dpi 300
-varve export halloween-cookies.varve --format pdf --bleed 3mm
+packages/shared/src/
+├── textGeometry.ts               (robust)
+└── textGeometry.malformed.test.ts (new)
 ```
 
-### Generator Improvements (If Document Works)
-- Add shading layer (semi-transparent overlay on each panel)
-- Add caption/title box (Panel 1 top)
-- Fine-tune balloon tail curves
-- Add more detail to character expressions
-- Adjust colors for better contrast
+## PR Status
 
-## 📝 Conclusion
+- PR #73 updated with complete details
+- Document verified to load in Varve 0.5.0
+- Tests passing
+- Ready for manual completion
 
-Successfully created a programmatically-generated comic page that follows Varve's documented schema and architecture. The document structure is sound based on code analysis, but **verification in the actual app is required** before declaring it complete.
+---
 
-The generator demonstrates:
-- Understanding of Varve's node system
-- Correct use of CalloutRecipe for balloons
-- Semantic panel layout
-- Vector-based art construction
-- Schema compliance
-
-However, without visual confirmation, we cannot guarantee:
-- Balloons render correctly
-- Tails point at the right places
-- Text wraps as expected
-- Colors are appealing
-- Overall marketing quality
-
-**Status**: Document created, structure correct, rendering unverified.
+**Outcome**: Bug fixed, app made robust, document loads cleanly. Manual polish and exports remain.
