@@ -17,7 +17,7 @@ consequences are recorded in the
 
 | Failure mode | Representative public evidence | What Varve can realistically do (and already does) | Trap to avoid |
 | --- | --- | --- | --- |
-| Subscription pricing, seat mechanics, and cancellation friction | Figma's March 2025 seat/billing rework and admin-approval share flow ([help centre](https://help.figma.com/hc/en-us/articles/27468498501527), [forum](https://forum.figma.com/product-updates-3/updates-to-our-pricing-seats-and-billing-experience-19448)); Adobe's early-termination fee underpins the [DOJ complaint](https://www.justice.gov/usao-ndca/media/1356226/dl?inline=); Canva billing complaints on [Trustpilot](https://www.trustpilot.com/review/canva.com). | Keep a real Community Edition with no subscription, no seats, and no cancellation flow. State the committed scope — free, no feature paywall, and existing free capabilities not moved behind a paid tier ([COMMERCIAL.md](../../COMMERCIAL.md)). | Unqualified “free forever”. It is unfalsifiable and is the exact pledge later reversed around Affinity, Sketch, and Clip Studio. Name the edition and the commitment instead. |
+| Subscription pricing, seat mechanics, and cancellation friction | Figma's March 2025 seat/billing rework and admin-approval share flow ([help centre](https://help.figma.com/hc/en-us/articles/27468498501527), [forum](https://forum.figma.com/product-updates-3/updates-to-our-pricing-seats-and-billing-experience-19448)); Adobe's early-termination fee underpins the [DOJ complaint](https://www.justice.gov/usao-ndca/media/1356226/dl?inline=); Canva billing complaints on [Trustpilot](https://www.trustpilot.com/review/canva.com). | Keep a real Community Edition with no subscription, no seats, and no cancellation flow. State the committed scope — free, no feature paywall, and existing free capabilities not moved behind a paid tier ([COMMERCIAL.md](../../COMMERCIAL.md)). | Avoid unqualified “free forever”; name the edition and exact commitment instead. The vendor examples previously attached to this warning were too broad; see the [2026-10-09 correction](#pricing-claim-correction-2026-10-09). |
 | Cloud lock-in, forced uploads, offline that is not offline | Canva's December 2025 outage and its [7-day offline-sync limits](https://www.canva.com/help/fix-offline-sync-errors/); Figma's [offline is a warm cache](https://help.figma.com/hc/en-us/articles/360040328553) with device-local changes; Adobe licence phone-home lockouts. | Documents are files on disk; there is no server that can be down. Keep save/recovery state visible and keep every network feature explicit. Under-claim the WASM demo: its data lives in browser storage, not a file. | Implying hosted sync or recovery because collaboration scaffolding and user-configured providers exist. Also “nothing ever leaves your machine” — untrue once a model download, update check, or measurement is opted into. |
 | File-format lock-in and export fidelity | Figma's `.fig` is [proprietary and may change](https://help.figma.com/hc/en-us/articles/8403626871063); Affinity v3 [cannot save back to v1/v2 files](https://arstechnica.com/gadgets/2025/10/canvas-new-affinity-app-is-free-to-use-but-locks-ai-features-behind-a-subscription/); Figma forum reports of [phantom SVG rects](https://forum.figma.com/report-a-problem-6/stop-adding-rects-to-svgs-that-don-t-exist-in-the-design-36808) and [missing layers on batch export](https://forum.figma.com/report-a-problem-6/layers-missing-after-export-50178). | A versioned `.varve` schema that migrates older files on open, a published export-fidelity matrix, and a converter in the same release if a break is ever unavoidable. | “PSD/AI/IDML-compatible” or “open format” without linking the schema. Beta format churn stated without a migration commitment. |
 | Performance: lag, memory blow-up, GPU instability | Figma's own [guidance to split large files](https://forum.figma.com/ask-the-community-7/how-do-i-handle-large-figma-files-that-are-becoming-too-slow-or-laggy-47583); Illustrator slowness on high-end hardware ([Adobe community](https://community.adobe.com/questions-652/serious-lag-and-bugs-in-illustrator-2025-29-8-1-despite-high-end-hardware-817736)); Krita Flatpak crashes and Qt6 canvas regressions ([Krita Artists](https://krita-artists.org/t/crashing-on-latest-flatpak-build-upon-opening-any-image-or-workspace/140987)). | Canvas2D stays the default with GPU paths opt-in and fallback; regressions in the replay hot path are treated as bugs ([AGENTS.md](../../AGENTS.md)); the benchmark envelope is published rather than an adjective. | “Blazing fast” or “runs 10k shapes smoothly” without hardware and document conditions. Shipping a benchmark table and letting it go stale. |
@@ -118,3 +118,30 @@ The acceptance inference is that customization must be verified after a fresh ed
 An [Illustrator UserVoice report](https://illustrator.uservoice.com/forums/601447-illustrator-desktop-bugs/suggestions/20558788-paste-occasionally-does-not-put-the-pasted-art-in) describes unexpected centering after Fit Artboard. Adobe marked it fixed in 2019; its November 10, 2025 response acknowledges subsequent reports. The discussion also distinguishes the view center from the artboard center. This does not establish a defect in every current build. Adobe's [viewing documentation](https://helpx.adobe.com/africa/illustrator/using/viewing-artwork.html) distinguishes fitting an artboard from zooming to selection.
 
 Our acceptance inference is to name the fitting target and measure its actual visible placement. Varve reproduced a separate failure: a Design Canvas had no Publishing Page for the old action to fit. A further real-browser portrait case found trim hidden approximately fifteen pixels beneath the floating toolbar. The repair fits owned canvas artwork or placed publishing trim and reserves clear canvas space. Browser tests start from changed zoom, require actual geometry, and retain screenshots; rotation and unrelated surface ownership have direct geometry coverage. This changes viewing, not document or paste placement.
+
+## Pricing claim correction (2026-10-09)
+
+A follow-up check found that the earlier “free forever” example was too broad.
+The cited Affinity transition does not establish that a “free forever” pledge
+was reversed. Affinity's current product page describes the core app as free,
+requires a Canva account, and places AI features in a paid plan; it also says
+existing V1/V2 licenses remain valid but do not receive future updates
+([Affinity](https://www.affinity.studio/get-affinity), checked 2026-10-09).
+Those are account, feature-tier, and update-policy decisions, not evidence of a
+withdrawn free-forever promise.
+
+Clip Studio Paint's published 2022 change notice documents a different
+complaint: after users objected to the proposed Version 2 update policy,
+Celsys revised its plan and offered free Version 2 upgrades to customers who
+bought a 2022 perpetual license
+([Celsys notice](https://www.clipstudio.net/en/news/202208/22_01/)). This
+supports discussion of update-policy expectations and user feedback, not a
+claim that Clip Studio reversed a free-forever pledge. The cited Sketch
+evidence likewise does not establish such a pledge or reversal, so Sketch is
+removed from that example.
+
+The complaint examples in this document are not prevalence estimates. For
+Varve, use the exact commitment from [COMMERCIAL.md](../../COMMERCIAL.md):
+the Community Edition remains free, and capabilities already in it are not
+moved behind a paid tier. Keep pricing language tied to that defined edition
+and scope.
