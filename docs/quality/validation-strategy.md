@@ -511,6 +511,11 @@ cannot satisfy protected checks or release provenance. Workflow regression
 fixtures that emulate `GITHUB_OUTPUT` or other runner files must write under an
 isolated temporary directory and assert cleanup; leaving a fixture output in
 the checkout correctly invalidates the source receipt.
+The pipeline-validation job also checks that the checkout is clean after its
+tooling and policy tests, before any dependent full integration lanes start.
+This makes accidental test output an early, actionable failure instead of a
+late certification rejection after browser and native work has completed; the
+receipt still records dirty paths for diagnosis.
 
 `release-candidate.yml` freezes one SHA and emits
 `varve-release-candidate-<sha>-<policy-hash>-run-<run_id>-attempt-<attempt>` plus a stable
