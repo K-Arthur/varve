@@ -25,6 +25,7 @@ import {
 import { RELEASE_TARGETS } from './targets.mjs';
 import {
   draftFingerprint,
+  findReleaseForTag,
   parseArgs,
   requiredTargets,
   verifyChecksumAttestation,
@@ -234,19 +235,20 @@ function runner(
     if (command !== 'gh')
       return execFileSync(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     if (args[0] === 'api') {
-      if (args[1].endsWith('/branches/master'))
+      const endpoint = args.find((arg) => arg.startsWith('repos/')) ?? '';
+      if (endpoint.endsWith('/branches/master'))
         return JSON.stringify({
           name: 'master',
           commit: { sha: recoveryOptions.trustedWorkflowSha },
         });
-      if (args[1].includes('/actions/runs/')) {
+      if (endpoint.includes('/actions/runs/')) {
         buildReads += 1;
         const build = structuredClone(recoveryRun);
         if (buildReads === 2 && mutateSecondRun) mutateSecondRun(build);
         return JSON.stringify(build);
       }
-      if (args[1].includes('/compare/')) {
-        const base = args[1].split('/compare/')[1].split('...')[0];
+      if (endpoint.includes('/compare/')) {
+        const base = endpoint.split('/compare/')[1].split('...')[0];
         return JSON.stringify(
           compare ?? {
             status: 'ahead',
@@ -254,6 +256,12 @@ function runner(
             merge_base_commit: { sha: base },
           },
         );
+      }
+      if (endpoint.includes('/releases?per_page=100')) {
+        reads += 1;
+        const release = structuredClone(value.release);
+        if (reads === 2 && mutateSecondRead) mutateSecondRead(release);
+        return JSON.stringify([[release]]);
       }
       reads += 1;
       const release = structuredClone(value.release);
@@ -416,6 +424,16 @@ test('only read-only GitHub operations are used and assets are rechecked before 
   const result = verifyDraftRelease({ ...options, dir }, fake.run);
   assert.equal(result.installers, 9);
   assert.equal(fake.calls.filter((call) => call[0] === 'gh' && call[1] === 'api').length, 2);
+  assert.ok(
+    fake.calls.every(
+      (call) =>
+        call[1] !== 'api' ||
+        (call[2] === '--paginate' &&
+          call[3] === '--slurp' &&
+          call[4] === `repos/${options.repository}/releases?per_page=100`),
+    ),
+    'release reads use the paginated list so unpublished drafts are visible',
+  );
   assert.ok(fake.calls.some((call) => call.includes('--signer-workflow')));
   assert.ok(fake.calls.every((call) => !call.includes('edit') && !call.includes('POST')));
 });
@@ -817,6 +835,41 @@ test('published releases, unsafe assets and unfinished uploads are rejected befo
       ),
     /incomplete/,
   );
+});
+
+test('release-list lookup requires one well-formed exact tag match across all pages', () => {
+  const release = { tag_name: options.tag, draft: true };
+  assert.equal(findReleaseForTag([[{ tag_name: 'v0.4.0' }], [release]], options.tag), release);
+  assert.throws(() => findReleaseForTag([[{ tag_name: 'v0.4.0' }]], options.tag), /found 0/);
+  assert.throws(
+    () => findReleaseForTag([[release], [{ ...release, id: 2 }]], options.tag),
+    /found 2/,
+  );
+  assert.throws(() => findReleaseForTag([release], options.tag), /malformed/);
+});
+
+test('draft lookup searches the paginated release list because GitHub omits drafts from by-tag lookup', (t) => {
+  const value = fixture(t);
+  const dir = join(value.dir, '..', `${basename(value.dir)}-draft-lookup`);
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const fallback = runner(value);
+  let listReads = 0;
+  const run = (command, args) => {
+    if (command === 'gh' && args[0] === 'api') {
+      if (args[1] === `repos/${options.repository}/releases/tags/${options.tag}`)
+        throw new Error('gh api failed (404): drafts are omitted from lookup by tag');
+      if (args[3] === `repos/${options.repository}/releases?per_page=100`) {
+        listReads += 1;
+        assert.ok(args.includes('--paginate'));
+        assert.ok(args.includes('--slurp'));
+        return JSON.stringify([[structuredClone(value.release)]]);
+      }
+    }
+    return fallback.run(command, args);
+  };
+  const result = verifyDraftRelease({ ...options, dir }, run);
+  assert.equal(result.installers, 9);
+  assert.equal(listReads, 2, 'the same release inventory is rechecked after asset verification');
 });
 
 test('stale download directories and symbolic-link assets fail closed', (t) => {

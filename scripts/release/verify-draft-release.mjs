@@ -186,6 +186,23 @@ export function draftFingerprint(release, tag) {
   return JSON.stringify({ id: release.id, tag, prerelease: release.prerelease, assets });
 }
 
+/** GitHub's get-release-by-tag endpoint omits unpublished drafts. */
+export function findReleaseForTag(pages, tag) {
+  if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page)))
+    throw new Error('GitHub release list response is malformed');
+  const matches = pages.flat().filter((release) => release?.tag_name === tag);
+  if (matches.length !== 1)
+    throw new Error(`Expected exactly one release tagged ${tag}; found ${matches.length}`);
+  return matches[0];
+}
+
+function readReleaseForTag(repository, tag, run) {
+  const pages = JSON.parse(
+    run('gh', ['api', '--paginate', '--slurp', `repos/${repository}/releases?per_page=100`]),
+  );
+  return findReleaseForTag(pages, tag);
+}
+
 export function verifyChecksumAttestation(
   results,
   { repository, commitSha, checksumsPath, recovery },
@@ -419,8 +436,7 @@ export function verifyDraftDirectory(dir, release, options, run = runCommand) {
 export function verifyDraftRelease(options, run = runCommand) {
   validateOptions(options);
   const recovery = loadRecoveryBuild(options, run);
-  const endpoint = `repos/${options.repository}/releases/tags/${options.tag}`;
-  const release = JSON.parse(run('gh', ['api', endpoint]));
+  const release = readReleaseForTag(options.repository, options.tag, run);
   const fingerprint = draftFingerprint(release, options.tag);
   const dir = options.dir ? resolve(options.dir) : mkdtempSync(join(tmpdir(), 'varve-publish-'));
   if (options.dir) mkdirSync(dir); // Exclusive creation rejects occupied/stale output.
@@ -453,7 +469,7 @@ export function verifyDraftRelease(options, run = runCommand) {
   const result = verifyDraftDirectory(dir, release, options, run);
   if (recovery && !isDeepStrictEqual(loadRecoveryBuild(options, run), recovery))
     throw new Error('Recovery build attempt changed during verification');
-  const current = JSON.parse(run('gh', ['api', endpoint]));
+  const current = readReleaseForTag(options.repository, options.tag, run);
   if (draftFingerprint(current, options.tag) !== fingerprint)
     throw new Error(
       'Draft asset inventory changed during verification; publication must be retried',
