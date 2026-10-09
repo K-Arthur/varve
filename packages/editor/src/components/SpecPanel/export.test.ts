@@ -4,12 +4,14 @@ import {
   addNode,
   createDocument,
   createTextStyle,
+  type Document,
   imageFill,
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
   patternFill,
+  type SceneNode,
   solidFill,
 } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -752,10 +754,7 @@ describe('exportNodeAsRaster', () => {
 });
 
 describe('AI disclosure on SVG and PDF exports', () => {
-  function withAiEdit<T extends { id?: string }>(
-    doc: ReturnType<typeof createDocument>,
-    node: T & { id: string },
-  ) {
+  function withAiEdit(doc: Document, node: SceneNode): Document {
     return {
       ...doc,
       rootChildren: [node.id],
@@ -769,7 +768,7 @@ describe('AI disclosure on SVG and PDF exports', () => {
           updatedAt: Date.now(),
         },
       },
-    } as typeof doc & { nodes: Record<string, typeof node> };
+    } as unknown as Document;
   }
 
   it('embeds SVG metadata when the exported node has a generative edit', async () => {
