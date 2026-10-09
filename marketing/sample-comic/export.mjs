@@ -78,7 +78,17 @@ async function startServer() {
   let output = '';
   const child = spawn(
     'pnpm',
-    ['--filter', '@varve/desktop', 'exec', ...viteCommand, '--port', String(PORT), '--strictPort'],
+    [
+      '--filter',
+      '@varve/desktop',
+      'exec',
+      ...viteCommand,
+      '--host',
+      '127.0.0.1',
+      '--port',
+      String(PORT),
+      '--strictPort',
+    ],
     {
       cwd: ROOT,
       env: { ...process.env, VARVE_DISABLE_HMR: '1' },
@@ -98,7 +108,7 @@ async function startServer() {
       import('node:http')
         .then(({ get }) => {
           const req = get(`${BASE}/`, { timeout: 3000 });
-          req.on('response', (res) => resolve(res.statusCode === 200));
+          req.on('response', (res) => resolve((res.statusCode ?? 500) < 500));
           req.on('error', () => resolve(false));
         })
         .catch(() => resolve(false));
@@ -183,32 +193,188 @@ async function openInEditor(page, filePath, expectedTitle) {
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 180000 });
   await dismissNoise(page);
   const newBtn = page.getByRole('button', { name: /^new$/i });
-  await newBtn.waitFor({ state: 'visible', timeout: 60000 });
-  await newBtn.click();
-  const create = page.locator('dialog').getByRole('button', { name: /create/i });
-  await create.waitFor({ state: 'visible', timeout: 15000 });
+  await newBtn.waitFor({ state: 'visible', timeout: 120000 });
+  await newBtn.click({ force: true });
+  const create = page
+    .locator('dialog[open]')
+    .getByRole('button', { name: /create design/i })
+    .or(page.locator('dialog[open]').getByRole('button', { name: /create/i }))
+    .first();
+  await create.waitFor({ state: 'visible', timeout: 30000 });
   await create.click();
-  await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 60000 });
-  await dismissNoise(page);
-  await page.setInputFiles('#file-open-input', filePath);
+  await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 120000 });
+  await page
+    .locator('canvas.editor-canvas__content-layer')
+    .waitFor({ state: 'visible', timeout: 60000 });
   await page.waitForFunction(
-    (expected) => {
-      const heading = document.querySelector('.editor-shell h1.sr-only');
-      return !!heading && (heading.textContent ?? '').includes(expected);
+    () => {
+      const canvas = document.querySelector('canvas.editor-canvas__content-layer');
+      return (
+        canvas instanceof HTMLCanvasElement && canvas.clientWidth > 0 && canvas.clientHeight > 0
+      );
     },
-    expectedTitle,
-    { timeout: 45000 },
+    undefined,
+    { timeout: 60000 },
   );
-  await page.locator('.editor-canvas').waitFor({ state: 'visible', timeout: 30000 });
+  await dismissNoise(page);
+  await page.locator('#file-open-input').waitFor({ state: 'attached', timeout: 15000 });
+  await page.setInputFiles('#file-open-input', filePath);
+  try {
+    await page.waitForFunction(
+      (expected) => {
+        const heading = document.querySelector('.editor-shell h1.sr-only');
+        return !!heading && (heading.textContent ?? '').includes(expected);
+      },
+      expectedTitle,
+      { timeout: 60000 },
+    );
+  } catch (error) {
+    const heading = await page
+      .locator('.editor-shell h1.sr-only')
+      .textContent()
+      .catch(() => null);
+    const dialogs = await page
+      .locator('dialog[open]')
+      .allTextContents()
+      .catch(() => []);
+    await page
+      .screenshot({ path: join(OUT, 'export-debug.png'), fullPage: true })
+      .catch(() => undefined);
+    throw new Error(
+      `open did not reach "${expectedTitle}"; heading="${heading ?? 'none'}"; dialogs=${JSON.stringify(dialogs)}`,
+      { cause: error },
+    );
+  }
+  const continueEditing = page.getByRole('button', { name: /continue editing/i });
+  if (await continueEditing.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await continueEditing.click();
+    await page
+      .locator('canvas.editor-canvas__content-layer')
+      .waitFor({ state: 'visible', timeout: 30000 });
+  }
+  await page
+    .locator('.layers-panel')
+    .waitFor({ state: 'attached', timeout: 30000 })
+    .catch(() => undefined);
+  await dismissNoise(page);
+  await page
+    .waitForFunction(
+      () => {
+        const el = document.querySelector('.editor-canvas');
+        if (!el) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 200 && rect.height > 200;
+      },
+      undefined,
+      { timeout: 45000 },
+    )
+    .catch(async (error) => {
+      const info = await page.evaluate(() => {
+        const el = document.querySelector('.editor-canvas');
+        const cs = el ? getComputedStyle(el) : null;
+        return {
+          heading: document.querySelector('.editor-shell h1.sr-only')?.textContent ?? null,
+          home: !!document.querySelector('.varve-home'),
+          canvas: el
+            ? {
+                rect: el.getBoundingClientRect().toJSON(),
+                display: cs?.display,
+                visibility: cs?.visibility,
+                height: cs?.height,
+                parent: el.parentElement?.className,
+              }
+            : null,
+        };
+      });
+      await page
+        .screenshot({ path: join(OUT, 'export-debug.png'), fullPage: true })
+        .catch(() => undefined);
+      throw new Error(`canvas never sized; ${JSON.stringify(info)}`, { cause: error });
+    });
+  await page.evaluate(() => {
+    const hide = [
+      '.editor-shell__menubar',
+      '.floating-toolbar',
+      '.layers-panel',
+      '.inspector-panel',
+      '.editor-shell__sidebar',
+      '.ruler-container',
+      '.status-bar',
+      '.minimap-panel',
+      '.editor-shell__statusbar',
+      '.context-control-bar',
+    ];
+    for (const selector of hide) {
+      for (const el of document.querySelectorAll(selector)) {
+        el.style.display = 'none';
+      }
+    }
+  });
   await page.evaluate(() => document.fonts.ready);
   await page.keyboard.press('Shift+1');
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1800);
 }
 
 async function capturePagePng(page) {
-  const canvas = page.locator('.editor-canvas canvas').last();
-  await canvas.waitFor({ state: 'visible', timeout: 15000 });
-  return canvas.screenshot({ type: 'png' });
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  await canvas.waitFor({ state: 'attached', timeout: 15000 });
+  const raw = await canvas.screenshot({ type: 'png' });
+  const pdfPage = await page.context().newPage();
+  const dataUrl = `data:image/png;base64,${raw.toString('base64')}`;
+  await pdfPage.setContent(`<canvas id="c"></canvas><img id="p" src="${dataUrl}" />`, {
+    waitUntil: 'load',
+  });
+  const cropped = await pdfPage.evaluate(async () => {
+    const img = document.getElementById('p');
+    await img.decode();
+    const src = document.createElement('canvas');
+    src.width = img.naturalWidth;
+    src.height = img.naturalHeight;
+    const ctx = src.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, src.width, src.height);
+    const { data: px, width, height } = data;
+    const isPage = (i) => {
+      const r = px[i];
+      const g = px[i + 1];
+      const b = px[i + 2];
+      const a = px[i + 3];
+      if (a < 10) return false;
+      // Cream page board (246, 236, 214) and warm panel fills, not the cool pasteboard gray.
+      return r > 210 && g > 190 && b > 150 && r - b > 12 && g - b > 4;
+    };
+    let minX = width;
+    let minY = height;
+    let maxX = 0;
+    let maxY = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        if (!isPage(i)) continue;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX <= minX || maxY <= minY) {
+      return { width, height, dataUrl: src.toDataURL('image/png') };
+    }
+    const pad = 8;
+    minX = Math.max(0, minX - pad);
+    minY = Math.max(0, minY - pad);
+    maxX = Math.min(width - 1, maxX + pad);
+    maxY = Math.min(height - 1, maxY + pad);
+    const w = maxX - minX + 1;
+    const h = maxY - minY + 1;
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    out.getContext('2d').drawImage(src, minX, minY, w, h, 0, 0, w, h);
+    return { width: w, height: h, dataUrl: out.toDataURL('image/png') };
+  });
+  await pdfPage.close();
+  return Buffer.from(cropped.dataUrl.split(',')[1], 'base64');
 }
 
 async function main() {
@@ -232,16 +398,16 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   try {
     const context = await browser.newContext({
-      viewport: { width: 1600, height: 2000 },
+      viewport: { width: 1440, height: 900 },
       deviceScaleFactor: 2,
     });
     const page = await context.newPage();
-    await openInEditor(page, letteredPath, 'Halloween Cookies');
+    await openInEditor(page, letteredPath, 'halloween-cookies.varve');
     const lettered = await capturePagePng(page);
     writeFileSync(join(OUT, 'halloween-cookies.png'), lettered);
     process.stdout.write(`wrote halloween-cookies.png (${lettered.length} bytes)\n`);
 
-    await openInEditor(page, unletteredPath, 'Halloween Cookies');
+    await openInEditor(page, unletteredPath, 'halloween-cookies-unlettered.varve');
     const unlettered = await capturePagePng(page);
     writeFileSync(join(OUT, 'halloween-cookies-unlettered.png'), unlettered);
     process.stdout.write(`wrote halloween-cookies-unlettered.png (${unlettered.length} bytes)\n`);

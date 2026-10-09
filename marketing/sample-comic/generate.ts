@@ -265,6 +265,26 @@ function addBaker(
       strokes: [],
     }),
   );
+  next = add(
+    next,
+    g,
+    shape(hid('cheek-l'), circle(30 * s, 62 * s, 4 * s), {
+      name: 'Left cheek',
+      fill: rgb(232, 140, 120),
+      strokes: [],
+      opacity: 0.7,
+    }),
+  );
+  next = add(
+    next,
+    g,
+    shape(hid('cheek-r'), circle(70 * s, 62 * s, 4 * s), {
+      name: 'Right cheek',
+      fill: rgb(232, 140, 120),
+      strokes: [],
+      opacity: 0.7,
+    }),
+  );
 
   if (expression === 'happy') {
     next = add(
@@ -323,7 +343,7 @@ function addBaker(
       fill: C.skinShade,
       strokes: [],
       blendMode: 'multiply',
-      opacity: 0.55,
+      opacity: 0.7,
     }),
   );
   next = addClippedShade(
@@ -341,7 +361,7 @@ function addBaker(
       fill: C.shirtShade,
       strokes: [],
       blendMode: 'multiply',
-      opacity: 0.45,
+      opacity: 0.65,
     }),
   );
   return next;
@@ -375,6 +395,25 @@ function addCookie(
       shape(hid('dough'), ellipse(28 * s, 32 * s, 26 * s, 30 * s), {
         name: 'Dough',
         fill: C.dough,
+      }),
+    );
+    next = add(
+      next,
+      g,
+      makePathNode(hid('ghost-hem'), {
+        name: 'Ghost hem',
+        points: [
+          { x: 6 * s, y: 42 * s, handleIn: null, handleOut: null },
+          { x: 14 * s, y: 56 * s, handleIn: null, handleOut: null },
+          { x: 22 * s, y: 44 * s, handleIn: null, handleOut: null },
+          { x: 28 * s, y: 56 * s, handleIn: null, handleOut: null },
+          { x: 34 * s, y: 44 * s, handleIn: null, handleOut: null },
+          { x: 42 * s, y: 56 * s, handleIn: null, handleOut: null },
+          { x: 50 * s, y: 42 * s, handleIn: null, handleOut: null },
+        ],
+        closed: false,
+        fill: C.frost,
+        strokes: [INK],
       }),
     );
     next = add(
@@ -547,6 +586,24 @@ function addKitchen(
       cornerRadius: 6,
     }),
   );
+  next = add(
+    next,
+    panel,
+    shape(hid('muntin-v'), rect(PANEL_W - 76, 32, 4, 64), {
+      name: 'Window muntin',
+      fill: C.woodDark,
+      strokes: [],
+    }),
+  );
+  next = add(
+    next,
+    panel,
+    shape(hid('muntin-h'), rect(PANEL_W - 114, 62, 80, 4), {
+      name: 'Window muntin',
+      fill: C.woodDark,
+      strokes: [],
+    }),
+  );
   if (mood === 'night' || mood === 'glow') {
     next = add(
       next,
@@ -717,7 +774,7 @@ export function createHalloweenCookiesDocument(): Document {
   if (!canvasRoot) throw new Error('design canvas root missing');
 
   const page = makeFrameNode('hc-page', {
-    name: 'Halloween Cookies page',
+    name: 'Page',
     w: PAGE_W,
     h: PAGE_H,
     fill: C.paper,
@@ -782,23 +839,30 @@ export function createHalloweenCookiesDocument(): Document {
 
   // Panel 2 — decorating close-up
   doc = addKitchen(doc, panels[1]!, 'closeup');
-  doc = addCookie(doc, panels[1]!, 70, 150, 'ghost', false, 1.6);
-  doc = addCookie(doc, panels[1]!, 230, 168, 'pumpkin', false, 1.5);
+  doc = addCookie(doc, panels[1]!, 48, 168, 'ghost', false, 1.85);
+  doc = addCookie(doc, panels[1]!, 220, 176, 'pumpkin', false, 1.75);
   doc = add(
     doc,
     panels[1]!,
-    shape(hid('hand'), ellipse(150, 92, 36, 20), {
-      name: 'Hand',
+    shape(hid('hand-l'), ellipse(118, 118, 40, 22), {
+      name: 'Left hand',
       fill: C.skin,
     }),
   );
   doc = add(
     doc,
     panels[1]!,
-    shape(hid('bag'), rect(142, 48, 16, 48), {
+    shape(hid('hand-r'), ellipse(250, 108, 36, 20), {
+      name: 'Right hand',
+      fill: C.skin,
+    }),
+  );
+  doc = add(
+    doc,
+    panels[1]!,
+    shape(hid('bag'), ellipse(168, 72, 14, 36), {
       name: 'Piping bag',
       fill: C.frost,
-      cornerRadius: 4,
     }),
   );
 
