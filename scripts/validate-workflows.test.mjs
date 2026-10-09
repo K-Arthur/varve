@@ -372,7 +372,11 @@ on:
     branches: [master]
     paths:
       - 'apps/website/**'
-      - 'scripts/release/**'
+      - 'scripts/release/fetch-website-release.mjs'
+      - 'scripts/release/verify-release-data.mjs'
+      - 'scripts/release/website-release-data.mjs'
+      - 'scripts/release/product.mjs'
+      - 'scripts/release/github-fetch.mjs'
   workflow_run:
     workflows: ['Release']
     types: [completed]
@@ -478,6 +482,33 @@ assert.deepEqual(
   [],
   'hardened Pages workflow passes',
 );
+
+{
+  const broadReleaseTrigger = PAGES_GOOD.replace(
+    "      - 'scripts/release/fetch-website-release.mjs'",
+    "      - 'scripts/release/**'",
+  );
+  const errors = validateVarveRules(broadReleaseTrigger, '.github/workflows/website-deploy.yml');
+  assert.ok(
+    errors.some((e) => /broad scripts\/release\/\*\* path trigger/.test(e)),
+    'release verifier-only edits must not trigger the full website suite',
+  );
+}
+
+{
+  const missingReleaseGenerator = PAGES_GOOD.replace(
+    "      - 'scripts/release/github-fetch.mjs'\n",
+    '',
+  );
+  const errors = validateVarveRules(
+    missingReleaseGenerator,
+    '.github/workflows/website-deploy.yml',
+  );
+  assert.ok(
+    errors.some((e) => /missing scripts\/release\/github-fetch\.mjs path trigger/.test(e)),
+    'changes to any release website-data input must still redeploy the site',
+  );
+}
 
 {
   const errors = validateVarveRules(PAGES_ACTIONS_WRITE, '.github/workflows/website-deploy.yml');

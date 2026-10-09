@@ -314,11 +314,25 @@ function validateVarveRules(content, filename) {
           'so the github-pages environment protection accepts the deploy)',
       );
     }
-    if (!/-\s*['"]?scripts\/release/.test(content)) {
+    if (/-\s*['"]scripts\/release\/\*\*['"]/.test(content)) {
       errors.push(
-        'website-deploy.yml: missing scripts/release/** path trigger — release-manifest ' +
-          'generation changes must redeploy the site',
+        'website-deploy.yml: broad scripts/release/** path trigger reruns the full website ' +
+          'suite for release-only verification edits',
       );
+    }
+    for (const path of [
+      'fetch-website-release.mjs',
+      'verify-release-data.mjs',
+      'website-release-data.mjs',
+      'product.mjs',
+      'github-fetch.mjs',
+    ]) {
+      if (!content.includes(`- 'scripts/release/${path}'`)) {
+        errors.push(
+          `website-deploy.yml: missing scripts/release/${path} path trigger — ` +
+            'release-manifest generation changes must redeploy the site',
+        );
+      }
     }
     const pagesUpload = content.match(/upload-pages-artifact@[0-9a-f]{40}[\s\S]*?path:\s*(\S+)/);
     if (pagesUpload && !pagesUpload[1].includes('dist')) {

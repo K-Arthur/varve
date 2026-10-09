@@ -396,7 +396,12 @@ endif()
       const relative = path.replace(/^\//, '');
       const target = join(fixture, relative);
       mkdirSync(dirname(target), { recursive: true });
-      cpSync(relative, target, { recursive: true });
+      cpSync(relative, target, {
+        recursive: true,
+        // Local ignored Python environments can contain inaccessible or
+        // transient files. The workflow fixture should model tracked inputs.
+        filter: (source) => !/[/\\](?:\.venv|__pycache__|node_modules)(?:[/\\]|$)/.test(source),
+      });
     }
     for (const path of POLICY_FILES) {
       if (!existsSync(path)) continue;
@@ -534,6 +539,35 @@ for (const id of ['e2e', 'e2e-visual']) {
   const job = workflowJob(candidateWorkflow, id);
   assert.match(job, /needs: \[changes, pipeline-validate, wasm\]/);
   assert.doesNotMatch(job, /needs:.*rust/, 'independent browsers must not wait on native targets');
+}
+{
+  const visual = load(candidateWorkflow).jobs['e2e-visual'];
+  assert.equal(visual.env.VARVE_VISUAL_GPU, '1');
+  assert.equal(visual.env.VARVE_VISUAL_HARNESS_ONLY, '1');
+  assert.match(
+    visual.steps.find((step) => step.name === 'Discover complete candidate visual inventory').run,
+    /--project chromium-visual-gpu/,
+  );
+  assert.equal(
+    visual.steps
+      .find((step) => step.name === 'Visual E2E (candidate)')
+      .run.split('--project=chromium-visual-gpu').length - 1,
+    2,
+    'both candidate triage and final visual commands execute the GPU project',
+  );
+}
+{
+  const website = load(websiteWorkflow);
+  assert.match(
+    website.concurrency.group,
+    /workflow_run.*workflow_dispatch.*noop.*deploy/,
+    'a no-op workflow_run cannot replace the queued published-release deployment',
+  );
+  assert.doesNotMatch(
+    websiteWorkflow,
+    /'scripts\/release\/\*\*'/,
+    'release-tool-only commits must not start the full website suite and source deployment',
+  );
 }
 // The installed payload must still exist when its signature is observed.
 // Installer-container verification remains a separate fail-closed gate.

@@ -25,6 +25,10 @@ export const REQUIRED_CI_JOBS = Object.freeze({
   bench: 'bench',
 });
 
+export const REQUIRED_VISUAL_PROJECTS = Object.freeze(
+  ['chromium-visual-1x', 'chromium-visual-2x', 'chromium-visual-3x', 'chromium-visual-gpu'].sort(),
+);
+
 function statusOf(value) {
   if (typeof value === 'string') return value;
   return value?.result ?? value?.conclusion ?? null;
@@ -343,12 +347,7 @@ export function validateExecutionEvidence({
           : lane === 'website-e2e'
             ? ['custom-domain', 'ghpages', 'touch']
             : lane === 'e2e:visual'
-              ? [
-                  'chromium-visual-1x',
-                  'chromium-visual-2x',
-                  'chromium-visual-3x',
-                  ...(profile === 'integration' ? ['chromium-visual-gpu'] : []),
-                ].sort()
+              ? REQUIRED_VISUAL_PROJECTS
               : projects;
       if (JSON.stringify(projects) !== JSON.stringify(requiredProjects))
         failures.push({

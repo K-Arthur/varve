@@ -10,6 +10,7 @@ import {
   aggregateCertification,
   expectedExecutionMatrices,
   REQUIRED_CI_JOBS,
+  REQUIRED_VISUAL_PROJECTS,
   validateExecutionEvidence,
 } from './aggregate-ci.mjs';
 import { browserCaseId, createBrowserInventory } from './browser-inventory.mjs';
@@ -21,6 +22,11 @@ import {
 } from './validation-policy.mjs';
 
 const allCategories = Object.fromEntries(CI_CATEGORIES.map((category) => [category, true]));
+assert.deepEqual(
+  REQUIRED_VISUAL_PROJECTS,
+  ['chromium-visual-1x', 'chromium-visual-2x', 'chromium-visual-3x', 'chromium-visual-gpu'],
+  'candidate and integration visual certification both require GPU coverage',
+);
 const allSuccess = Object.fromEntries(
   Object.keys(REQUIRED_CI_JOBS).map((job) => [job, { result: 'success' }]),
 );

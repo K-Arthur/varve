@@ -223,6 +223,41 @@ metadata, expired artifacts, mismatched bytes, partial coverage, and newer red o
 queued producer runs. Candidate-only native, platform, and visual requirements
 still execute. Recheck adopted producers after candidate execution.
 
+## 0.5.0 release-path audit (October 9)
+
+The completed 0.5.0 integration and final candidate both validated source
+`5ac27d597d193e0f2f17483e94b21e6181d0112c`. The candidate currently repeats
+the integration's JavaScript, Rust, WASM, website, 24-shard browser, visual,
+model, and benchmark categories; only its platform-installed qualification is
+inherently candidate-specific. A separate duplicate integration run
+(`37889319985`) also repeated 24 browser shards at the same source and policy,
+costing 8.6 runner-hours. The exact-SHA candidate preflight proves integration
+already passed, but the current receipt format does not yet prove enough runtime
+and generated-artifact identity to safely adopt those executions. Do not
+manually suppress a category. Implement adoption only with exact producer
+run/attempt and artifact digest, source/tree/policy identity, command and tool
+versions, hosted runner image, generated WASM digest, complete project/case
+inventory, and a check for any newer failed or queued producer. Mismatch or
+missing evidence must execute the lane; it must never become a skip.
+
+The paired integration/candidate inventory audit found matching selected
+commands, projects, and case IDs for 24 browser shards plus the production-demo
+inventory, while profile-bound plan hashes differed. This is useful evidence
+for a profile-neutral coverage fingerprint, but it does not by itself prove
+equivalent runtime inputs. The same audit found that candidate visual evidence
+covered only the three CPU DPR projects while integration required the GPU
+project too. Candidate planning now discovers and executes the GPU visual
+project, and aggregation requires it in every visual certificate.
+
+The release publication also exposed two avoidable website costs. A release
+verifier-only commit triggered the full website source suite through a broad
+`scripts/release/**` path filter, and the one-pending-run Pages concurrency
+group let a no-op `workflow_run` replace the actual publication dispatch. The
+website workflow no longer starts source certification for release-tool-only
+changes and isolates that no-op event. The 0.5.0 download manifest, updater
+feed, and public LLM release facts were regenerated from the published assets;
+the source deployment validates those files before the live visual check.
+
 Likewise, replacing development-server browser tests with a shared frontend
 bundle needs equivalence checks for test bridges, harness entry points, optional
 models, WASM/ORT assets, and environment defines. Reusing the public demo would

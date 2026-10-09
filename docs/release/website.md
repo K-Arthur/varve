@@ -207,7 +207,7 @@ This is the "publish update metadata last" invariant in action: a client can
 never see version X advertised before X's assets and signatures exist.
 
 `hasRelease: false` is a first-class rendered state for a new repository before
-the first published tag. The current committed snapshot is v0.2.1 and was
+the first published tag. The current committed snapshot is v0.5.0 and was
 generated from the published release; it remains available for local builds
 when GitHub is not queried. The deployment workflow refreshes it from the
 published release before building the public site.
@@ -229,6 +229,11 @@ path validates release data, builds the site, scans the artifact, deploys, and
 runs the bounded live smoke test without repeating the complete website
 functional/a11y/visual corpus. A guarded `workflow_run` fallback preserves the
 branch-protection architecture and applies the same published-state check.
+The `workflow_run` event caused by a manual Release dispatch is a deliberate
+no-op; it uses a separate concurrency group so it cannot replace the pending
+publication dispatch while another Pages run is active. Release-tool-only
+commits do not trigger the website source suite; those scripts are covered by
+their focused release tests and CI.
 With a custom domain later, set `SITE_URL` and `SITE_BASE: /` — no source
 change; see `custom-domain-runbook.md`.
 
@@ -254,6 +259,13 @@ the same tag, scans its output, deploys, and runs the live smoke check. It uses
 the release-data path without repeating the website source browser corpus.
 This recovery can be repeated for an already-public release and does not
 publish or change the release.
+
+During the 0.5.0 publication, the first repository dispatch was replaced in the
+single-pending-run queue by that no-op `workflow_run` event while a source-only
+Pages run was active. The exact-tag workflow-dispatch recovery above completed
+publication without rebuilding or changing the release. The workflow now
+isolates that no-op event; a regression assertion protects the concurrency
+group and excludes release-only tooling changes from source deployments.
 
 Leaving both release inputs empty retains the ordinary source deployment,
 including its website quality gates. Running Pages deployments are not

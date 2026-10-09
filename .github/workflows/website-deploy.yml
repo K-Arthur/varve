@@ -18,8 +18,14 @@ on:
       - '.github/workflows/website-deploy.yml'
       - 'playwright.website.config.ts'
       - 'playwright.demo-dist.config.mts'
-      - 'scripts/release/**'
       - 'scripts/website/**'
+      # Only the release-data fetcher and its inputs affect website output.
+      # Release verification helpers do not change the published site.
+      - 'scripts/release/fetch-website-release.mjs'
+      - 'scripts/release/verify-release-data.mjs'
+      - 'scripts/release/website-release-data.mjs'
+      - 'scripts/release/product.mjs'
+      - 'scripts/release/github-fetch.mjs'
       - 'package.json'
       - 'pnpm-lock.yaml'
   # A human-published release dispatches a repository event so the download
@@ -50,9 +56,11 @@ permissions:
   contents: read
 
 concurrency:
-  # A later source push must not cancel an active release/recovery deployment.
-  # GitHub keeps one running and one pending run; pending runs are replaceable.
-  group: "pages"
+  # GitHub keeps only one pending run per group. The Release workflow's
+  # workflow_run notification after a workflow_dispatch is intentionally a
+  # no-op; isolate it so it cannot replace the publication repository_dispatch
+  # while a source deployment is running.
+  group: "pages-${{ github.event_name == 'workflow_run' && github.event.workflow_run.event == 'workflow_dispatch' && 'noop' || 'deploy' }}"
   cancel-in-progress: false
 
 env:

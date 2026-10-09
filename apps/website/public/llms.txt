@@ -10,12 +10,12 @@
 - It is free with no subscription and no feature lockouts. Only the Community Edition exists today.
 - Desktop builds use a native Rust engine; the same engine compiles to WASM for the experimental browser demo at [/try](try/), which is a bounded sample-document experience rather than a hosted replacement for the desktop app.
 
-## Release status (verified against the repository state on 2026-10-02)
+## Release status (verified against the published release on 2026-10-09)
 
-- Status: public beta. The latest **published** application release, **Varve 0.2.1**, was published 2026-08-24; the first public release was **0.1.0**. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon dmg), and Windows (x86_64 and ARM64 NSIS installers). Windows and macOS installers are not code-signed; updater metadata is signed separately for its supported targets.
-- Source version **0.5.0** is prepared and in release-candidate validation but is **not published yet**. Its installers, notes, and download links appear only once the release is published; do not describe 0.5.0 as downloadable.
+- Status: public beta. The latest **published** application release is **Varve 0.5.0**, published 2026-10-09; the first public release was **0.1.0**. Installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon DMG), and Windows (x86_64 and ARM64 NSIS installers). Windows and macOS installers are not code-signed or notarized. The release includes SHA-256 checksums, SBOMs, and GitHub build provenance; signed updater metadata covers its supported targets.
+- Version **0.5.0** is available from the official [GitHub release](https://github.com/K-Arthur/varve/releases/tag/v0.5.0) and the download page. Verify the downloaded installer against the published checksum before running it.
 - The download page renders every artifact from the verified release manifest (SHA-256 checksums, SBOMs, system requirements); nothing is hand-typed.
-- The document format (`.varve`) is versioned. Published v0.2.1 wrote schema 2.21; the 0.5.0 source tree writes schema 2.33 and migrates older documents on open, including a pointed comic-balloon tail correction. Newer documents are not backward-compatible with older app versions, so keep backups. Documents saved by pre-release builds with the legacy `.strata` extension remain openable through the versioned migration pipeline.
+- The document format (`.varve`) is versioned. Published v0.2.1 wrote schema 2.21; v0.5.0 writes schema 2.33 and migrates older documents on open, including a pointed comic-balloon tail correction. Newer documents are not backward-compatible with older app versions, so keep backups. Documents saved by pre-release builds with the legacy `.strata` extension remain openable through the versioned migration pipeline.
 - Downloads labeled "Varve" outside the official GitHub repository are not official.
 
 ## Platforms and system requirements
@@ -40,7 +40,7 @@
 - Photo: adjustments, retouching, tracing, masks, colorization, depth-aware effects, and a documented RAW/HDR development subset. Model-based features may require optional downloads.
 - Local intelligence: background removal, image enhancement, object selection, depth blur, and palette extraction run locally. Models download only when requested, with SHA-256 verification where available; there is no Varve-hosted inference service.
 
-### Prepared for the 0.5.0 source build (not yet published)
+### Included in the published 0.5.0 release
 
 - Six task workspaces (Design, Print, Draw, Photo, Motion, Email) with docked, floating, and split panels.
 - Presentation decks: ordered editable frames with audience preview and raster PDF or PNG delivery. The PDF is not editable or searchable and has no tagged reading order.
@@ -55,8 +55,8 @@
 - Does Varve have real-time collaboration? Not yet. Collaboration is UI scaffolding only, with no transport or wire protocol.
 - Can I use Varve for professional print work? It has CMYK management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and preflight checks, but it is in public beta — test thoroughly before critical production use.
 - Does Varve support ARM processors? Yes. Apple Silicon (macOS), Linux ARM64, and Windows ARM64 are all published. There is no Intel macOS build.
-- Has Varve shipped a release? Yes: the latest published application release is Varve 0.2.1 (2026-08-24), public beta, with Linux (x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64) installers. Expect rough edges and a versioned file format. The separate `varve-models-v1` release contains optional AI model artifacts, not an application installer.
-- Can I download version 0.5.0? Not yet. 0.5.0 is prepared and in release-candidate validation. Until it is published, use the latest published 0.2.1 installers, or build 0.5.0 from source.
+- Has Varve shipped a release? Yes: the latest published application release is Varve 0.5.0 (2026-10-09), public beta, with Linux (x86_64 and ARM64), macOS (Apple Silicon), and Windows (x86_64 and ARM64) installers. Expect rough edges and a versioned file format. The separate `varve-models-v1` release contains optional AI model artifacts, not an application installer.
+- Can I download version 0.5.0? Yes. Download it from [varve.studio/download](download) or the [official GitHub release](https://github.com/K-Arthur/varve/releases/tag/v0.5.0), then verify the checksum before running the installer.
 
 ## Documentation
 
