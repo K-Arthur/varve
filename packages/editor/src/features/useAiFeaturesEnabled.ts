@@ -33,3 +33,22 @@ export function getAiFeaturesEnabled(): boolean {
     return true; // Default enabled on parse error
   }
 }
+
+/**
+ * Check if AI features are enabled and show a toast if not.
+ * Returns true if AI features are enabled, false otherwise.
+ * Use this at AI entry points to gate access and inform the user.
+ */
+export function checkAiFeaturesEnabled(
+  toastHandler: ((message: string, options?: { variant?: string }) => void) | undefined,
+  featureName?: string,
+): boolean {
+  if (!getAiFeaturesEnabled()) {
+    const message = featureName
+      ? `${featureName} requires AI features. Enable them in Settings to continue.`
+      : 'AI features are disabled. Enable them in Settings to use this feature.';
+    toastHandler?.(message, { variant: 'info' });
+    return false;
+  }
+  return true;
+}

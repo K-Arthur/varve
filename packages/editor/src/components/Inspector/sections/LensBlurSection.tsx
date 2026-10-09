@@ -337,6 +337,11 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleGenerateDepth = useCallback(async () => {
     if (!src) return;
+    const { checkAiFeaturesEnabled } = await import('../../../features/useAiFeaturesEnabled');
+    if (!checkAiFeaturesEnabled(undefined, 'Depth Map generation')) {
+      announce?.('Depth Map generation requires AI features. Enable them in Settings.');
+      return;
+    }
     // Guard on "a newer generate superseded me", not on "the source-generation
     // ref moved". That ref is bumped by an effect keyed on [src, node.id], so a
     // re-render during inference could bump it while this run was still the
