@@ -102,6 +102,7 @@ export const cloudRemovalProvider: RemovalProvider = {
   id: 'cloud',
 
   isAvailable: async (_options: BackgroundRemovalOptions): Promise<boolean> => {
+    // AI gating: Check if AI features are globally enabled before checking cloud config
     if (!getAiFeaturesEnabled()) return false;
     const config = loadCloudConfig();
     if (!config) return false;
