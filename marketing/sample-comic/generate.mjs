@@ -1048,6 +1048,6 @@ const doc = generateDocument();
 const json = JSON.stringify(doc, null, 2);
 await writeFile('/workspace/marketing/sample-comic/halloween-cookies.varve', json, 'utf-8');
 
-console.log('✓ Generated halloween-cookies.varve');
+console.log('Generated halloween-cookies.varve');
 console.log(`  Nodes: ${Object.keys(doc.nodes).length}`);
 console.log(`  Panels: 6`);

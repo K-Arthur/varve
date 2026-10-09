@@ -30,36 +30,36 @@ import { plainTextToRichText } from '@varve/scene/typography';
 
 // Color palette - flat comic colors
 const COLORS = {
-	// Character skin tone
-	skin: { space: 'rgb' as const, r: 255, g: 220, b: 177, a: 255 },
-	skinShade: { space: 'rgb' as const, r: 210, g: 170, b: 130, a: 255 },
+  // Character skin tone
+  skin: { space: 'rgb' as const, r: 255, g: 220, b: 177, a: 255 },
+  skinShade: { space: 'rgb' as const, r: 210, g: 170, b: 130, a: 255 },
 
-	// Hair
-	hair: { space: 'rgb' as const, r: 101, g: 67, b: 33, a: 255 },
-	hairShade: { space: 'rgb' as const, r: 70, g: 45, b: 20, a: 255 },
+  // Hair
+  hair: { space: 'rgb' as const, r: 101, g: 67, b: 33, a: 255 },
+  hairShade: { space: 'rgb' as const, r: 70, g: 45, b: 20, a: 255 },
 
-	// Clothing
-	apron: { space: 'rgb' as const, r: 230, g: 230, b: 250, a: 255 },
-	apronShade: { space: 'rgb' as const, r: 180, g: 180, b: 200, a: 255 },
-	shirt: { space: 'rgb' as const, r: 100, g: 150, b: 200, a: 255 },
-	shirtShade: { space: 'rgb' as const, r: 70, g: 110, b: 160, a: 255 },
+  // Clothing
+  apron: { space: 'rgb' as const, r: 230, g: 230, b: 250, a: 255 },
+  apronShade: { space: 'rgb' as const, r: 180, g: 180, b: 200, a: 255 },
+  shirt: { space: 'rgb' as const, r: 100, g: 150, b: 200, a: 255 },
+  shirtShade: { space: 'rgb' as const, r: 70, g: 110, b: 160, a: 255 },
 
-	// Kitchen
-	counter: { space: 'rgb' as const, r: 220, g: 180, b: 140, a: 255 },
-	counterShade: { space: 'rgb' as const, r: 170, g: 130, b: 90, a: 255 },
-	wall: { space: 'rgb' as const, r: 240, g: 235, b: 220, a: 255 },
+  // Kitchen
+  counter: { space: 'rgb' as const, r: 220, g: 180, b: 140, a: 255 },
+  counterShade: { space: 'rgb' as const, r: 170, g: 130, b: 90, a: 255 },
+  wall: { space: 'rgb' as const, r: 240, g: 235, b: 220, a: 255 },
 
-	// Cookies
-	cookie: { space: 'rgb' as const, r: 210, g: 150, b: 90, a: 255 },
-	cookieShade: { space: 'rgb' as const, r: 160, g: 110, b: 60, a: 255 },
-	frosting: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
+  // Cookies
+  cookie: { space: 'rgb' as const, r: 210, g: 150, b: 90, a: 255 },
+  cookieShade: { space: 'rgb' as const, r: 160, g: 110, b: 60, a: 255 },
+  frosting: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
 
-	// Eyes/details
-	black: { space: 'rgb' as const, r: 30, g: 30, b: 30, a: 255 },
-	white: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
+  // Eyes/details
+  black: { space: 'rgb' as const, r: 30, g: 30, b: 30, a: 255 },
+  white: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 },
 
-	// Spooky accent
-	spookyGlow: { space: 'rgb' as const, r: 255, g: 150, b: 50, a: 255 },
+  // Spooky accent
+  spookyGlow: { space: 'rgb' as const, r: 255, g: 150, b: 50, a: 255 },
 };
 
 const STROKE_BLACK = {
@@ -803,7 +803,7 @@ async function main() {
   const outputPath = '/workspace/marketing/sample-comic/halloween-cookies.varve';
   await writeFile(outputPath, json, 'utf-8');
 
-	console.log(`Saved to: ${outputPath}`);
+  console.log(`Saved to: ${outputPath}`);
   console.log(`  Pages: ${doc.pages?.length ?? 0}`);
   console.log(`  Nodes: ${Object.keys(doc.nodes).length}`);
 }
