@@ -50,7 +50,7 @@ Layers that have been modified by AI tools show a visual indicator in the Layers
 
 ### The Badge
 
-- **Icon:** Sparkles (✨) — a small, unobtrusive badge next to the layer name
+- **Icon:** a small sparkles mark next to the layer name
 - **Tooltip:** Hover over the badge to see:
   - Which AI tool was used (AI Fill, AI Remove, Background Removal, etc.)
   - Which model processed the layer (LaMa, PatchMatch, IS-Net, BiRefNet, etc.)
@@ -72,21 +72,17 @@ The badge appears when a layer has been created or modified by:
 
 ## Inspector AI Details Section
 
-*(Coming soon)*
+When you select an AI-edited layer, the Inspector shows an **AI Edit History** section with:
+- Tool name (AI Fill, AI Remove, and so on)
+- Model ID
+- Timestamp
+- Edit mode
 
-When you select an AI-edited layer, the Inspector panel will show a dedicated **AI Edit History** section with:
-- Full tool name and description
-- Model ID and version
-- Precise timestamp
-- Edit parameters (mode, options used)
-
-This provides complete transparency for every AI operation applied to your artwork.
+This is the same provenance stored on the document, not a second history stack.
 
 ## Export Disclosure
 
-*(Coming soon)*
-
-When you export a document that contains AI-edited content, Varve automatically includes metadata disclosing AI usage.
+When you export a document that contains AI-edited content, Varve can embed metadata disclosing AI usage.
 
 ### Metadata Format
 

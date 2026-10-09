@@ -42,6 +42,11 @@ import { capabilitiesForFormat, sanitizeFileName, stripSourceExtension } from '@
 import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect, tryInvertAffine } from '@varve/shared';
 import { appearancePaddingWorld, expandRect } from '../../canvas/visualBounds';
 import {
+  applyAiDisclosureToSvg,
+  generateAiDisclosureXmp,
+  getDocumentAiDisclosure,
+} from '../../export/aiDisclosure';
+import {
   composeFlattenedRasterAssetsForNode,
   findFlattenBoundaries,
 } from '../../export/compositor';
@@ -53,6 +58,7 @@ import {
   countPatternFillsWithoutTileSource,
 } from '../../export/printImageManifest';
 import { failureWarning, settleEngineImageResources } from '../../export/resourceReadiness';
+import { insertJpegXmp, insertPdfXmp, insertPngXmp } from '../../export/xmpInjection';
 import {
   clearMockupExportCache,
   collectMockupLiveSourceIds,
@@ -625,11 +631,6 @@ export async function exportNodeAsRaster(
 
   // AI disclosure: embed XMP metadata if document contains AI edits and disclosure is enabled (default).
   if (opts.includeAiDisclosure !== false) {
-    const { getDocumentAiDisclosure, generateAiDisclosureXmp } = await import(
-      '../../export/aiDisclosure'
-    );
-    const { insertPngXmp, insertJpegXmp } = await import('../../export/xmpInjection');
-
     const disclosure = getDocumentAiDisclosure(doc, flattened.ids);
     if (disclosure) {
       const xmp = generateAiDisclosureXmp(disclosure);
@@ -669,21 +670,27 @@ export async function exportNodeToSvgMarkup(
   node: SceneNode,
   doc: SceneDocument,
   eng?: Engine,
+  options: { includeAiDisclosure?: boolean } = {},
 ): Promise<string> {
   ({ node, document: doc } = prepareArtworkExport(node, doc));
   const rasterAssets = await composeFlattenedRasterAssetsForNode(node, doc, 'svg', {
     scale: 1,
     engine: eng,
   });
-  return exportNodeToSvg(node, doc, { rasterAssets });
+  const svg = exportNodeToSvg(node, doc, { rasterAssets });
+  if (options.includeAiDisclosure === false) return svg;
+  return applyAiDisclosureToSvg(svg, getDocumentAiDisclosure(doc, [node.id]));
 }
 
 export async function exportNodeAsSvg(
   node: SceneNode,
   doc: SceneDocument,
   eng?: Engine,
+  options: { includeAiDisclosure?: boolean } = {},
 ): Promise<Blob> {
-  return new Blob([await exportNodeToSvgMarkup(node, doc, eng)], { type: 'image/svg+xml' });
+  return new Blob([await exportNodeToSvgMarkup(node, doc, eng, options)], {
+    type: 'image/svg+xml',
+  });
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {
@@ -872,11 +879,24 @@ async function rasterizeSubtreeToPdfViaPrintEngine(
   return new Uint8Array(bytes);
 }
 
+function maybeDisclosePdf(
+  bytes: Uint8Array,
+  doc: SceneDocument,
+  nodeId: string,
+  includeAiDisclosure?: boolean,
+): Uint8Array {
+  if (includeAiDisclosure === false) return bytes;
+  const disclosure = getDocumentAiDisclosure(doc, [nodeId]);
+  if (!disclosure) return bytes;
+  return insertPdfXmp(bytes, generateAiDisclosureXmp(disclosure));
+}
+
 export async function exportNodeAsPdf(
   node: SceneNode,
   doc: SceneDocument,
   scale: number,
   eng?: Engine,
+  options: { includeAiDisclosure?: boolean } = {},
 ): Promise<{ bytes: Uint8Array; filename: string }> {
   ({ node, document: doc } = prepareArtworkExport(node, doc));
   const subtree = flattenSceneToEngine(doc, [node.id]);
@@ -901,13 +921,16 @@ export async function exportNodeAsPdf(
   if (!tauri) {
     const engine = eng ?? (await createEngine('stub'));
     const result = await rasterizeSubtreeToPdf(node, doc, scale, engine);
-    return { bytes: result.bytes, filename };
+    return {
+      bytes: maybeDisclosePdf(result.bytes, doc, node.id, options.includeAiDisclosure),
+      filename,
+    };
   }
 
   if (needsRaster) {
     const engine = eng ?? (await createEngine('stub'));
     const bytes = await rasterizeSubtreeToPdfViaPrintEngine(node, doc, scale, engine, tauri);
-    return { bytes, filename };
+    return { bytes: maybeDisclosePdf(bytes, doc, node.id, options.includeAiDisclosure), filename };
   }
 
   // ── Vector path (pure solid-fill shapes, no effects) ─────────────────
@@ -967,7 +990,10 @@ export async function exportNodeAsPdf(
     opts,
     manifestJson: manifestJson ?? null,
   })) as number[];
-  return { bytes: new Uint8Array(bytes), filename };
+  return {
+    bytes: maybeDisclosePdf(new Uint8Array(bytes), doc, node.id, options.includeAiDisclosure),
+    filename,
+  };
 }
 
 /** Press-ready PDF/X standards backed by the native print pipeline. */
@@ -985,6 +1011,8 @@ export interface PdfXExportOptions {
   iccProfile?: string;
   /** Convert text to outlines instead of embedding/subsetting fonts. */
   outlineText?: boolean;
+  /** Include AI disclosure metadata when the document has generative edits. Defaults to true. */
+  includeAiDisclosure?: boolean;
 }
 
 /**
@@ -1086,7 +1114,10 @@ export async function exportNodeAsPdfX(
     manifestJson: manifestJson ?? null,
   })) as number[];
 
-  return { bytes: new Uint8Array(bytes), filename: buildFilename(node.name, 'pdf') };
+  return {
+    bytes: maybeDisclosePdf(new Uint8Array(bytes), doc, node.id, options.includeAiDisclosure),
+    filename: buildFilename(node.name, 'pdf'),
+  };
 }
 
 function assertPdfPatternSources(

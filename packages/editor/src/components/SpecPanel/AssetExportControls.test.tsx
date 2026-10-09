@@ -5,6 +5,20 @@ import { AssetExportControls } from './AssetExportControls';
 import * as exportHelpers from './export';
 
 describe('AssetExportControls', () => {
+  it('shows Include AI disclosure on by default', () => {
+    const doc = createDocument('Export', true);
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });
+
+    render(
+      <AssetExportControls
+        node={node}
+        doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+      />,
+    );
+
+    expect(screen.getByRole('switch', { name: 'Include AI disclosure' })).toBeChecked();
+  });
+
   it('saves SVG exports as SVG bytes instead of raster bytes', async () => {
     const doc = createDocument('Export', true);
     const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });

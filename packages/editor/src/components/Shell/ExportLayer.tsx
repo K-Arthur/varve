@@ -339,6 +339,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
       signal?: AbortSignal,
       onProgress?: (event: ExportProgressEvent) => void,
       preparedDocument?: Document,
+      options?: { includeAiDisclosure?: boolean },
     ) => {
       const needsEngine = batch.jobs.some((job) => isRasterExport(job.format));
       const engine = needsEngine ? await getExportEngine() : null;
@@ -357,6 +358,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
           engine,
           saveFile: archive?.saveFile ?? folderSaveFile ?? saveExportFile,
           onProgress,
+          includeAiDisclosure: options?.includeAiDisclosure,
         },
         signal,
         platform?.kind ?? 'web',

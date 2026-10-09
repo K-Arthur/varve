@@ -1,8 +1,8 @@
 /**
- * XMP metadata injection for raster exports (PNG, JPEG, WebP).
+ * XMP metadata injection for raster and PDF exports.
  *
- * Adds XMP packets to already-encoded image bytes. This is post-encode
- * processing, never a pixel re-encode.
+ * Adds XMP packets to already-encoded bytes. This is post-encode
+ * processing, never a pixel or page re-encode.
  */
 
 /**
@@ -136,6 +136,83 @@ export function insertJpegXmp(bytes: Uint8Array, xmpString: string): Uint8Array 
   result.set(segment, 2);
   result.set(bytes.subarray(2), 2 + segment.length);
 
+  return result;
+}
+
+function lastMatch(text: string, pattern: RegExp): RegExpMatchArray | undefined {
+  return [...text.matchAll(pattern)].at(-1);
+}
+
+function xrefOffset(value: number): string {
+  return `${String(value).padStart(10, '0')} 00000 n \n`;
+}
+
+/**
+ * Insert XMP as a PDF Metadata stream via an incremental update.
+ *
+ * Classic-xref files (the browser raster-PDF fallback) get a new Catalog
+ * that points at the stream. Xref-stream files still receive a valid
+ * incremental object so scanners that look for `<?xpacket` find the packet.
+ */
+export function insertPdfXmp(bytes: Uint8Array, xmpString: string): Uint8Array {
+  const text = new TextDecoder('latin1').decode(bytes);
+  if (!text.startsWith('%PDF-')) {
+    throw new Error('Not a PDF byte stream');
+  }
+
+  const lastXref = lastMatch(text, /startxref\s+(\d+)\s*%%EOF/g);
+  const lastTrailer = lastMatch(text, /trailer\s*<<([\s\S]*?)>>\s*startxref/g);
+  const sizeMatch = lastTrailer?.[1]?.match(/\/Size\s+(\d+)/);
+  const pagesMatch = text.match(/\/Type\s*\/Catalog[\s\S]{0,800}?\/Pages\s+(\d+\s+0\s+R)/);
+
+  const objectMatches = [...text.matchAll(/(\d+)\s+0\s+obj/g)];
+  const maxExistingId = objectMatches.reduce((max, match) => {
+    const id = Number(match[1]);
+    return Number.isFinite(id) && id > max ? id : max;
+  }, 0);
+  const nextId = sizeMatch ? Number(sizeMatch[1]) : maxExistingId + 1;
+  const metaId = nextId;
+  const catalogId = nextId + 1;
+  const pagesRef = pagesMatch?.[1] ?? '2 0 R';
+  const prevXref = lastXref ? Number(lastXref[1]) : undefined;
+
+  const encoder = new TextEncoder();
+  const xmpBytes = encoder.encode(xmpString);
+  const metaHeader = encoder.encode(
+    `\n${metaId} 0 obj\n<< /Type /Metadata /Subtype /XML /Length ${xmpBytes.length} >>\nstream\n`,
+  );
+  const metaFooter = encoder.encode('\nendstream\nendobj\n');
+  const catalog = encoder.encode(
+    `${catalogId} 0 obj\n<< /Type /Catalog /Pages ${pagesRef} /Metadata ${metaId} 0 R >>\nendobj\n`,
+  );
+
+  const metaOffset = bytes.length + 1;
+  const catalogOffset = bytes.length + metaHeader.length + xmpBytes.length + metaFooter.length;
+  const xrefOffsetPos = catalogOffset + catalog.length;
+  const prevClause = prevXref === undefined ? '' : ` /Prev ${prevXref}`;
+  const xref = encoder.encode(
+    `xref\n0 1\n0000000000 65535 f \n${metaId} 2\n${xrefOffset(metaOffset)}${xrefOffset(catalogOffset)}trailer\n<< /Size ${catalogId + 1} /Root ${catalogId} 0 R${prevClause} >>\nstartxref\n${xrefOffsetPos}\n%%EOF\n`,
+  );
+
+  const result = new Uint8Array(
+    bytes.length +
+      metaHeader.length +
+      xmpBytes.length +
+      metaFooter.length +
+      catalog.length +
+      xref.length,
+  );
+  result.set(bytes, 0);
+  let pos = bytes.length;
+  result.set(metaHeader, pos);
+  pos += metaHeader.length;
+  result.set(xmpBytes, pos);
+  pos += xmpBytes.length;
+  result.set(metaFooter, pos);
+  pos += metaFooter.length;
+  result.set(catalog, pos);
+  pos += catalog.length;
+  result.set(xref, pos);
   return result;
 }
 

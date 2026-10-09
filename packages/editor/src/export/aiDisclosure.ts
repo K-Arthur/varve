@@ -135,3 +135,15 @@ export function generateAiDisclosureSvgMetadata(disclosure: AiDisclosureMetadata
   </rdf:RDF>
 </metadata>`;
 }
+
+/** Insert the SVG metadata block immediately before the root `</svg>`. */
+export function applyAiDisclosureToSvg(
+  svg: string,
+  disclosure: AiDisclosureMetadata | null,
+): string {
+  if (!disclosure) return svg;
+  const metadata = generateAiDisclosureSvgMetadata(disclosure);
+  const close = svg.lastIndexOf('</svg>');
+  if (close === -1) return `${svg}\n${metadata}\n`;
+  return `${svg.slice(0, close)}${metadata}\n${svg.slice(close)}`;
+}

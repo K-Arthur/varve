@@ -31,6 +31,7 @@ import {
   type RasterFormat,
 } from './components/SpecPanel/export';
 import { worldBBox } from './components/SpecPanel/measurement';
+import { applyAiDisclosureToSvg, getDocumentAiDisclosure } from './export/aiDisclosure';
 import { composeFlattenedRasterAssetsForNode } from './export/compositor';
 import { collectGradientMapFlattenWarnings } from './export/gradientMapPreflight';
 import { injectPngPhys, ppiToPixelsPerMeter } from './export/pngDensity';
@@ -105,6 +106,8 @@ export interface ExportRunContext {
   ) => Promise<string | null | undefined>;
   /** Receives actual executor transitions; never synthesized from elapsed time. */
   onProgress?: (event: ExportProgressEvent) => void;
+  /** Embed AI disclosure metadata when the document has generative edits. Defaults to true. */
+  includeAiDisclosure?: boolean;
 }
 
 interface RenderedFile {
@@ -299,14 +302,17 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         },
       );
       const fontWarnings = collectMissingFontWarnings(node);
+      const svg = exportNodeToSvg(node, context.document, {
+        rasterAssets,
+        minify: job.vector?.minify ?? false,
+        preserveColorSpace: job.vector?.embedImages === false,
+      });
+      const disclosedSvg =
+        context.includeAiDisclosure === false
+          ? svg
+          : applyAiDisclosureToSvg(svg, getDocumentAiDisclosure(context.document, [node.id]));
       return {
-        bytes: encode(
-          exportNodeToSvg(node, context.document, {
-            rasterAssets,
-            minify: job.vector?.minify ?? false,
-            preserveColorSpace: job.vector?.embedImages === false,
-          }),
-        ),
+        bytes: encode(disclosedSvg),
         mimeType: 'image/svg+xml',
         warnings: [
           ...fontWarnings,
@@ -351,7 +357,9 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         warnings: collectMissingFontWarnings(node),
       };
     case 'pdf-screen': {
-      const result = await exportNodeAsPdf(node, context.document, 1, context.engine ?? undefined);
+      const result = await exportNodeAsPdf(node, context.document, 1, context.engine ?? undefined, {
+        includeAiDisclosure: context.includeAiDisclosure,
+      });
       const fontWarnings = collectMissingFontWarnings(node);
       return {
         bytes: result.bytes,
@@ -375,6 +383,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         enforceDpi: job.print?.enforceDpi,
         outlineText: job.print?.outlineText,
         iccProfile: job.print?.iccProfile,
+        includeAiDisclosure: context.includeAiDisclosure,
       });
       return {
         bytes: result.bytes,
@@ -417,6 +426,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         pipeline,
         metadata,
         color,
+        includeAiDisclosure: context.includeAiDisclosure,
       });
       const fontWarnings = collectMissingFontWarnings(node);
       let bytes = await blobToBytes(blob);

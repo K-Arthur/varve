@@ -19,6 +19,7 @@ import {
   exportNodeAsPdf,
   exportNodeAsPdfX,
   exportNodeAsRaster,
+  exportNodeToSvgMarkup,
 } from './export';
 
 const { imageLoad, imageState, resetImageState } = vi.hoisted(() => {
@@ -746,6 +747,66 @@ describe('exportNodeAsRaster', () => {
         expect.objectContaining({ family: 'Styled Family', weight: 700 }),
         expect.objectContaining({ family: 'Run Family', weight: 600, text: 'Styled ' }),
       ]),
+    );
+  });
+});
+
+describe('AI disclosure on SVG and PDF exports', () => {
+  function withAiEdit<T extends { id?: string }>(
+    doc: ReturnType<typeof createDocument>,
+    node: T & { id: string },
+  ) {
+    return {
+      ...doc,
+      rootChildren: [node.id],
+      nodes: { [node.id]: node },
+      generativeEdits: {
+        'edit-1': {
+          mode: 'fill',
+          sourceNodeId: node.id,
+          resultNodeId: node.id,
+          provider: { runtime: 'onnx', modelId: 'lama' },
+          updatedAt: Date.now(),
+        },
+      },
+    } as typeof doc & { nodes: Record<string, typeof node> };
+  }
+
+  it('embeds SVG metadata when the exported node has a generative edit', async () => {
+    const base = createDocument('AI SVG', true);
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Box' });
+    const svg = await exportNodeToSvgMarkup(node, withAiEdit(base, node));
+    expect(svg).toContain('<metadata>');
+    expect(svg).toContain(
+      'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia',
+    );
+    expect(svg).toContain('AI Fill');
+  });
+
+  it('omits SVG metadata when Include AI disclosure is off', async () => {
+    const base = createDocument('AI SVG', true);
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Box' });
+    const svg = await exportNodeToSvgMarkup(node, withAiEdit(base, node), undefined, {
+      includeAiDisclosure: false,
+    });
+    expect(svg).not.toContain('<metadata>');
+    expect(svg).not.toContain('DigitalSourceType');
+  });
+
+  it('embeds PDF XMP after the native PDF/X command returns', async () => {
+    const base = createDocument('AI PDF', true);
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Box' });
+    const stubPdf = new TextEncoder().encode(
+      '%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\ntrailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n10\n%%EOF\n',
+    );
+    const invoke = vi.fn(async () => Array.from(stubPdf));
+    (window as unknown as Record<string, unknown>).__TAURI__ = { core: { invoke } };
+
+    const result = await exportNodeAsPdfX(node, withAiEdit(base, node), 'pdf-x4');
+    const text = new TextDecoder().decode(result.bytes);
+    expect(text).toContain('/Type /Metadata');
+    expect(text).toContain(
+      'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia',
     );
   });
 });

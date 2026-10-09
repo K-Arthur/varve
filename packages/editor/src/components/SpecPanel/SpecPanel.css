@@ -381,6 +381,9 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
+.spec-export__disclosure {
+  margin-top: var(--space-3);
+}
 .spec-export__actions {
   display: flex;
   align-items: center;

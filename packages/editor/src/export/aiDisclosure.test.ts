@@ -1,6 +1,7 @@
 import type { Document } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
+  applyAiDisclosureToSvg,
   generateAiDisclosureSvgMetadata,
   generateAiDisclosureXmp,
   getDocumentAiDisclosure,
@@ -161,5 +162,27 @@ describe('generateAiDisclosureSvgMetadata', () => {
     expect(metadata).toContain('&lt;AI&gt;');
     expect(metadata).toContain('&amp;');
     expect(metadata).toContain('&quot;');
+  });
+});
+
+describe('applyAiDisclosureToSvg', () => {
+  const disclosure = {
+    digitalSourceType:
+      'http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia',
+    description: 'AI tools used: AI Fill (models: lama)',
+    tools: ['AI Fill'],
+  };
+
+  it('inserts the metadata block before the closing svg tag', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>';
+    const result = applyAiDisclosureToSvg(svg, disclosure);
+    expect(result).toContain('<metadata>');
+    expect(result).toContain(disclosure.digitalSourceType);
+    expect(result.indexOf('<metadata>')).toBeLessThan(result.lastIndexOf('</svg>'));
+  });
+
+  it('returns the original markup when there is no disclosure', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>';
+    expect(applyAiDisclosureToSvg(svg, null)).toBe(svg);
   });
 });
