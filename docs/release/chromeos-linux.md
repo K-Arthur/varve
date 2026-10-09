@@ -4,12 +4,12 @@
 Debian environment, launched from the ChromeOS Launcher or Terminal. This is
 **not** the native Chrome browser tab and not an Android or Play Store app.
 
-**Status:** Experimental (Tier 3). The package metadata, checksums,
-architecture, dependency closure, and install/update/uninstall commands below
-were verified against the published **v0.2.1** ARM64 artifacts on 2026-09-12.
-A GUI run on a physical Chromebook (including the Lenovo Chromebook Duet
-11M889) has **not** happened yet, so rendering quality, input latency, fonts,
-and suspend/resume remain unverified. See the
+**Status:** Experimental (Tier 3). Artifact names, sizes, checksums, and ARM64
+Debian package metadata below were checked against the published **v0.5.0**
+release on 2026-10-09. The v0.5.0 Linux package qualification ran on hosted
+Linux, not inside ChromeOS. A GUI run on a physical Chromebook (including the
+Lenovo Chromebook Duet 11M889) has **not** happened, so rendering quality,
+input latency, fonts, and suspend/resume remain unverified. See the
 [Stage 5 audit](../audits/chromeos-stage5-linux-arm64-2026-09-12.md) and the
 [platform support matrix](platform-support-matrix.md).
 
@@ -33,15 +33,14 @@ no supported bypass and this project does not provide one.
 
 ### Sizing
 
-Measured against v0.2.1: the ARM64 `.deb` is **49.0 MB** and installs
-**~85 MB** of application files (`Installed-Size: 84933` KiB), plus the
-system WebKitGTK/GTK dependency closure. On a modeled arm64 Debian 12 root the
-closure is 287 packages; allow **~1 GB** for the install and keep the Linux
-environment's free space above **2 GB** before installing, more if you plan to
-keep projects, recovery records, and optional AI models inside Linux. The
-large optional models (up to ~1 GB each) download on demand and are not part
-of the package. If the setup flow offers a disk-size choice, choose 10 GB or
-more.
+The published v0.5.0 ARM64 `.deb` is **83.7 MB** and declares
+`Installed-Size: 158037` KiB (about **154.3 MiB**), plus the system WebKitGTK/GTK
+dependency closure. The prior v0.2.1 dependency-closure model estimated 287
+packages on an arm64 Debian 12 root; that count has not been recomputed for
+v0.5.0. Keep at least **2 GB** free before installing, with more room for
+projects, recovery records, and optional AI models. Large optional models
+(up to ~1 GB each) download on demand and are not part of the package. If the
+setup flow offers a disk-size choice, choose 10 GB or more.
 
 Installed RAM is not what one application gets: on an 8 GB Chromebook the
 Linux VM, native Chrome, and Android all share memory. Varve's adaptive
@@ -49,14 +48,14 @@ performance profile reduces render scale, caching, image decode, and effects
 quality when frame times slip, and falls back to Canvas2D (no WebGPU
 required), so constrained devices degrade rather than fail.
 
-### Know which artifact you want (current release: v0.2.1)
+### Know which artifact you want (current release: v0.5.0)
 
 | File | Size | Use on ChromeOS |
 |---|---|---|
-| `Varve-0.2.1-linux-aarch64.deb` | 49.0 MB | **Recommended** on ARM64 devices (Kompanio 838, MediaTek, Snapdragon Chromebooks) |
-| `Varve-0.2.1-linux-x86_64.deb` | 49.9 MB | Only for Intel/AMD Chromebooks |
-| `Varve-0.2.1-linux-aarch64.AppImage` | 40.5 MB | Alternate; see the AppImage caveat below |
-| `Varve-0.2.1-linux-x86_64.rpm` | 49.9 MB | Not used by ChromeOS (Debian environment) |
+| `Varve-0.5.0-linux-aarch64.deb` | 83.7 MB | **Recommended** on ARM64 devices (Kompanio 838, MediaTek, Snapdragon Chromebooks) |
+| `Varve-0.5.0-linux-x86_64.deb` | 91.5 MB | Only for Intel/AMD Chromebooks |
+| `Varve-0.5.0-linux-aarch64.AppImage` | 78.4 MB | Alternate; see the AppImage caveat below |
+| `Varve-0.5.0-linux-x86_64.rpm` | 91.5 MB | Not used by ChromeOS (Debian environment) |
 
 Check your architecture first:
 
@@ -66,14 +65,11 @@ dpkg --print-architecture   # expect arm64 or amd64
 cat /etc/os-release         # Debian version of the Linux environment
 ```
 
-**AppImage caveat (v0.2.1):** the published AppImages were pruned of their
-bundled libraries but also lost Tauri's resource directory, so the bundled
-native ONNX Runtime is missing; native AI features fall back to the slower
-web/raster paths. The fix is on `master` and ships in the next release
-(`scripts/release/prune-appimage-bundled-libs.mjs`). If you use an AppImage:
-it needs FUSE2, and since the bundled libraries are removed it also needs the
-host WebKitGTK stack. On a FUSE-less container, run it with
-`--appimage-extract-and-run`. The `.deb` does not have either caveat.
+**AppImage caveat (v0.5.0):** the release qualification extracts the AppImage
+and verifies its Varve resource payload; the v0.2.1 missing-ONNX-runtime defect
+was fixed. AppImages still require FUSE2 and the system WebKitGTK stack. On a
+FUSE-less container, run with `--appimage-extract-and-run`. The `.deb` is the
+recommended ChromeOS package and does not need FUSE.
 
 ## 2. Download and verify
 
@@ -81,19 +77,19 @@ Download the `.deb` and the checksum file from the same GitHub release:
 
 ```bash
 mkdir -p ~/Downloads/varve && cd ~/Downloads/varve
-curl -fLO https://github.com/K-Arthur/varve/releases/download/v0.2.1/Varve-0.2.1-linux-aarch64.deb
-curl -fLO https://github.com/K-Arthur/varve/releases/download/v0.2.1/SHA256SUMS.txt
+curl -fLO https://github.com/K-Arthur/varve/releases/download/v0.5.0/Varve-0.5.0-linux-aarch64.deb
+curl -fLO https://github.com/K-Arthur/varve/releases/download/v0.5.0/SHA256SUMS.txt
 sha256sum -c --ignore-missing SHA256SUMS.txt
 ```
 
 Expected result:
 
 ```text
-Varve-0.2.1-linux-aarch64.deb: OK
+Varve-0.5.0-linux-aarch64.deb: OK
 ```
 
 The published SHA-256 for this file is
-`04a52411bf0a2b3ab9cc368b3d17c554b88cb17d179b3ecc784d3eb5bfe9b890`. A
+`5fc30625f738f0b8394f59180568251857cc45cc1e031d8568872def3494faf0`. A
 checksum proves the file matches the published release data; it does **not**
 prove who built it. Linux artifacts are unsigned (no platform code-signing
 certificate), and they ship with `SHA256SUMS.txt`, a CycloneDX SBOM, and
@@ -115,19 +111,20 @@ Debian repositories and runs the package scripts. Do not use `dpkg -i` alone
 
 ```bash
 sudo apt update
-sudo apt install ./Varve-0.2.1-linux-aarch64.deb
+sudo apt install ./Varve-0.5.0-linux-aarch64.deb
 ```
 
 Verified for the current artifact:
 
 | Check | Result |
 |---|---|
-| Package name / version / arch | `varve` / `0.2.1` / `arm64` |
+| Package name / version / arch | `varve` / `0.5.0` / `arm64` |
 | Declared dependencies | WebKitGTK 4.1, GTK3, GLib, libsoup3, librsvg2, OpenSSL, gdk-pixbuf, cairo, pango, fontconfig (all present in Debian 12/13) |
 | glibc symbol floor | `GLIBC_2.35` (Debian 12 has 2.36, Debian 13 has 2.41) |
 | Binary | `/usr/bin/varve-desktop`, ELF 64-bit ARM aarch64, not stripped |
 | Desktop entry / MIME / icons | `/usr/share/applications/Varve.desktop`, `dev.varve.desktop.xml` (`application/x-varve`, legacy `application/x-strata`), hicolor icons |
-| Bundled native AI runtime | `/usr/lib/Varve/onnxruntime-libs/linux-aarch64/libonnxruntime.so` |
+| Installed-Size | `158037` KiB (about 154.3 MiB), from the published Debian control metadata |
+| Bundled native AI runtime | `/usr/lib/Varve/onnxruntime-libs/linux-aarch64/libonnxruntime.so` (present in the published package archive) |
 
 If dependency resolution fails, the Linux environment's Debian release is
 older than Varve supports (glibc below 2.35 / a pre-`bookworm` container) or
