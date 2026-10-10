@@ -56,6 +56,18 @@ describe('website analytics consent boundary', () => {
     expect(options).toMatchObject({ credentials: 'omit', referrerPolicy: 'no-referrer' });
   });
 
+  it('forwards only an allowlisted campaign ref after consent', async () => {
+    window.history.replaceState({}, '', '/download?ref=masto-p1&utm_source=other&q=secret');
+    initWebsiteAnalytics({ domain: 'varve-test.goatcounter.com', enabled: true });
+    document.querySelector<HTMLElement>('[data-analytics-choice="granted"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const url = new URL(String(vi.mocked(fetch).mock.calls[0]![0]));
+    expect(url.searchParams.get('p')).toBe('/download?ref=masto-p1');
+    expect(String(url)).not.toContain('utm_source');
+    expect(String(url)).not.toContain('secret');
+  });
+
   it('honors Global Privacy Control and does not show a consent prompt', () => {
     Object.defineProperty(navigator, 'globalPrivacyControl', {
       configurable: true,

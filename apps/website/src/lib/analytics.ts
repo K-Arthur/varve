@@ -139,6 +139,7 @@ export class WebsiteAnalyticsController {
         canSend: () => this.consent === 'granted' && !privacySignalBlocks(),
         route: () => normalizedRoute(window.location.pathname),
         referrer: () => websiteReferrer(document.referrer, window.location.origin),
+        search: () => window.location.search,
       }),
       maxQueueSize: 25,
     });

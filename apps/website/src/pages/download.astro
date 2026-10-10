@@ -627,8 +627,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                         </tr>
                         <tr>
                           <td><strong>Arch / CachyOS / Manjaro</strong></td>
-                          <td>AppImage <span class="format-badge">recommended</span></td>
-                          <td><code>chmod +x Varve-*.AppImage &amp;&amp; ./Varve-*.AppImage</code></td>
+                          <td>PKGBUILD <span class="format-badge">recommended</span></td>
+                          <td><code>makepkg -si</code> from <code>packaging/aur/varve-desktop-bin</code></td>
                         </tr>
                         <tr>
                           <td><strong>openSUSE / SUSE</strong></td>
@@ -647,8 +647,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     <p>
                       <strong>AppImage</strong> — a single portable file that runs on any distro
                       without root or a package manager. This is the universal option and the
-                      recommended default for Arch, CachyOS, openSUSE, and other non-Debian/Fedora
-                      distros. Requires FUSE2 (or <code>--appimage-extract-and-run</code>) and the
+                      recommended default for openSUSE and other non-Debian/Fedora distros. On
+                      Arch and CachyOS the repository PKGBUILD is fine to use; the AppImage also
+                      works. Requires FUSE2 (or <code>--appimage-extract-and-run</code>) and the
                       system WebKitGTK library.
                     </p>
                     <p>
@@ -665,14 +666,17 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       Fedora, RHEL, and derivatives.
                     </p>
                     <p>
-                      <strong>Arch/CachyOS PKGBUILD</strong> — a{' '}
-                      <code>varve-desktop-bin</code> PKGBUILD is in the{' '}
+                      <strong>Arch/CachyOS PKGBUILD</strong> — the{' '}
+                      <code>varve-desktop-bin</code> PKGBUILD in the{' '}
                       <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">
                         repository
-                      </a>. It extracts the AppImage at install time, providing proper{' '}
-                      <code>.desktop</code> file, icons, MIME types, and clean uninstall via{' '}
-                      <code>pacman -R</code>. No FUSE dependency. Build with{' '}
-                      <code>makepkg -si</code> from the PKGBUILD directory.
+                      </a>{' '}
+                      is fixed and fine to use. It builds from the released AppImage (extracts it
+                      at install time), providing a proper <code>.desktop</code> file, icons, MIME
+                      types, and clean uninstall via <code>pacman -R</code>. No FUSE dependency.
+                      Build with <code>makepkg -si</code> from the PKGBUILD directory. The
+                      AppImage also works on its own. An AUR package is coming; AUR registration
+                      is currently closed.
                     </p>
                     <p>
                       <strong>ChromeOS (Linux development environment)</strong> — install the{' '}
@@ -910,8 +914,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <code>libfuse2</code> on Debian 12 or Ubuntu 22.04
                 (<code>sudo apt install libfuse2</code>), or <code>libfuse2t64</code> on Debian 13
                 or Ubuntu 24.04 and later (<code>sudo apt install libfuse2t64</code>). You can
-                also run <code>./Varve-*.AppImage --appimage-extract-and-run</code>. The Arch AUR
-                package extracts the AppImage and does not need FUSE. See the{' '}
+                also run <code>./Varve-*.AppImage --appimage-extract-and-run</code>. The PKGBUILD
+                in the repository extracts the AppImage and does not need FUSE. An AUR package is
+                coming; AUR registration is currently closed. See the{' '}
                 <a href="https://github.com/AppImage/AppImageKit/wiki/FUSE" target="_blank" rel="noopener noreferrer">official AppImage FUSE guide</a> for other distributions.
               </li>
               <li>
@@ -932,12 +937,14 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 See the <a href={sitePath('/docs/chromeos-linux')}>ChromeOS guide</a>.
               </li>
               <li>
-                <strong>Arch/CachyOS — prefer the PKGBUILD:</strong> the{' '}
-                <code>varve-desktop-bin</code> PKGBUILD is in the{' '}
-                <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">repository</a>.
-                It extracts the AppImage, providing proper desktop integration (icons, MIME types,
-                clean uninstall) without FUSE. Build with <code>makepkg -si</code> from the
-                PKGBUILD directory.
+                <strong>Arch/CachyOS — the repository PKGBUILD is fine to use:</strong> the{' '}
+                <code>varve-desktop-bin</code> PKGBUILD in the{' '}
+                <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">repository</a>{' '}
+                is fixed. It builds from the AppImage — run{' '}
+                <code>makepkg -si</code> from the PKGBUILD directory — and installs desktop
+                integration without FUSE. The AppImage also works:{' '}
+                <code>chmod +x Varve-*.AppImage &amp;&amp; ./Varve-*.AppImage</code>.
+                An AUR package is coming; AUR registration is currently closed.
               </li>
               <li>
                 <strong>macOS — the app is blocked:</strong>{' '}

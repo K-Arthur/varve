@@ -67,9 +67,10 @@ import { sitePath } from '../../../lib/siteUrl';
         endpoint-free. A new provider-specific consent choice is required; old refusals remain
         respected, and Global Privacy Control or Do Not Track always blocks collection.
         Session identification, individual-pageview storage, and demographic/device collection
-        are disabled. Only aggregate counts are retained. Normalized routes omit query strings
-        and fragments; some sections share the home category, so that category is not a literal
-        homepage count. Referrers are reduced to site origins.
+        are disabled. Only aggregate counts are retained. Normalized routes omit fragments and
+        all query strings except an allowlisted first-party campaign tag; some sections share
+        the home category, so that category is not a literal homepage count. Referrers are
+        reduced to site origins.
       </p>
       <p><a href={sitePath('/about/privacy')}>Read the full privacy policy</a>.</p>
     </article>
