@@ -117,11 +117,12 @@ package() {
       "${pkgdir}/usr/share/metainfo/dev.varve.desktop.metainfo.xml"
   fi
 
-  # LICENSE is a Tauri resource next to the ONNX runtime.
+  # LICENSE is a Tauri resource. The AppImage stores ../../../LICENSE as
+  # usr/lib/Varve/_up_/_up_/_up_/LICENSE — do not cap find depth.
   local _license
-  _license="$(find usr/lib/Varve -maxdepth 2 -type f -name LICENSE 2>/dev/null | head -1)"
+  _license="$(find usr/lib/Varve -type f -name LICENSE -print -quit 2>/dev/null)"
   if [[ -z "${_license}" ]]; then
-    _license="$(find . -maxdepth 3 -type f -name LICENSE 2>/dev/null | head -1)"
+    _license="$(find . -type f -name LICENSE -print -quit 2>/dev/null)"
   fi
   if [[ -n "${_license}" ]]; then
     install -Dm644 "${_license}" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
