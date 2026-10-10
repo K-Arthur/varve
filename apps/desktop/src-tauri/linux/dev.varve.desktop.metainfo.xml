@@ -33,6 +33,9 @@
       on-device; a small set of optional models downloads on demand.
     </p>
   </description>
+  <!-- Must match the .desktop file shipped in the AppImage, AUR package, and
+       Flatpak. Tauri writes Varve.desktop from productName; the AppImage prune
+       step renames it to this reverse-DNS id before linuxdeploy repacks. -->
   <launchable type="desktop-id">dev.varve.desktop.desktop</launchable>
   <url type="homepage">https://varve.studio</url>
   <url type="bugtracker">https://github.com/K-Arthur/varve/issues</url>

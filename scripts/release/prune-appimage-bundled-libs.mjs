@@ -53,19 +53,30 @@ import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
+  symlinkSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalizeArchitecture, normalizeTargetId, targetIdFor } from './targets.mjs';
+import { verifyAppImagePermissions } from './verify-appimage-permissions.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const TAURI_CONF = join(REPO_ROOT, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json');
+
+/** AppStream `<launchable type="desktop-id">` and the AUR/Flatpak desktop name. */
+export const APPSTREAM_DESKTOP_ID = 'dev.varve.desktop.desktop';
+/** Filename Tauri's AppImage bundler writes from `productName`. */
+export const TAURI_APPIMAGE_DESKTOP_NAME = 'Varve.desktop';
+const LAUNCHER_PATHS = ['AppRun', 'AppRun.wrapped', 'usr/bin/varve-desktop'];
+const STRAY_BUILD_FILE_NAMES = new Set(['varve-generative-helper.d']);
 
 function parseArgs(argv) {
   const args = {};
@@ -155,6 +166,81 @@ export function collectRuntimePrunePlan(runtimeRoot, targetId) {
   return { remove, keep };
 }
 
+/**
+ * Cargo dep-info (and similar) files matched by `bundle.resources` globs such
+ * as `varve-generative-helper*`. They are not runtime payloads.
+ */
+export function collectStrayBuildArtifacts(squashfsRoot) {
+  const remove = [];
+  function walk(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (STRAY_BUILD_FILE_NAMES.has(entry.name)) remove.push(full);
+    }
+  }
+  walk(squashfsRoot);
+  return remove;
+}
+
+function existsAsEntry(path) {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Tauri names the AppImage desktop file from `productName` (`Varve.desktop`).
+ * AppStream, AUR, and Flatpak use the reverse-DNS id `dev.varve.desktop.desktop`.
+ * Rename the payload so the shipped file matches `<launchable>`.
+ */
+export function normalizeAppImageDesktopEntries(squashfsRoot) {
+  const applications = join(squashfsRoot, 'usr', 'share', 'applications');
+  const shipped = join(applications, TAURI_APPIMAGE_DESKTOP_NAME);
+  const canonical = join(applications, APPSTREAM_DESKTOP_ID);
+  if (existsAsEntry(shipped) && shipped !== canonical) {
+    if (existsAsEntry(canonical)) rmSync(canonical);
+    renameSync(shipped, canonical);
+  }
+
+  const topShipped = join(squashfsRoot, TAURI_APPIMAGE_DESKTOP_NAME);
+  const topCanonical = join(squashfsRoot, APPSTREAM_DESKTOP_ID);
+  if (existsAsEntry(topShipped)) rmSync(topShipped);
+  if (existsAsEntry(canonical) && !existsAsEntry(topCanonical)) {
+    symlinkSync(join('usr', 'share', 'applications', APPSTREAM_DESKTOP_ID), topCanonical);
+  }
+}
+
+/**
+ * AppImageHub launches with `firejail --appimage`, which kernel-mounts the
+ * SquashFS and enforces mode bits. Root-owned 0700 directories and 0770
+ * `AppRun.wrapped` then fail with `AppRun: Permission denied`. FUSE mounts
+ * hide this. Normalise before linuxdeploy repacks.
+ */
+export function normalizeAppDirPermissions(squashfsRoot) {
+  execFileSync('chmod', ['-R', 'u+rwX,go+rX,go-w', squashfsRoot]);
+  for (const file of LAUNCHER_PATHS) {
+    const path = join(squashfsRoot, file);
+    if (existsSync(path)) chmodSync(path, 0o755);
+  }
+}
+
+/** Payload hygiene + modes that every released AppImage must have before pack. */
+export function prepareAppDirForRepack(squashfsRoot) {
+  const stray = collectStrayBuildArtifacts(squashfsRoot);
+  for (const entry of stray) rmSync(entry, { force: true });
+  normalizeAppImageDesktopEntries(squashfsRoot);
+  normalizeAppDirPermissions(squashfsRoot);
+  return { stray };
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const bundleDir = resolve(args['bundle-dir'] ?? 'apps/desktop/src-tauri/target/release/bundle');
@@ -221,10 +307,23 @@ function main() {
     );
   }
 
+  // Always normalise and repack. The no-prune path used to return the original
+  // Tauri AppImage, which ships root-owned 0700 directories and 0770
+  // AppRun.wrapped — firejail then fails with "AppRun: Permission denied".
+  const { stray } = prepareAppDirForRepack(squashfsRoot);
+  if (stray.length > 0) {
+    process.stdout.write(
+      'Removing ' +
+        stray.length +
+        ' stray build artifact(s): ' +
+        stray.map((p) => relative(squashfsRoot, p)).join(', ') +
+        '\n',
+    );
+  }
   if (removed === 0 && runtimePlan.remove.length === 0) {
-    rmSync(work, { recursive: true, force: true });
-    process.stdout.write('No bundled libraries to prune.\n');
-    return;
+    process.stdout.write(
+      'No bundled libraries to prune; normalising permissions and re-assembling the AppImage.\n',
+    );
   }
 
   // Re-assemble with linuxdeploy + its AppImage output plugin — the same
@@ -304,6 +403,8 @@ function main() {
       rmSync(verifyWork, { recursive: true, force: true });
     }
   }
+
+  verifyAppImagePermissions(output);
 
   const prunedSize = statSync(output).size;
   rmSync(work, { recursive: true, force: true });

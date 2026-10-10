@@ -13,8 +13,10 @@
  *   - tauri.conf.json actually ships the metainfo in every Linux format.
  */
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { APPSTREAM_DESKTOP_ID } from './prune-appimage-bundled-libs.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 function join(...parts) {
@@ -50,9 +52,25 @@ assert.ok(
   'metadata_license must be CC0-1.0',
 );
 assert.ok(
-  /<launchable type="desktop-id">dev\.varve\.desktop\.desktop<\/launchable>/.test(metainfo),
-  'launchable desktop-id must match the desktop file',
+  metainfo.includes(`<launchable type="desktop-id">${APPSTREAM_DESKTOP_ID}</launchable>`),
+  'launchable desktop-id must match the AppImage/AUR/Flatpak desktop file',
 );
+
+const readme = readFileSync(join('README.md'), 'utf8');
+assert.ok(readme.startsWith('# Varve\n'), 'README must start with a # Varve heading');
+
+const appstream = spawnSync(
+  'appstreamcli',
+  ['validate', '--pedantic', join('apps/desktop/src-tauri/linux/dev.varve.desktop.metainfo.xml')],
+  { encoding: 'utf8' },
+);
+if (appstream.error?.code !== 'ENOENT') {
+  assert.equal(
+    appstream.status,
+    0,
+    `appstreamcli validate failed:\n${appstream.stdout}\n${appstream.stderr}`,
+  );
+}
 
 // ── 2. License honesty (source-available, never "open source") ────────────
 const licenseMatch = metainfo.match(/<project_license>([^<]+)<\/project_license>/);
