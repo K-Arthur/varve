@@ -9,6 +9,7 @@
  *   node marketing/sample-comic/recording/record-lettering.mjs --probe
  *   node marketing/sample-comic/recording/record-lettering.mjs --full
  *   node marketing/sample-comic/recording/record-lettering.mjs --loop
+ *   node marketing/sample-comic/recording/record-lettering.mjs --vertical
  */
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -25,8 +26,6 @@ const RAW_DIR = join(HERE, '.tmp');
 const SOURCE_VARVE = join(COMIC_DIR, 'halloween-cookies.varve');
 const PORT = Number(process.env.VARVE_COMIC_PORT ?? 4173);
 const BASE = `http://127.0.0.1:${PORT}`;
-const VIEW_W = Number(process.env.VARVE_RECORD_WIDTH ?? 1920);
-const VIEW_H = Number(process.env.VARVE_RECORD_HEIGHT ?? 1080);
 
 const PAGE_W = 900;
 const PAGE_H = 1260;
@@ -37,8 +36,10 @@ const PANEL_H = (PAGE_H - MARGIN * 2 - GUTTER * 2) / 3;
 
 const args = new Set(process.argv.slice(2));
 const PROBE = args.has('--probe');
-const WANT_FULL = args.has('--full') || (!args.has('--loop') && !PROBE);
-const WANT_LOOP = args.has('--loop') || (!args.has('--full') && !PROBE);
+const WANT_FULL = args.has('--full') || (!args.has('--loop') && !args.has('--vertical') && !PROBE);
+const WANT_LOOP = args.has('--loop') || (!args.has('--full') && !args.has('--vertical') && !PROBE);
+const WANT_VERTICAL =
+  args.has('--vertical') || (!args.has('--full') && !args.has('--loop') && !PROBE);
 const pointerByPage = new WeakMap();
 
 function panelOrigin(index) {
@@ -53,46 +54,54 @@ function panelOrigin(index) {
 const PLACEMENTS = {
   caption: {
     panel: 0,
-    localX: 118,
-    localY: 28,
+    localX: 20,
+    localY: 16,
+    boxW: 210,
+    boxH: 48,
     text: 'That morning...',
     action: 'Add Caption Box',
     query: 'caption box',
-    fontSize: 22,
+    fontSize: 18,
     layer: /caption balloon/i,
   },
   speech: {
     panel: 2,
-    localX: 268,
-    localY: 88,
+    localX: 188,
+    localY: 52,
+    boxW: 170,
+    boxH: 72,
     text: 'Perfect!',
     action: 'Add Speech Balloon',
     query: 'speech balloon',
-    fontSize: 28,
+    fontSize: 22,
     layer: /speech balloon/i,
-    tailToward: { localX: 92, localY: 172 },
+    tailToward: { localX: 92, localY: 168 },
   },
   shout: {
     panel: 4,
-    localX: 202,
-    localY: 86,
+    localX: 104,
+    localY: 44,
+    boxW: 210,
+    boxH: 86,
     text: "WE'RE ALIVE!",
     action: 'Add Shout Balloon',
     query: 'shout balloon',
-    fontSize: 30,
+    fontSize: 24,
     layer: /shout balloon/i,
-    tailToward: { localX: 202, localY: 220 },
+    tailToward: { localX: 196, localY: 210 },
   },
   thought: {
     panel: 5,
-    localX: 268,
-    localY: 58,
+    localX: 164,
+    localY: 18,
+    boxW: 210,
+    boxH: 88,
     text: 'Did I use magic flour...?',
     action: 'Add Thought Balloon',
     query: 'thought balloon',
-    fontSize: 20,
+    fontSize: 16,
     layer: /thought balloon/i,
-    tailToward: { localX: 90, localY: 180 },
+    tailToward: { localX: 86, localY: 176 },
   },
 };
 
@@ -297,7 +306,7 @@ async function dismissNoise(page) {
 }
 
 async function humanMove(page, x, y, durationMs = 380) {
-  const last = pointerByPage.get(page) ?? { x: VIEW_W / 2, y: VIEW_H / 2 };
+  const last = pointerByPage.get(page) ?? { x: 960, y: 540 };
   const dist = Math.hypot(x - last.x, y - last.y);
   const steps = Math.max(8, Math.min(36, Math.round(dist / 18 + durationMs / 22)));
   await page.mouse.move(x, y, { steps });
@@ -323,6 +332,13 @@ async function hideOverlays(page) {
     content: `
       vite-error-overlay, #webpack-dev-server-client-overlay { display: none !important; }
     `,
+  });
+}
+
+async function blurChrome(page) {
+  await page.evaluate(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
   });
 }
 
@@ -374,10 +390,11 @@ async function openUnlettered(page, filePath) {
   await dismissNoise(page);
   await page.locator('canvas.editor-canvas__content-layer').waitFor({ state: 'visible' });
   await page.evaluate(() => document.fonts.ready);
+  await blurChrome(page);
   await page.keyboard.press('Shift+Digit1');
-  await page.waitForTimeout(900);
+  await page.waitForTimeout(700);
   await page.keyboard.press('v');
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(160);
 }
 
 async function layerNames(page) {
@@ -420,19 +437,27 @@ function localToScreen(map, panelIndex, localX, localY) {
   return { x, y };
 }
 
-async function selectLayer(page, pattern) {
-  const item = page.getByRole('treeitem', { name: pattern }).first();
-  try {
-    await item.waitFor({ state: 'visible', timeout: 8000 });
-  } catch (error) {
-    throw new Error(`layer ${pattern} missing; layers=${JSON.stringify(await layerNames(page))}`, {
-      cause: error,
-    });
+async function selectLayer(page, pattern, which = 'first') {
+  const items = page.getByRole('treeitem', { name: pattern });
+  const count = await items.count();
+  if (count === 0) {
+    try {
+      await items.first().waitFor({ state: 'visible', timeout: 8000 });
+    } catch (error) {
+      throw new Error(
+        `layer ${pattern} missing; layers=${JSON.stringify(await layerNames(page))}`,
+        {
+          cause: error,
+        },
+      );
+    }
   }
+  const item = which === 'last' ? items.nth(Math.max(0, (await items.count()) - 1)) : items.first();
+  await item.waitFor({ state: 'visible', timeout: 8000 });
   const box = await item.boundingBox();
-  if (box) await clickAt(page, box.x + 28, box.y + box.height / 2, 260);
+  if (box) await clickAt(page, box.x + 28, box.y + box.height / 2, 240);
   else await item.click();
-  await pause(page, 160);
+  await pause(page, 140);
   return item;
 }
 
@@ -449,14 +474,14 @@ async function filterLayers(page, query) {
       .catch(() => false)
   ) {
     await filter.first().fill(query);
-    await pause(page, 160);
+    await pause(page, 140);
   }
 }
 
 async function focusCanvas(page) {
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   const box = await canvas.boundingBox();
-  if (box) await page.mouse.click(box.x + 20, box.y + 20);
+  if (box) await page.mouse.click(box.x + 16, box.y + 16);
   await page.keyboard.press('Escape').catch(() => undefined);
   await pause(page, 80);
 }
@@ -474,30 +499,31 @@ async function chooseTextTool(page) {
   await pause(page, 120);
 }
 
-async function setSelectedFontSize(page, size) {
+async function setSpin(page, name, value) {
   const field = page
     .locator('.inspector-panel')
-    .getByRole('spinbutton', { name: /^size$/i })
+    .getByRole('spinbutton', { name: new RegExp(`^${name}$`, 'i') })
     .first();
-  if (!(await field.isVisible({ timeout: 2500 }).catch(() => false))) return;
+  if (!(await field.isVisible({ timeout: 1800 }).catch(() => false))) return false;
   const box = await field.boundingBox();
-  if (box) await clickAt(page, box.x + 18, box.y + box.height / 2, 240);
+  if (box) await clickAt(page, box.x + 18, box.y + box.height / 2, 220);
   else await field.click();
   await page.keyboard.press('Control+a');
-  await typeHuman(page, String(size), 40);
+  await typeHuman(page, String(value), 36);
   await page.keyboard.press('Enter');
-  await pause(page, 180);
+  await pause(page, 140);
+  return true;
 }
 
 async function wrapSelectedText(page, query, actionName) {
   await page.keyboard.press('Control+k');
   const input = page.getByRole('combobox', { name: /search actions/i });
   await input.waitFor({ state: 'visible', timeout: 5000 });
-  await pause(page, 180);
-  await typeHuman(page, query, 42);
+  await pause(page, 160);
+  await typeHuman(page, query, 40);
   const option = page.getByRole('option', { name: new RegExp(actionName, 'i') }).first();
   await option.waitFor({ state: 'visible', timeout: 5000 });
-  await pause(page, 220);
+  await pause(page, 200);
   const box = await option.boundingBox();
   if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2, 240);
   else await option.click();
@@ -505,61 +531,53 @@ async function wrapSelectedText(page, query, actionName) {
     .getByRole('dialog', { name: /quick actions/i })
     .waitFor({ state: 'hidden', timeout: 4000 })
     .catch(() => undefined);
-  await pause(page, 420);
+  await pause(page, 380);
 }
 
-async function placeDialogue(page, map, placement) {
+async function followPanel(page, panelIndex) {
   await filterLayers(page, '');
-  await focusCanvas(page);
-  const point = localToScreen(map, placement.panel, placement.localX, placement.localY);
-  const editor = page.getByRole('textbox', { name: /editing text/i });
-  let opened = false;
-  for (let attempt = 0; attempt < 3 && !opened; attempt++) {
-    await chooseTextTool(page);
-    await clickAt(page, point.x, point.y, 420);
-    opened = await editor
-      .waitFor({ state: 'visible', timeout: 2500 })
-      .then(() => true)
-      .catch(() => false);
-    if (!opened) {
-      await page.keyboard.press('Escape').catch(() => undefined);
-      await pause(page, 160);
+  await selectLayer(page, new RegExp(`Panel ${panelIndex + 1}(?:,|$)`, 'i'));
+  await blurChrome(page);
+  await page.keyboard.press('Shift+Digit2');
+  await pause(page, 280);
+  await page.keyboard.press('5');
+  await pause(page, 280);
+}
+
+async function lockAllWalls(page) {
+  await filterLayers(page, 'Wall');
+  const locks = page.getByRole('button', { name: /^Lock Wall$/i });
+  const count = await locks.count();
+  for (let i = 0; i < count; i++) {
+    const button = locks.nth(i);
+    if (await button.isVisible().catch(() => false)) {
+      await button.click();
+      await pause(page, 80);
     }
   }
-  if (!opened)
-    throw new Error(`text editor did not open at ${point.x.toFixed(1)},${point.y.toFixed(1)}`);
-  await pause(page, 160);
-  await typeHuman(page, placement.text, 40);
-  await pause(page, 280);
-  await page.keyboard.press('Escape');
-  await editor.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
-  await page.keyboard.press('v');
-  await pause(page, 180);
-  const snippet = placement.text.slice(0, 12).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const textLayer = page
-    .getByRole('treeitem', { name: new RegExp(`text:|${snippet}`, 'i') })
-    .first();
-  if (await textLayer.isVisible({ timeout: 1500 }).catch(() => false)) {
-    await selectLayer(page, new RegExp(`text:|${snippet}`, 'i'));
+  await filterLayers(page, '');
+}
+
+async function openComicSection(page) {
+  const section = page.getByRole('button', { name: /comic balloon/i }).first();
+  if (!(await section.isVisible({ timeout: 2000 }).catch(() => false))) return false;
+  if ((await section.getAttribute('aria-expanded')) === 'false') {
+    const box = await section.boundingBox();
+    if (box) await clickAt(page, box.x + 24, box.y + box.height / 2, 220);
+    else await section.click();
+    await pause(page, 180);
   }
-  if (placement.fontSize) await setSelectedFontSize(page, placement.fontSize);
-  if (await textLayer.isVisible({ timeout: 800 }).catch(() => false)) {
-    await selectLayer(page, new RegExp(`text:|${snippet}`, 'i'));
-  }
-  await wrapSelectedText(page, placement.query, placement.action);
-  if (placement.layer) {
-    const balloon = page.getByRole('treeitem', { name: placement.layer }).first();
-    await balloon.waitFor({ state: 'visible', timeout: 6000 }).catch(() => undefined);
-  }
+  return true;
 }
 
 async function clickInspectorButton(page, name) {
   const button = page.getByRole('button', { name, exact: true }).first();
   if (!(await button.isVisible({ timeout: 1800 }).catch(() => false))) return false;
+  await button.scrollIntoViewIfNeeded().catch(() => undefined);
   const box = await button.boundingBox();
-  if (box) await clickAt(page, box.x + Math.min(72, box.width / 2), box.y + box.height / 2, 260);
+  if (box) await clickAt(page, box.x + Math.min(72, box.width / 2), box.y + box.height / 2, 240);
   else await button.click();
-  await pause(page, 320);
+  await pause(page, 280);
   return true;
 }
 
@@ -569,28 +587,185 @@ async function revealBalloon(page, pattern) {
   if (await item.isVisible({ timeout: 2500 }).catch(() => false)) {
     await selectLayer(page, pattern);
     await item.press('ArrowRight');
-    await pause(page, 160);
+    await pause(page, 140);
+    await openComicSection(page);
     return true;
   }
   return false;
 }
 
+async function dumpBalloon(page, label) {
+  const info = await page.evaluate(() => {
+    const hooks = window.__varveIsoTest;
+    const layers = [...document.querySelectorAll('[role="treeitem"]')].map((item) => ({
+      label: item.getAttribute('aria-label') ?? item.textContent ?? '',
+      selected: item.getAttribute('aria-selected') === 'true',
+    }));
+    return {
+      selection: hooks?.getSelection?.() ?? [],
+      geometry: hooks?.getSelectionGeometry?.() ?? [],
+      layers,
+    };
+  });
+  mkdirSync(RAW_DIR, { recursive: true });
+  writeFileSync(join(RAW_DIR, `${label}.json`), `${JSON.stringify(info, null, 2)}\n`);
+  await page.screenshot({ path: join(RAW_DIR, `${label}.png`) });
+  return info;
+}
+
+async function editBalloonText(page, text) {
+  const edit = page.getByRole('button', { name: 'Edit text', exact: true });
+  if (await edit.isVisible({ timeout: 1200 }).catch(() => false)) {
+    const box = await edit.boundingBox();
+    if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2, 240);
+    else await edit.click();
+  } else {
+    const textLayer = page.getByRole('treeitem', { name: /balloon text|text:/i }).last();
+    if (await textLayer.isVisible({ timeout: 800 }).catch(() => false)) {
+      await textLayer.dblclick();
+    }
+  }
+  const editor = page.getByRole('textbox', { name: /editing text/i });
+  if (
+    !(await editor
+      .waitFor({ state: 'visible', timeout: 3000 })
+      .then(() => true)
+      .catch(() => false))
+  ) {
+    return false;
+  }
+  await pause(page, 120);
+  await page.keyboard.press('Control+a');
+  await pause(page, 80);
+  await typeHuman(page, text, 36);
+  await pause(page, 220);
+  await page.keyboard.press('Escape');
+  await editor.waitFor({ state: 'hidden', timeout: 4000 }).catch(() => undefined);
+  await page.keyboard.press('v');
+  await pause(page, 160);
+  return true;
+}
+
+async function seatTextInBalloon(page) {
+  const textLayer = page.getByRole('treeitem', { name: /balloon text|text:/i }).last();
+  if (!(await textLayer.isVisible({ timeout: 800 }).catch(() => false))) return;
+  await selectLayer(page, /balloon text|text:/i, 'last');
+  await setSpin(page, 'x', 18);
+  await setSpin(page, 'y', 18);
+}
+
+async function placeDialogue(page, placement) {
+  await followPanel(page, placement.panel);
+  const map = await pageScreenMap(page);
+  const start = localToScreen(map, placement.panel, placement.localX, placement.localY);
+  const end = localToScreen(
+    map,
+    placement.panel,
+    placement.localX + placement.boxW,
+    placement.localY + placement.boxH,
+  );
+  const editor = page.getByRole('textbox', { name: /editing text/i });
+  let opened = false;
+  for (let attempt = 0; attempt < 3 && !opened; attempt++) {
+    await chooseTextTool(page);
+    await humanMove(page, start.x, start.y, 360);
+    await page.mouse.down();
+    await pause(page, 60);
+    await humanMove(page, end.x, end.y, 520);
+    await page.mouse.up();
+    opened = await editor
+      .waitFor({ state: 'visible', timeout: 2500 })
+      .then(() => true)
+      .catch(() => false);
+    if (!opened) {
+      await page.keyboard.press('Escape').catch(() => undefined);
+      await pause(page, 160);
+    }
+  }
+  if (!opened) {
+    throw new Error(`text box did not open at ${start.x.toFixed(1)},${start.y.toFixed(1)}`);
+  }
+  await pause(page, 140);
+  await typeHuman(page, placement.text, 38);
+  await pause(page, 240);
+  await page.keyboard.press('Escape');
+  await editor.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
+  await page.keyboard.press('v');
+  await pause(page, 160);
+  const snippet = placement.text.slice(0, 10).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await filterLayers(page, '');
+  const textLayer = page.getByRole('treeitem', { name: new RegExp(`text:.*${snippet}`, 'i') });
+  if (
+    await textLayer
+      .last()
+      .isVisible({ timeout: 1500 })
+      .catch(() => false)
+  ) {
+    await selectLayer(page, new RegExp(`text:.*${snippet}`, 'i'), 'last');
+  }
+  if (placement.fontSize) await setSpin(page, 'size', placement.fontSize);
+  if (
+    await textLayer
+      .last()
+      .isVisible({ timeout: 800 })
+      .catch(() => false)
+  ) {
+    await selectLayer(page, new RegExp(`text:.*${snippet}`, 'i'), 'last');
+  }
+  await wrapSelectedText(page, placement.query, placement.action);
+  await revealBalloon(page, placement.layer ?? /balloon/i);
+  if (PROBE) await dumpBalloon(page, `wrap-${placement.action.replace(/\s+/g, '-').toLowerCase()}`);
+  await editBalloonText(page, placement.text);
+  await revealBalloon(page, placement.layer ?? /balloon/i);
+  await seatTextInBalloon(page);
+  await revealBalloon(page, placement.layer ?? /balloon/i);
+  await clickInspectorButton(page, 'Fit balloon to text');
+  await pause(page, 360);
+  if (PROBE) await dumpBalloon(page, `fit-${placement.action.replace(/\s+/g, '-').toLowerCase()}`);
+}
+
 async function removeCaptionTail(page) {
   await revealBalloon(page, /caption balloon/i);
-  const section = page.getByRole('button', { name: /comic balloon/i });
-  if (await section.isVisible({ timeout: 1500 }).catch(() => false)) {
-    if ((await section.getAttribute('aria-expanded')) === 'false') await section.click();
+  let removed = await clickInspectorButton(page, 'Remove tail');
+  if (!removed) {
+    await revealBalloon(page, /caption balloon/i);
+    removed = await clickInspectorButton(page, 'Remove tail');
   }
-  await clickInspectorButton(page, 'Remove tail');
+  await filterLayers(page, 'caption');
+  const tail = page.getByRole('treeitem', { name: /balloon tail/i }).first();
+  const stillThere = await tail.isVisible({ timeout: 600 }).catch(() => false);
+  if (stillThere) {
+    await revealBalloon(page, /caption balloon/i);
+    await clickInspectorButton(page, 'Remove tail');
+  }
+  await filterLayers(page, 'caption');
+  const leftover = await page
+    .getByRole('treeitem', { name: /balloon tail/i })
+    .first()
+    .isVisible({ timeout: 500 })
+    .catch(() => false);
+  if (leftover) {
+    throw new Error('caption still has a Balloon tail after Remove tail');
+  }
   await filterLayers(page, '');
 }
 
-async function dragSelectedTail(page, map, placement) {
+async function dragSelectedTail(page, placement) {
   if (!placement.tailToward) return;
   await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
-  const tail = page.getByRole('treeitem', { name: /balloon tail|thought bubble/i }).first();
-  if (!(await tail.isVisible({ timeout: 2000 }).catch(() => false))) return;
-  await selectLayer(page, /balloon tail|thought bubble/i);
+  const tailPattern = placement.layer?.source.includes('thought')
+    ? /thought bubble/i
+    : /balloon tail/i;
+  const tails = page.getByRole('treeitem', { name: tailPattern });
+  if (
+    !(await tails
+      .first()
+      .isVisible({ timeout: 2000 })
+      .catch(() => false))
+  )
+    return;
+  await selectLayer(page, tailPattern, 'last');
+  const map = await pageScreenMap(page);
   const start = await page.evaluate(() => {
     const hooks = window.__varveIsoTest;
     const canvas = document.querySelector('.editor-canvas');
@@ -608,9 +783,13 @@ async function dragSelectedTail(page, map, placement) {
     } else if (shape?.kind === 'rect') {
       lx = (shape.x ?? 0) + (shape.w ?? 0) / 2;
       ly = (shape.y ?? 0) + (shape.h ?? 0);
+    } else if (shape?.kind === 'path' && Array.isArray(shape.points) && shape.points.length) {
+      const last = shape.points[shape.points.length - 1];
+      lx = last.x ?? 0;
+      ly = last.y ?? 0;
     } else {
-      lx = 0;
-      ly = 40;
+      lx = 16;
+      ly = 48;
     }
     const wx = matrix[0] * lx + matrix[2] * ly + matrix[4];
     const wy = matrix[1] * lx + matrix[3] * ly + matrix[5];
@@ -624,83 +803,63 @@ async function dragSelectedTail(page, map, placement) {
     placement.tailToward.localY,
   );
   const from =
-    start ?? localToScreen(map, placement.panel, placement.localX, placement.localY + 50);
-  await humanMove(page, from.x, from.y, 360);
+    start ?? localToScreen(map, placement.panel, placement.localX + 40, placement.localY + 70);
+  const selectionBefore = await page.evaluate(
+    () => window.__varveIsoTest?.getSelectionGeometry?.()?.[0]?.kind ?? null,
+  );
+  await humanMove(page, from.x, from.y, 320);
   await page.mouse.down();
-  await pause(page, 80);
-  await humanMove(page, end.x, end.y, 700);
-  await pause(page, 80);
+  await pause(page, 70);
+  await humanMove(page, end.x, end.y, 640);
+  await pause(page, 70);
   await page.mouse.up();
-  await pause(page, 360);
+  await pause(page, 280);
+  const selectionAfter = await page.evaluate(
+    () => window.__varveIsoTest?.getSelectionGeometry?.()?.[0] ?? null,
+  );
+  if (selectionAfter?.kind === 'frame' || /wall/i.test(selectionAfter?.id ?? '')) {
+    throw new Error(`tail drag promoted to ${JSON.stringify(selectionAfter)}`);
+  }
+  if (!selectionBefore) {
+    /* selection hook optional */
+  }
   await filterLayers(page, '');
 }
 
-async function demonstrateFit(page, map) {
-  await filterLayers(page, '');
+async function demonstrateFit(page) {
+  await followPanel(page, PLACEMENTS.speech.panel);
   const revealed = await revealBalloon(page, /speech balloon/i);
   if (!revealed) return;
-  const edit = page.getByRole('button', { name: 'Edit text', exact: true });
-  if (await edit.isVisible({ timeout: 1200 }).catch(() => false)) {
-    const box = await edit.boundingBox();
-    if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2, 260);
-    else await edit.click();
-    const editor = page.getByRole('textbox', { name: /editing text/i });
-    if (
-      await editor
-        .waitFor({ state: 'visible', timeout: 2500 })
-        .then(() => true)
-        .catch(() => false)
-    ) {
-      await page.keyboard.press('Control+a');
-      await pause(page, 120);
-      await typeHuman(page, 'Perfect! These came out just right!', 36);
-      await pause(page, 260);
-      await page.keyboard.press('Escape');
-      await editor.waitFor({ state: 'hidden', timeout: 4000 }).catch(() => undefined);
-    }
-  } else {
-    const canvasPoint = localToScreen(
-      map,
-      PLACEMENTS.speech.panel,
-      PLACEMENTS.speech.localX,
-      PLACEMENTS.speech.localY,
-    );
-    await humanMove(page, canvasPoint.x, canvasPoint.y, 280);
-    await page.mouse.dblclick(canvasPoint.x, canvasPoint.y);
-    const editor = page.getByRole('textbox', { name: /editing text/i });
-    if (await editor.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await page.keyboard.press('Control+a');
-      await typeHuman(page, 'Perfect! These came out just right!', 36);
-      await page.keyboard.press('Escape');
-    }
-  }
-  await page.keyboard.press('v');
-  await pause(page, 180);
+  await editBalloonText(page, 'Perfect! These came out just right!');
   await revealBalloon(page, /speech balloon/i);
   await clickInspectorButton(page, 'Fit balloon to text');
   await pause(page, 700);
 }
 
-async function letterPage(page, map, options = {}) {
+async function finishOnPage(page) {
+  await filterLayers(page, '');
+  await page.keyboard.press('Escape');
+  await blurChrome(page);
+  await page.keyboard.press('v');
+  await pause(page, 120);
+  await page.keyboard.press('Shift+Digit1');
+  await pause(page, 1200);
+}
+
+async function letterPage(page, options = {}) {
   const include = options.only ? [options.only] : ['caption', 'speech', 'shout', 'thought'];
   for (const key of include) {
     const placement = PLACEMENTS[key];
-    await placeDialogue(page, map, placement);
-    if (key === 'caption') {
-      await removeCaptionTail(page);
-      await clickInspectorButton(page, 'Fit balloon to text');
-    }
-    if (placement.tailToward) await dragSelectedTail(page, map, placement);
-    await pause(page, 420);
+    await placeDialogue(page, placement);
+    if (key === 'caption') await removeCaptionTail(page);
+    if (placement.tailToward) await dragSelectedTail(page, placement);
+    await pause(page, 360);
     if (PROBE) {
       await page.screenshot({ path: join(RAW_DIR, `probe-${key}.png`) });
     }
   }
-  if (!options.only) await demonstrateFit(page, map).catch(() => undefined);
-  await page.keyboard.press('Escape');
-  await page.mouse.click(24, 24).catch(() => undefined);
-  await page.keyboard.press('Shift+Digit1');
-  await pause(page, 900);
+  if (!options.only) await demonstrateFit(page).catch(() => undefined);
+  await finishOnPage(page);
 }
 
 function runFfmpeg(argv) {
@@ -782,37 +941,44 @@ async function encodeToWindow(input, output, minSec, maxSec, vf) {
   return probeDuration(output);
 }
 
-async function recordSession(browser, filePath, name, act) {
+async function recordSession(browser, filePath, name, act, size) {
   mkdirSync(RAW_DIR, { recursive: true });
+  const width = size?.width ?? 1920;
+  const height = size?.height ?? 1080;
   const context = await browser.newContext({
-    viewport: { width: VIEW_W, height: VIEW_H },
+    viewport: { width, height },
     deviceScaleFactor: 1,
-    recordVideo: { dir: RAW_DIR, size: { width: VIEW_W, height: VIEW_H } },
+    recordVideo: { dir: RAW_DIR, size: { width, height } },
   });
   const page = await context.newPage();
-  pointerByPage.set(page, { x: VIEW_W * 0.55, y: VIEW_H * 0.45 });
-  const openedAt = { ms: 0 };
+  pointerByPage.set(page, { x: width * 0.55, y: height * 0.45 });
+  const videoOrigin = Date.now();
   try {
     await openUnlettered(page, filePath);
-    openedAt.ms = Date.now();
+    await lockAllWalls(page);
     if (PROBE) {
-      mkdirSync(RAW_DIR, { recursive: true });
       const map = await pageScreenMap(page);
       await page.screenshot({ path: join(RAW_DIR, `${name}-open.png`), animations: 'disabled' });
       writeFileSync(join(RAW_DIR, `${name}-map.json`), `${JSON.stringify(map, null, 2)}\n`);
       await act(page, map);
       await page.screenshot({ path: join(RAW_DIR, `${name}-done.png`) });
-      return { raw: null, trimStart: 0 };
+      await context.close().catch(() => undefined);
+      return { raw: null, trimStart: 0, width, height };
     }
-    const map = await pageScreenMap(page);
-    await pause(page, 500);
+    await pageScreenMap(page);
+    await pause(page, 280);
     const contentStart = Date.now();
-    await act(page, map);
-    await pause(page, 800);
+    await act(page);
+    await pause(page, 900);
     const video = page.video();
     await context.close();
     const raw = await video.path();
-    return { raw, trimStart: Math.max(0, (contentStart - openedAt.ms) / 1000 - 0.35) };
+    return {
+      raw,
+      trimStart: Math.max(0, (contentStart - videoOrigin) / 1000),
+      width,
+      height,
+    };
   } catch (error) {
     await page
       .screenshot({ path: join(RAW_DIR, `${name}-error.png`), fullPage: true })
@@ -820,6 +986,18 @@ async function recordSession(browser, filePath, name, act) {
     await context.close().catch(() => undefined);
     throw error;
   }
+}
+
+async function writeWindowed(session, dest, minSec, maxSec) {
+  const trimmed = join(RAW_DIR, `${dest.split('/').pop()}-trimmed.mp4`);
+  await encodeMp4(session.raw, trimmed, [
+    '-ss',
+    session.trimStart.toFixed(2),
+    '-vf',
+    `scale=${session.width}:${session.height}:flags=lanczos`,
+  ]);
+  const duration = await encodeToWindow(trimmed, dest, minSec, maxSec);
+  return duration;
 }
 
 async function main() {
@@ -835,58 +1013,58 @@ async function main() {
   try {
     if (WANT_FULL || PROBE) {
       log('recording full lettering pass');
-      const session = await recordSession(browser, unlettered.path, 'full', async (page, map) => {
-        await letterPage(page, map);
-      });
+      const session = await recordSession(
+        browser,
+        unlettered.path,
+        'full',
+        async (page) => {
+          if (PROBE) await letterPage(page, { only: 'speech' });
+          else await letterPage(page);
+        },
+        { width: 1920, height: 1080 },
+      );
       if (session.raw) {
-        const trimmed = join(RAW_DIR, 'full-trimmed.mp4');
-        await encodeMp4(session.raw, trimmed, [
-          '-ss',
-          session.trimStart.toFixed(2),
-          '-vf',
-          `scale=${VIEW_W}:${VIEW_H}:flags=lanczos`,
-        ]);
         const dest = join(VIDEO_DIR, 'lettering-timelapse.mp4');
-        const duration = await encodeToWindow(trimmed, dest, 30, 45);
-        outputs.push({ path: dest, duration });
+        const duration = await writeWindowed(session, dest, 30, 45);
+        outputs.push({ path: dest, duration, width: 1920, height: 1080 });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
       }
     }
     if (WANT_LOOP && !PROBE) {
       log('recording balloon + tail loop');
-      const session = await recordSession(browser, unlettered.path, 'loop', async (page, map) => {
-        await placeDialogue(page, map, PLACEMENTS.speech);
-        await dragSelectedTail(page, map, PLACEMENTS.speech);
-        await pause(page, 700);
-      });
+      const session = await recordSession(
+        browser,
+        unlettered.path,
+        'loop',
+        async (page) => {
+          await placeDialogue(page, PLACEMENTS.speech);
+          await dragSelectedTail(page, PLACEMENTS.speech);
+          await pause(page, 800);
+        },
+        { width: 1920, height: 1080 },
+      );
       if (session.raw) {
-        const trimmed = join(RAW_DIR, 'loop-trimmed.mp4');
-        await encodeMp4(session.raw, trimmed, [
-          '-ss',
-          session.trimStart.toFixed(2),
-          '-vf',
-          `scale=${VIEW_W}:${VIEW_H}:flags=lanczos`,
-        ]);
         const dest = join(VIDEO_DIR, 'balloon-tail-loop.mp4');
-        const duration = await encodeToWindow(trimmed, dest, 6, 10);
-        outputs.push({ path: dest, duration });
+        const duration = await writeWindowed(session, dest, 6, 10);
+        outputs.push({ path: dest, duration, width: 1920, height: 1080 });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
       }
     }
-    if (WANT_FULL && !PROBE) {
-      const full = join(VIDEO_DIR, 'lettering-timelapse.mp4');
-      if (existsSync(full)) {
+    if (WANT_VERTICAL && !PROBE) {
+      log('recording 9:16 vertical lettering pass');
+      const session = await recordSession(
+        browser,
+        unlettered.path,
+        'vertical',
+        async (page) => {
+          await letterPage(page);
+        },
+        { width: 1080, height: 1920 },
+      );
+      if (session.raw) {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
-        const cropW = Math.floor((VIEW_H * 9) / 16 / 2) * 2;
-        const cropX = Math.floor((VIEW_W - cropW) / 2);
-        const duration = await encodeToWindow(
-          full,
-          dest,
-          15,
-          25,
-          `crop=${cropW}:${VIEW_H}:${cropX}:0,scale=${cropW}:${VIEW_H}:flags=lanczos`,
-        );
-        outputs.push({ path: dest, duration });
+        const duration = await writeWindowed(session, dest, 15, 25);
+        outputs.push({ path: dest, duration, width: 1080, height: 1920 });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
       }
     }
