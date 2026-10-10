@@ -411,6 +411,7 @@ test('reviewed promotion CLI replaces dirty normalize aggregate metadata without
   };
   const sourceFiles = [
     'scripts/screenshots/product.mjs',
+    'scripts/screenshots/variants.mjs',
     'scripts/screenshots/capture-safety.mjs',
     'scripts/screenshots/producer-capture.mjs',
     'scripts/screenshots/source-scenes.mjs',

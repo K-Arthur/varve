@@ -54,11 +54,9 @@ function writeFileAtomicSync(path, data) {
   renameSync(tmp, path);
 }
 
-function requireFfmpeg() {
+export function ffmpegAvailable() {
   const probe = spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' });
-  if (probe.status !== 0) {
-    throw new Error('ffmpeg is required to encode screenshot WebP/AVIF variants');
-  }
+  return probe.status === 0;
 }
 
 function encodeWithFfmpeg(pngBytes, { width, height, format }) {
@@ -85,8 +83,18 @@ function encodeWithFfmpeg(pngBytes, { width, height, format }) {
   }
 }
 
-export async function createVariantEncoder() {
-  requireFfmpeg();
+/**
+ * ffmpeg is required for a real encode. Capture-safety and pipeline-validate
+ * runners do not install it, so `{ required: false }` returns null and the
+ * caller keeps existing PNG-only records instead of failing the metadata path.
+ */
+export async function createVariantEncoder({ required = true } = {}) {
+  if (!ffmpegAvailable()) {
+    if (required) {
+      throw new Error('ffmpeg is required to encode screenshot WebP/AVIF variants');
+    }
+    return null;
+  }
   return {
     async encode(pngBytes, options) {
       return encodeWithFfmpeg(pngBytes, options);

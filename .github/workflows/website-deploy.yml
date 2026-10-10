@@ -437,35 +437,42 @@ jobs:
       - name: Smoke check the live deployment
         run: node scripts/website/smoke-pages.mjs "${{ steps.deployment.outputs.page_url }}" --expect-origin https://varve.studio
 
-      # Report-only: collect live Lighthouse numbers after the origin is
-      # reachable. Failures here must not roll back a successful deploy.
+  # Report-only live Lighthouse after a successful smoke check. This job
+  # checks out the trusted workflow ref and fetches https://varve.studio —
+  # it must not install or execute the deployed source_sha. Failures here
+  # must not roll back a successful deploy.
+  lighthouse-live:
+    name: Lighthouse report (live, non-blocking)
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    timeout-minutes: 15
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
-        if: success()
-        continue-on-error: true
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        if: success()
-        continue-on-error: true
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Lighthouse report dependencies
-        if: success()
-        continue-on-error: true
         run: pnpm install --frozen-lockfile
 
       - name: Install Chromium for Lighthouse
-        if: success()
-        continue-on-error: true
         run: pnpm exec playwright install chromium
 
       - name: Lighthouse report (live, non-blocking)
-        if: success()
-        continue-on-error: true
         env:
           LHCI_BASE_URL: https://varve.studio
           LHCI_FORM_FACTOR: mobile
@@ -480,10 +487,9 @@ jobs:
 
       - name: Upload live Lighthouse report
         if: always()
-        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: website-lighthouse-live-${{ needs.build.outputs.source_sha }}-${{ github.run_id }}
+          name: website-lighthouse-live-${{ github.sha }}-${{ github.run_id }}
           path: .lighthouseci/mobile/
           if-no-files-found: ignore
           retention-days: 14

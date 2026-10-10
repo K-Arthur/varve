@@ -30,6 +30,10 @@ const collect = {
     formFactor,
     preset: isDesktop ? 'desktop' : undefined,
     chromePath: process.env.CHROME_PATH || undefined,
+    // GitHub-hosted ubuntu-latest disables unprivileged user namespaces
+    // (AppArmor). Chromium then exits with "No usable sandbox" unless the
+    // process sandbox is turned off. LHCI is a measurement process.
+    chromeFlags: '--no-sandbox --disable-dev-shm-usage',
     onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo'],
   },
 };

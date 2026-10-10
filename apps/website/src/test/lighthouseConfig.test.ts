@@ -9,7 +9,11 @@ function loadConfig() {
   delete require.cache[configPath];
   return require(configPath) as {
     ci: {
-      collect: { url: string[]; staticDistDir?: string };
+      collect: {
+        url: string[];
+        staticDistDir?: string;
+        settings?: { chromeFlags?: string };
+      };
       assert?: {
         assertions: Record<string, [string, { minScore?: number; maxNumericValue?: number }]>;
         budgets?: unknown[];
@@ -45,6 +49,7 @@ describe('website Lighthouse CI config', () => {
         { minScore: 0.88 },
       ]);
       expect(config.ci.assert?.budgets).toHaveLength(1);
+      expect(config.ci.collect.settings?.chromeFlags).toContain('--no-sandbox');
     } finally {
       for (const [key, value] of Object.entries(previous)) {
         if (value === undefined) delete process.env[key];

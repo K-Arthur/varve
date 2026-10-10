@@ -50,9 +50,62 @@ import {
 import { analyseImage, buffersEqual, pngDimensions } from './lib/image-analysis.mjs';
 import { captureSourceIdentity, readProducerCaptureReceipt } from './producer-capture.mjs';
 import { SOURCE_SCENES } from './source-scenes.mjs';
-import { createVariantEncoder, removeSceneVariants, writeSceneVariants } from './variants.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+/**
+ * WebP/AVIF encoding is optional for metadata-only CLI paths. Isolated
+ * capture-safety fixtures copy this file without `variants.mjs`, and
+ * pipeline-validate runners do not install ffmpeg. A missing module or
+ * encoder must not fail `--normalize` / `--sync-reviewed`.
+ */
+async function loadVariantModule() {
+  try {
+    return await import(new URL('./variants.mjs', import.meta.url));
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'ERR_MODULE_NOT_FOUND'
+    ) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function skipVariantWrite(reason) {
+  console.warn(`skipping screenshot variants (${reason})`);
+}
+
+async function openVariantSupport() {
+  const variants = await loadVariantModule();
+  if (!variants) {
+    skipVariantWrite('variants.mjs not present');
+    return {
+      writeSceneVariants: async () => undefined,
+      removeSceneVariants: () => {},
+      close: async () => {},
+    };
+  }
+  const encoder = await variants.createVariantEncoder({ required: false });
+  if (!encoder) {
+    skipVariantWrite('ffmpeg not available');
+    return {
+      writeSceneVariants: async () => undefined,
+      removeSceneVariants: variants.removeSceneVariants,
+      close: async () => {},
+    };
+  }
+  return {
+    writeSceneVariants: (scene, bytes, dirs) =>
+      variants.writeSceneVariants(scene, bytes, dirs, encoder),
+    removeSceneVariants: variants.removeSceneVariants,
+    close: () => encoder.close(),
+  };
+}
+
 const args = process.argv.slice(2);
 const reviewFlag = args.indexOf('--review-dir');
 const reviewDir = reviewFlag < 0 ? undefined : args[reviewFlag + 1];
@@ -2199,23 +2252,24 @@ async function normalizeManifest() {
     manifest.scenes[scene.id] = next;
   }
 
-  const variantEncoder = await createVariantEncoder();
+  const variantSupport = await openVariantSupport();
   try {
     for (const [id, entry] of Object.entries(manifest.scenes)) {
       if (onlyScenes.size > 0 && !onlyScenes.has(id)) continue;
       if (entry.status !== 'captured' || !entry.file) continue;
       const pngPath = join(reviewDir ? OUT_DIR : PUBLIC_DIR, entry.file);
       if (!existsSync(pngPath)) continue;
-      entry.variants = await writeSceneVariants(
+      const nextVariants = await variantSupport.writeSceneVariants(
         entry,
         readFileSync(pngPath),
         reviewDir ? [OUT_DIR] : OUTPUT_DIRS,
-        variantEncoder,
       );
+      if (!nextVariants) continue;
+      entry.variants = nextVariants;
       changed++;
     }
   } finally {
-    await variantEncoder.close();
+    await variantSupport.close();
   }
   // Externally-produced scenes (plugin, tonal, comic) are not in SCENES, so
   // they never pass through `sceneKind`. Derive their kind from the measured
@@ -2350,7 +2404,7 @@ async function warmUp() {
 }
 
 await warmUp();
-const variantEncoder = await createVariantEncoder();
+const variantSupport = await openVariantSupport();
 
 try {
   for (const scene of SCENES) {
@@ -2473,7 +2527,13 @@ try {
       entry.kind = sceneKind({ ...scene, clip: scene.clip ?? clip });
       entry.width = dims.width;
       entry.height = dims.height;
-      entry.variants = await writeSceneVariants(entry, shot, OUTPUT_DIRS, variantEncoder);
+      const capturedVariants = await variantSupport.writeSceneVariants(entry, shot, OUTPUT_DIRS);
+      if (capturedVariants) {
+        entry.variants = capturedVariants;
+      } else if (entry.variants) {
+        variantSupport.removeSceneVariants(entry, OUTPUT_DIRS);
+        entry.variants = undefined;
+      }
       entry.status = 'captured';
       entry.reason = undefined;
       entry.source = undefined;
@@ -2523,7 +2583,7 @@ try {
       for (const dir of OUTPUT_DIRS) {
         rmSync(join(dir, scene.file), { force: true });
       }
-      removeSceneVariants(entry, OUTPUT_DIRS);
+      variantSupport.removeSceneVariants(entry, OUTPUT_DIRS);
       entry.variants = undefined;
       console.error(`SKIPPED ${scene.id}: ${entry.reason}`);
       // A skip reports the text it gave up on, which is rarely enough to tell
@@ -2645,12 +2705,12 @@ try {
       viewport: source.viewport ? { ...source.viewport } : undefined,
       ...provenance,
     };
-    nextSource.variants = await writeSceneVariants(
+    const sourceVariants = await variantSupport.writeSceneVariants(
       nextSource,
       bytes,
       reviewDir ? [OUT_DIR] : OUTPUT_DIRS,
-      variantEncoder,
     );
+    if (sourceVariants) nextSource.variants = sourceVariants;
     manifest.scenes[source.id] = nextSource;
   }
 
@@ -2689,7 +2749,7 @@ try {
   writeFileAtomicSync(OUTPUT_MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`manifest written: ${OUTPUT_MANIFEST}`);
 } finally {
-  await variantEncoder.close();
+  await variantSupport.close();
   await stopServer(server);
   await browser.close();
 }
