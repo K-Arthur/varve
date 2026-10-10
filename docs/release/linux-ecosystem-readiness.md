@@ -8,8 +8,8 @@
 
 The v0.5.0 release currently publishes direct AppImage, DEB, and RPM
 downloads. The local AUR package definition now targets the published v0.5.0
-x86_64 AppImage and passes source-checksum verification, but has not been
-submitted to AUR. The Flatpak manifest remains an intentional failing stub;
+x86_64 and aarch64 AppImages and passes source-checksum verification, but
+has not been submitted to AUR. The Flatpak manifest remains an intentional failing stub;
 generated Cargo/pnpm source inventories are present but are not wired into it.
 
 ---
@@ -20,7 +20,7 @@ generated Cargo/pnpm source inventories are present but are not wired into it.
 |---|---|
 | **Eligibility** | Ready — Arch allows any registered user to publish. No approval gate. |
 | **License constraint** | `LicenseRef-FSL-1.1-MIT` is valid SPDX custom syntax; Arch makepkg ≥ 6.1 accepts it. The license text is now shipped under `/usr/share/licenses/varve-desktop-bin/LICENSE`. |
-| **Technical prerequisites** | The local `PKGBUILD` + `.SRCINFO` target the v0.5.0 x86_64 AppImage; `makepkg --verifysource` passed against the published SHA-256. No AUR package has been submitted. Publishing requires an AUR account and `aur.git` access. |
+| **Technical prerequisites** | The local `PKGBUILD` + `.SRCINFO` target the v0.5.0 x86_64 and aarch64 AppImages; `makepkg --verifysource` passed against the published SHA-256 values. No AUR package has been submitted. Publishing requires an AUR account and `aur.git` access. |
 | **AI can prepare** | The local package files and release checksum are prepared. Recheck the published `SHA256SUMS.txt` and regenerate `.SRCINFO` after each release. |
 | **Human must do** | (1) Create AUR account (identity verification, requires real name/email). (2) Initialize `aur.git` repo. (3) Push `PKGBUILD` + `.SRCINFO`. |
 | **Maintenance cost** | Low — bump `pkgver` + `sha256sums` per release. A future CI script can automate the diff. |
@@ -40,8 +40,9 @@ git add PKGBUILD .SRCINFO
 git commit -m "varve-desktop-bin 0.5.0"
 git push
 
-# 3. After each release, update pkgver + sha256sums:
-#    sha256sums=('abc123...')
+# 3. After each release, update pkgver + per-arch sha256sums:
+#    sha256sums_x86_64=('abc123...')
+#    sha256sums_aarch64=('def456...')
 #    updpkgsums  (if paru is available)
 #    makepkg --verifysource
 ```
@@ -164,7 +165,7 @@ and [security guidance](https://docs.brew.sh/Homebrew-Security-and-Supply-Chain)
 
 | Channel | Status | Blocker | Next step | When |
 |---|---|---|---|---|
-| **AUR** | Prepared locally for v0.5.0 x86_64; not published | AUR account and push access | Human review, then submit if desired | No release date set |
+| **AUR** | Prepared locally for v0.5.0 x86_64 and aarch64; not published | AUR account and push access | Human review, then submit if desired | No release date set |
 | **Flathub** | Not buildable; eligibility is unconfirmed under the current disclosure/reviewer policy | Complete and validate the human-authored manifest; disclose AI-assisted content and obtain a reviewer decision | Decide whether to pursue after technical qualification | No release date set |
 | **Snap** | Rejected | Confinement vs. print/fonts | — | — |
 | **winget** | Not submitted; Windows release workflow qualification exists, installer remains unsigned | Human-authored manifest and repository review | Decide whether to submit | No release date set |
