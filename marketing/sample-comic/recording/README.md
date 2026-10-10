@@ -22,9 +22,10 @@ Writes:
   tail is scrubbed out and back on the open page so the first and last
   frames match (10-12s).
 
-Cursor paths are eased beziers at human speed. Typing is 8-12 characters
-per second. Camera zooms and pans with the wheel and Space-hand instead
-of jumping to Fit selection.
+Cursor paths are eased beziers at human speed, and a visible arrow overlay
+is driven from the recorder so the take does not look like phantom clicks.
+Typing is 8-12 characters per second. Camera zooms and pans with animated
+Fit selection, then back out to the page.
 
 `--probe` letters only the speech balloon, dumps wrap/bind JSON, and writes
 screenshots under `.tmp/`.

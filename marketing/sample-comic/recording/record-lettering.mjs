@@ -266,39 +266,86 @@ async function stopServer(child) {
 }
 
 const CURSOR_BOOT = `(() => {
-  if (window.__varveMarketingCursor) return;
-  window.__varveMarketingCursor = true;
-  const style = document.createElement('style');
-  style.textContent = \`
+  const STYLE_ID = 'varve-marketing-cursor-style';
+  const NODE_ID = 'varve-marketing-cursor';
+  const css = \`
     html, body, * { cursor: none !important; }
     vite-error-overlay, #webpack-dev-server-client-overlay,
     #webpack-dev-server-client-overlay-div { display: none !important; }
-    #varve-marketing-cursor {
+    #varve-marketing-cursor,
+    #varve-marketing-cursor:popover-open {
       position: fixed;
+      inset: unset;
       left: 0;
       top: 0;
-      width: 28px;
-      height: 28px;
+      width: 40px;
+      height: 40px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      overflow: visible;
       pointer-events: none;
       z-index: 2147483646;
-      transform: translate(-40px, -40px);
-      filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35));
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45));
     }
   \`;
-  const cursor = document.createElement('div');
-  cursor.id = 'varve-marketing-cursor';
-  cursor.setAttribute('aria-hidden', 'true');
-  cursor.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 3.2L22.4 14.1L13.7 15.6L10.8 24.2L4 3.2Z" fill="#111111" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"/></svg>';
-  const mount = () => {
-    if (!document.head.contains(style)) document.head.appendChild(style);
-    if (!document.documentElement.contains(cursor)) document.documentElement.appendChild(cursor);
+  const svg =
+    '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 4.2L32.2 20.4L19.4 22.6L15.2 35.6L5 4.2Z" fill="#111111" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/></svg>';
+  const ensure = () => {
+    let style = document.getElementById(STYLE_ID);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = STYLE_ID;
+      style.textContent = css;
+    }
+    if (style.parentNode !== document.documentElement) {
+      document.documentElement.appendChild(style);
+    }
+    let cursor = document.getElementById(NODE_ID);
+    if (!cursor) {
+      cursor = document.createElement('div');
+      cursor.id = NODE_ID;
+      cursor.setAttribute('aria-hidden', 'true');
+      cursor.innerHTML = svg;
+    }
+    if (cursor.parentNode !== document.documentElement) {
+      document.documentElement.appendChild(cursor);
+    }
+    if (typeof cursor.showPopover === 'function') {
+      cursor.setAttribute('popover', 'manual');
+      try {
+        cursor.showPopover();
+      } catch {
+        /* already open */
+      }
+    }
+    return cursor;
   };
-  const move = (event) => {
-    cursor.style.transform = 'translate(' + (event.clientX - 4) + 'px,' + (event.clientY - 3) + 'px)';
+  window.__varveSetCursor = (x, y) => {
+    const cursor = ensure();
+    cursor.style.transform = 'translate(' + (x - 5) + 'px,' + (y - 4) + 'px)';
+    window.__varveCursorPos = { x: x, y: y };
   };
-  mount();
-  document.addEventListener('mousemove', move, true);
-  new MutationObserver(mount).observe(document.documentElement, { childList: true, subtree: true });
+  if (!window.__varveMarketingCursor) {
+    window.__varveMarketingCursor = true;
+    document.addEventListener(
+      'mousemove',
+      (event) => {
+        window.__varveSetCursor(event.clientX, event.clientY);
+      },
+      true,
+    );
+    new MutationObserver(() => {
+      ensure();
+      const pos = window.__varveCursorPos;
+      if (pos) window.__varveSetCursor(pos.x, pos.y);
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+  ensure();
+  if (window.__varveCursorPos) {
+    window.__varveSetCursor(window.__varveCursorPos.x, window.__varveCursorPos.y);
+  }
 })()`;
 
 const STORAGE_BOOT = `(() => {
@@ -357,6 +404,25 @@ async function dismissNoise(page) {
   }
 }
 
+async function syncCursor(page, x, y) {
+  await page
+    .evaluate(
+      (pos) => {
+        if (typeof window.__varveSetCursor === 'function') {
+          window.__varveSetCursor(pos.x, pos.y);
+        }
+      },
+      { x, y },
+    )
+    .catch(() => undefined);
+}
+
+async function ensureMarketingCursor(page) {
+  await page.evaluate(CURSOR_BOOT).catch(() => undefined);
+  const last = pointerByPage.get(page);
+  if (last) await syncCursor(page, last.x, last.y);
+}
+
 async function humanMove(page, x, y) {
   const last = pointerByPage.get(page) ?? { x: 480, y: 420 };
   const dx = x - last.x;
@@ -364,6 +430,7 @@ async function humanMove(page, x, y) {
   const dist = Math.hypot(dx, dy);
   if (dist < 2) {
     await page.mouse.move(x, y);
+    await syncCursor(page, x, y);
     pointerByPage.set(page, { x, y });
     return;
   }
@@ -391,17 +458,22 @@ async function humanMove(page, x, y) {
     const t = easeInOutCubic(i / steps);
     const pt = cubicBezier(p0, p1, p2, end, t);
     await page.mouse.move(pt.x, pt.y);
+    await syncCursor(page, pt.x, pt.y);
     await page.waitForTimeout(16);
   }
   if (overshoot) {
     const settle = Math.max(5, Math.round(randBetween(90, 160) / 16));
     for (let i = 1; i <= settle; i++) {
       const t = easeInOutCubic(i / settle);
-      await page.mouse.move(ox + (x - ox) * t, oy + (y - oy) * t);
+      const sx = ox + (x - ox) * t;
+      const sy = oy + (y - oy) * t;
+      await page.mouse.move(sx, sy);
+      await syncCursor(page, sx, sy);
       await page.waitForTimeout(16);
     }
   }
   await page.mouse.move(x, y);
+  await syncCursor(page, x, y);
   pointerByPage.set(page, { x, y });
 }
 
@@ -602,7 +674,9 @@ async function setSidePanel(page, which, visible) {
         : /hide inspector panel/i;
     const fab = page.getByRole('button', { name }).first();
     if (await fab.isVisible({ timeout: 400 }).catch(() => false)) {
-      await fab.click();
+      const box = await fab.boundingBox();
+      if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2);
+      else await fab.click();
       await pause(page, 180);
     }
   }
@@ -680,6 +754,7 @@ async function openUnlettered(page, filePath) {
   await page.waitForTimeout(700);
   await page.keyboard.press('v');
   await page.waitForTimeout(160);
+  await ensureMarketingCursor(page);
 }
 
 async function layerNames(page) {
@@ -1585,6 +1660,7 @@ async function recordSession(browser, filePath, name, act, size, prepare) {
     await openUnlettered(page, filePath);
     await lockAllWalls(page);
     if (prepare) await prepare(page);
+    await ensureMarketingCursor(page);
     if (PROBE) {
       const map = await pageScreenMap(page);
       await page.screenshot({ path: join(RAW_DIR, `${name}-open.png`), animations: 'disabled' });
