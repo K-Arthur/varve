@@ -489,6 +489,12 @@ export const SHORTCUT_DEFS = {
     label: 'Quick Actions',
     category: 'View',
   },
+  quickActionsAlt: {
+    // Ctrl+K alias for Quick Actions (familiar from VS Code / other editors)
+    binding: { key: 'k', ctrl: true },
+    label: 'Quick Actions (Ctrl+K)',
+    category: 'View',
+  },
   openFontsPanel: {
     binding: { key: 'f', ctrl: true, alt: true },
     label: 'Open Fonts Panel',
