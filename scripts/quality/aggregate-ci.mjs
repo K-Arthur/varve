@@ -48,14 +48,15 @@ function laneBelongsToCategory(lane, category) {
   if (category === 'js')
     return (
       lane.startsWith('js-unit:') ||
-      lane.startsWith('typecheck:') ||
+      (lane.startsWith('typecheck:') && lane !== 'typecheck:e2e') ||
       lane === 'lint:all' ||
       lane === 'audit:tokens'
     );
   if (category === 'rust')
     return lane.startsWith('rust-test:') || lane.startsWith('rust-clippy:') || lane === 'cargo-fmt';
   if (category === 'website') return lane === 'website-unit' || lane === 'website-e2e';
-  if (category === 'e2e') return lane.startsWith('e2e:') && lane !== 'e2e:visual';
+  if (category === 'e2e')
+    return lane === 'typecheck:e2e' || (lane.startsWith('e2e:') && lane !== 'e2e:visual');
   if (category === 'visual') return lane === 'e2e:visual';
   if (category === 'desktop') return lane === 'desktop-native';
   if (category === 'models') return lane === 'models';

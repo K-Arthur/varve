@@ -136,8 +136,17 @@ function lanesForCategory(plan, category) {
     );
   if (category === 'website')
     return [...selected].filter((lane) => lane === 'website-unit' || lane === 'website-e2e');
-  if (category === 'e2e')
-    return [...selected].filter((lane) => lane.startsWith('e2e:') && lane !== 'e2e:visual');
+  if (category === 'e2e') {
+    const lanes = [...selected].filter(
+      (lane) => lane === 'typecheck:e2e' || (lane.startsWith('e2e:') && lane !== 'e2e:visual'),
+    );
+    lanes.sort((left, right) => {
+      if (left === 'typecheck:e2e') return -1;
+      if (right === 'typecheck:e2e') return 1;
+      return left.localeCompare(right);
+    });
+    return lanes;
+  }
   if (category === 'visual') return [...selected].filter((lane) => lane === 'e2e:visual');
   if (category === 'desktop') return [...selected].filter((lane) => lane === 'desktop-native');
   if (category === 'models') return [...selected].filter((lane) => lane === 'models');
@@ -153,6 +162,10 @@ export function commandsForCategory(plan, category, { shard = null } = {}) {
     // that full lane once in the first cell of a broad matrix; other cells
     // still certify their assigned e2e:all cases.
     if (lane === 'e2e:demo-dist' && shard && Number(shard.split('/')[0]) !== 1) continue;
+    // Playwright cells are sharded; the e2e compiler is not. Run it once with
+    // the first cell so later shards do not pay for the same tsc and so the
+    // union of receipts still covers the selected lane.
+    if (lane === 'typecheck:e2e' && shard && Number(shard.split('/')[0]) !== 1) continue;
     const argv = e2eArgv(lane, shard) ?? laneArgv(lane, { files: plan.files ?? [] });
     if (!argv) throw new Error(`no executable command for selected ${category} lane '${lane}'`);
     if (lane.startsWith('e2e:') || lane === 'website-e2e')

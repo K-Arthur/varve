@@ -184,6 +184,29 @@ const wrongTree = validateExecutionEvidence({
   plan: strictPlan,
 });
 assert.equal(wrongTree.passed, false, 'a report from another tree cannot certify the plan');
+const jsWithE2eCompiler = {
+  ...strictPlan,
+  categories: { ...strictPlan.categories, js: true },
+  selectedLanes: [
+    ...strictPlan.selectedLanes,
+    'js-unit:@varve/ui',
+    'typecheck:@varve/ui',
+    'typecheck:e2e',
+  ],
+};
+const jsReport = {
+  ...pipelineExecution,
+  category: 'js',
+  executedLanes: ['js-unit:@varve/ui', 'typecheck:@varve/ui'],
+};
+assert.equal(
+  validateExecutionEvidence({
+    reports: [pipelineExecution, jsReport],
+    plan: jsWithE2eCompiler,
+  }).passed,
+  true,
+  'typecheck:e2e is an e2e-job lane and must not be demanded from JS',
+);
 const e2ePlan = {
   ...strictPlan,
   categories: { ...strictPlan.categories, pipeline: false, e2e: true },
