@@ -410,6 +410,10 @@ async function pause(page, ms) {
 }
 
 async function think(page, min = 250, max = 700) {
+  if (compactByPage.get(page)) {
+    min = Math.max(180, Math.min(min, 280));
+    max = Math.max(min + 40, Math.min(max, 480));
+  }
   await pause(page, randBetween(min, max));
 }
 
@@ -455,7 +459,7 @@ async function clickStatusButton(page, name) {
   const box = await button.boundingBox();
   if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2);
   else await button.click();
-  await beat(page, 700, 1100);
+  await beat(page, 480, 820);
   return true;
 }
 
@@ -524,7 +528,7 @@ async function easeCameraToPanel(page, panelIndex) {
   }
   const zoom = await currentZoom(page);
   log(`camera panel ${panelIndex + 1} zoom=${zoom.toFixed(2)}`);
-  if (zoom > 2.4) {
+  if (zoom > 3.4) {
     await clickStatusButton(page, /fit all to viewport/i);
     const retry = await pageScreenMap(page);
     const again = localToScreen(retry, panelIndex, PANEL_W / 2, PANEL_H / 2);
@@ -536,7 +540,7 @@ async function easeCameraToPanel(page, panelIndex) {
     await wheelZoomToward(page, aim.x, aim.y, 1.65);
     log(`camera panel ${panelIndex + 1} nudged zoom=${(await currentZoom(page)).toFixed(2)}`);
   }
-  await beat(page, 280, 520);
+  await beat(page, 240, 420);
 }
 
 async function easeCameraToPage(page) {
@@ -918,6 +922,11 @@ async function wrapSelectedText(page, query, actionName) {
 
 async function followPanel(page, panelIndex) {
   await easeCameraToPanel(page, panelIndex);
+  const zoom = await currentZoom(page);
+  if (zoom >= 1.15 && zoom <= 3.4) {
+    if (compactByPage.get(page)) await hideSidePanels(page);
+    return;
+  }
   const map = await pageScreenMap(page);
   const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
   const view = page.viewportSize() ?? { width: 1920, height: 1080 };
@@ -1157,10 +1166,24 @@ async function placeDialogue(page, placement) {
   if (compactByPage.get(page)) {
     await ensureInspector(page);
     await wrapSelectedText(page, placement.query, placement.action);
-    await beat(page, 480, 820);
+    await beat(page, 420, 700);
     const map = await pageScreenMap(page);
     const body = localToScreen(map, placement.panel, placement.localX + 36, placement.localY + 22);
     await clickAt(page, body.x, body.y);
+    await openComicSection(page);
+    if (placement.action.includes('Caption')) {
+      await clickInspectorButton(page, 'Remove tail');
+      await beat(page, 320, 560);
+    } else if (placement.tailToward) {
+      const startX = (await readSpin(page, 'tail x')) ?? 40;
+      const startY = (await readSpin(page, 'tail y')) ?? 80;
+      const tailX = Math.round(placement.tailToward.localX - placement.localX);
+      const tailY = Math.round(placement.tailToward.localY - placement.localY);
+      log(`tail aim ${startX},${startY} -> ${tailX},${tailY}`);
+      await scrubSpin(page, 'tail x', tailX - startX);
+      if (Math.abs(tailY - startY) > 8) await scrubSpin(page, 'tail y', tailY - startY);
+      await beat(page, 320, 560);
+    }
     await hideSidePanels(page);
     return;
   }
@@ -1366,7 +1389,7 @@ async function finishOnPage(page) {
   await page.keyboard.press('v');
   await think(page, 180, 320);
   await easeCameraToPage(page);
-  await beat(page, 1600, 2400);
+  await beat(page, compactByPage.get(page) ? 900 : 1600, compactByPage.get(page) ? 1400 : 2400);
 }
 
 async function letterPage(page, options = {}) {
@@ -1375,15 +1398,13 @@ async function letterPage(page, options = {}) {
   for (const key of include) {
     const placement = PLACEMENTS[key];
     await placeDialogue(page, placement);
-    if (key === 'caption') {
-      if (compactByPage.get(page)) await ensureInspector(page);
+    if (!compactByPage.get(page) && key === 'caption') {
       await removeCaptionTail(page);
-      if (compactByPage.get(page)) await hideSidePanels(page);
       await beat(page, 420, 720);
     }
-    if (placement.tailToward) await dragSelectedTail(page, placement);
+    if (!compactByPage.get(page) && placement.tailToward) await dragSelectedTail(page, placement);
     if (compactByPage.get(page)) await hideSidePanels(page);
-    await beat(page, 380, 700);
+    await beat(page, compactByPage.get(page) ? 280 : 380, compactByPage.get(page) ? 480 : 700);
     if (PROBE) {
       await page.screenshot({ path: join(RAW_DIR, `probe-${key}.png`) });
     }
