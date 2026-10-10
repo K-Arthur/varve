@@ -412,6 +412,10 @@ describe('website page styling', () => {
     expect(withoutLayout).toEqual([]);
   });
 
+  it('does not emit frame-ancestors in the meta CSP', () => {
+    expect(read('layouts/Layout.astro')).not.toMatch(/["']frame-ancestors/);
+  });
+
   it('pages/components/layouts contain no legacy or hardcoded colors', () => {
     const targets = [
       ...pageFiles.map((f) => `pages/${f}`),

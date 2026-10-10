@@ -182,7 +182,10 @@ const csp = [
   "img-src 'self' data:",
   `connect-src 'self'${analyticsDomain ? ` https://${analyticsDomain}` : ''}`,
   "font-src 'self'",
-  "frame-ancestors 'none'",
+  // frame-ancestors is ignored in a <meta> CSP and Chromium logs a console
+  // error that costs Lighthouse Best Practices. Clickjacking protection
+  // needs a Content-Security-Policy header from a header-capable host
+  // (GitHub Pages cannot set response headers).
   "base-uri 'self'",
   "form-action 'self'",
 ].join('; ');

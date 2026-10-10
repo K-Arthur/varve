@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getScene, sceneFitStyle, sceneKind, scenePicture } from '../lib/screenshot';
+import { getScene, qualifySrcset, sceneFitStyle, sceneKind, scenePicture } from '../lib/screenshot';
 
 /**
  * The website's fit policy, in isolation.
@@ -64,15 +64,36 @@ describe('screenshot fit policy', () => {
       width: 1440,
       height: 900,
       kind: 'full',
-      variants: [{ file: 'wide-720.webp', width: 720, height: 450 }],
+      variants: [
+        { file: 'wide-720.webp', width: 720, height: 450 },
+        { file: 'wide-1440.webp', width: 1440, height: 900 },
+        { file: 'wide-720.avif', width: 720, height: 450 },
+        { file: 'wide-1440.avif', width: 1440, height: 900 },
+      ],
     });
     const attributes = scenePicture(withVariants, { sizes: '50vw' });
-    expect(attributes.srcset).toBe('/screenshots/wide-720.webp 720w, /screenshots/wide.png 1440w');
+    expect(attributes.sources).toEqual([
+      {
+        type: 'image/avif',
+        srcset: '/screenshots/wide-720.avif 720w, /screenshots/wide-1440.avif 1440w',
+        sizes: '50vw',
+      },
+      {
+        type: 'image/webp',
+        srcset: '/screenshots/wide-720.webp 720w, /screenshots/wide-1440.webp 1440w',
+        sizes: '50vw',
+      },
+    ]);
+    expect(attributes.srcset).toBe(
+      '/screenshots/wide-720.webp 720w, /screenshots/wide-1440.webp 1440w',
+    );
     expect(attributes.sizes).toBe('50vw');
+    expect(attributes.src).toBe('/screenshots/wide.png');
 
     const withoutVariants = scene({ file: 'plain.png', width: 1440, height: 900, kind: 'full' });
     const plain = scenePicture(withoutVariants);
-    // No variants: one file, no srcset, so the browser downloads exactly one.
+    // No variants: one file, no sources, so the browser downloads exactly one.
+    expect(plain.sources).toEqual([]);
     expect(plain.srcset).toBeUndefined();
     expect(plain.sizes).toBeUndefined();
     expect(plain.src).toBe('/screenshots/plain.png');
@@ -88,6 +109,14 @@ describe('screenshot fit policy', () => {
     });
     const attributes = scenePicture(oversized);
     expect(attributes.srcset).toBeUndefined();
+  });
+
+  it('prefixes every srcset URL with the site base', () => {
+    expect(
+      qualifySrcset('/screenshots/wide-720.webp 720w, /screenshots/wide-1440.webp 1440w', (url) =>
+        url.replace(/^\//, '/varve/'),
+      ),
+    ).toBe('/varve/screenshots/wide-720.webp 720w, /varve/screenshots/wide-1440.webp 1440w');
   });
 
   it('resolves only captured scenes by id', () => {

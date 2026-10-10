@@ -1,0 +1,75 @@
+name: Website Lighthouse
+
+on:
+  pull_request:
+    paths:
+      - 'apps/website/**'
+      - 'packages/ui/**'
+      - 'packages/shared/**'
+      - '.github/workflows/website-lighthouse.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-lighthouse-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PNPM_VERSION: '11.9.0'
+  NODE_VERSION: '26.10.0'
+
+jobs:
+  lighthouse:
+    name: Lighthouse CI (${{ matrix.formFactor }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        formFactor: [mobile, desktop]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies (frozen)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build website
+        run: pnpm build:website
+
+      - name: Install Chromium for Lighthouse
+        run: pnpm exec playwright install chromium
+
+      - name: Run Lighthouse CI
+        env:
+          LHCI_FORM_FACTOR: ${{ matrix.formFactor }}
+          LHCI_NUMBER_OF_RUNS: '1'
+        run: |
+          export CHROME_PATH
+          CHROME_PATH="$(node -e "const {chromium}=require('playwright'); console.log(chromium.executablePath())")"
+          test -n "$CHROME_PATH"
+          test -x "$CHROME_PATH"
+          npx --yes @lhci/cli@0.15.1 autorun --config=apps/website/lighthouserc.cjs
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: website-lighthouse-${{ matrix.formFactor }}-${{ github.sha }}-${{ github.run_id }}
+          path: .lighthouseci/${{ matrix.formFactor }}/
+          if-no-files-found: ignore
+          retention-days: 14

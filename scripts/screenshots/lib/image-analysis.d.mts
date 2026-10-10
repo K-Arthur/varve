@@ -47,8 +47,17 @@ export interface WebpInfo {
 
 export declare function readWebpInfo(buf: Buffer): WebpInfo | null;
 
+export interface AvifInfo {
+  format: 'avif';
+  width: number;
+  height: number;
+  truncated: boolean;
+}
+
+export declare function readAvifInfo(buf: Buffer): AvifInfo | null;
+
 export interface ImageAnalysis extends PngAnalysis {
-  format: 'png' | 'webp' | null;
+  format: 'png' | 'webp' | 'avif' | null;
 }
 
 export declare function analyseImage(

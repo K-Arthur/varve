@@ -31,7 +31,7 @@ function linkClass(href: string): string[] {
 
 <header class="site-header" data-site-header>
   <nav class="site-nav" aria-label="Main">
-    <a href={sitePath('/')} class="site-logo" aria-label="Varve home">
+    <a href={sitePath('/')} class="site-logo">
       <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path class="logo-varve-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
         <path class="logo-varve-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
@@ -39,6 +39,7 @@ function linkClass(href: string): string[] {
       </svg>
       <span class="site-logo-text">Varve</span>
       {versionLabel && <span class="site-version">{versionLabel}</span>}
+      <span class="sr-only"> home</span>
     </a>
 
     <ul class="nav-links" id="site-nav-links">
@@ -148,13 +149,14 @@ function linkClass(href: string): string[] {
   <div class="mobile-nav-sheet">
     <h2 class="sr-only" id="mobile-nav-title">Site navigation</h2>
     <div class="mobile-nav-header">
-      <a href={sitePath('/')} class="mobile-nav-logo" aria-label="Varve home">
+      <a href={sitePath('/')} class="mobile-nav-logo">
         <svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true">
           <path class="logo-varve-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
           <path class="logo-varve-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
           <path class="logo-varve-3" d="M10,20.5 H26 L28.5,26.5 H12.5 Z" />
         </svg>
         <span>Varve</span>
+        <span class="sr-only"> home</span>
       </a>
       <div class="mobile-nav-header-actions">
         <div class="mobile-theme-toggle"><ThemeToggle /></div>

@@ -207,7 +207,7 @@ describe('screenshot manifest', () => {
       path.join(ROOT, 'lib', 'screenshot.test.ts'),
       path.join(ROOT, 'pages', 'product.astro'),
     ]);
-    const literal = /\/screenshots\/([a-z0-9-]+\.(?:png|webp|webm|mp4))/g;
+    const literal = /\/screenshots\/([a-z0-9-]+\.(?:png|webp|avif|webm|mp4))/g;
     const dirs = ['components', 'layouts', 'pages', 'lib'];
     const walk = (dir: string): string[] =>
       fs

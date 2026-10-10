@@ -50,6 +50,7 @@ import {
 import { analyseImage, buffersEqual, pngDimensions } from './lib/image-analysis.mjs';
 import { captureSourceIdentity, readProducerCaptureReceipt } from './producer-capture.mjs';
 import { SOURCE_SCENES } from './source-scenes.mjs';
+import { createVariantEncoder, removeSceneVariants, writeSceneVariants } from './variants.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const args = process.argv.slice(2);
@@ -2142,7 +2143,7 @@ const skippedThisRun = [];
  *     not capture, and instead marks them `provenanceUnknown: true` so a
  *     legacy record is honest rather than backfilled with a guessed revision.
  */
-function normalizeManifest() {
+async function normalizeManifest() {
   let changed = 0;
   for (const scene of SCENES) {
     if (onlyScenes.size > 0 && !onlyScenes.has(scene.id)) continue;
@@ -2196,6 +2197,25 @@ function normalizeManifest() {
     if (!entry.capturedAt && !entry.lastValidatedAgainst) next.provenanceUnknown = true;
     if (JSON.stringify(next) !== JSON.stringify(entry)) changed++;
     manifest.scenes[scene.id] = next;
+  }
+
+  const variantEncoder = await createVariantEncoder();
+  try {
+    for (const [id, entry] of Object.entries(manifest.scenes)) {
+      if (onlyScenes.size > 0 && !onlyScenes.has(id)) continue;
+      if (entry.status !== 'captured' || !entry.file) continue;
+      const pngPath = join(reviewDir ? OUT_DIR : PUBLIC_DIR, entry.file);
+      if (!existsSync(pngPath)) continue;
+      entry.variants = await writeSceneVariants(
+        entry,
+        readFileSync(pngPath),
+        reviewDir ? [OUT_DIR] : OUTPUT_DIRS,
+        variantEncoder,
+      );
+      changed++;
+    }
+  } finally {
+    await variantEncoder.close();
   }
   // Externally-produced scenes (plugin, tonal, comic) are not in SCENES, so
   // they never pass through `sceneKind`. Derive their kind from the measured
@@ -2279,7 +2299,7 @@ function normalizeManifest() {
   process.exit(failures > 0 ? 1 : 0);
 }
 
-if (args.includes('--normalize')) normalizeManifest();
+if (args.includes('--normalize')) await normalizeManifest();
 
 /**
  * Chromium exposes `navigator.gpu` on a secure context by default, but with no
@@ -2330,6 +2350,7 @@ async function warmUp() {
 }
 
 await warmUp();
+const variantEncoder = await createVariantEncoder();
 
 try {
   for (const scene of SCENES) {
@@ -2452,6 +2473,7 @@ try {
       entry.kind = sceneKind({ ...scene, clip: scene.clip ?? clip });
       entry.width = dims.width;
       entry.height = dims.height;
+      entry.variants = await writeSceneVariants(entry, shot, OUTPUT_DIRS, variantEncoder);
       entry.status = 'captured';
       entry.reason = undefined;
       entry.source = undefined;
@@ -2501,6 +2523,8 @@ try {
       for (const dir of OUTPUT_DIRS) {
         rmSync(join(dir, scene.file), { force: true });
       }
+      removeSceneVariants(entry, OUTPUT_DIRS);
+      entry.variants = undefined;
       console.error(`SKIPPED ${scene.id}: ${entry.reason}`);
       // A skip reports the text it gave up on, which is rarely enough to tell
       // what the UI was actually showing. Keep the frame under VARVE_SHOT_DEBUG
@@ -2602,7 +2626,7 @@ try {
     } else {
       writeFileAtomicSync(join(CANONICAL_DIR, source.file), bytes);
     }
-    manifest.scenes[source.id] = {
+    const nextSource = {
       ...previous,
       file: source.file,
       alt: source.alt,
@@ -2621,6 +2645,13 @@ try {
       viewport: source.viewport ? { ...source.viewport } : undefined,
       ...provenance,
     };
+    nextSource.variants = await writeSceneVariants(
+      nextSource,
+      bytes,
+      reviewDir ? [OUT_DIR] : OUTPUT_DIRS,
+      variantEncoder,
+    );
+    manifest.scenes[source.id] = nextSource;
   }
 
   // Concurrency guard: this process read the manifest once, at startup, and a
@@ -2658,6 +2689,7 @@ try {
   writeFileAtomicSync(OUTPUT_MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`manifest written: ${OUTPUT_MANIFEST}`);
 } finally {
+  await variantEncoder.close();
   await stopServer(server);
   await browser.close();
 }

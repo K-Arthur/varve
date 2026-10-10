@@ -7,7 +7,12 @@
  * Consumers decide the *placement* (caption, framing, priority, sizes) but not
  * the crop, which keeps a caption and the pixels it describes in agreement.
  */
-import { sceneFitStyle, scenePicture, type ScreenshotScene } from '../lib/screenshot';
+import {
+  qualifySrcset,
+  sceneFitStyle,
+  scenePicture,
+  type ScreenshotScene,
+} from '../lib/screenshot';
 import { sitePath } from '../lib/siteUrl';
 
 interface Props {
@@ -35,13 +40,13 @@ const kind = scene.kind ?? 'full';
 
 <picture class:list={['screenshot-image', className]} data-kind={kind} data-fit={fit}>
   {
-    picture.srcset && (
+    picture.sources.map((source) => (
       <source
-        type="image/webp"
-        srcset={picture.srcset}
-        sizes={picture.sizes}
+        type={source.type}
+        srcset={qualifySrcset(source.srcset, sitePath)}
+        sizes={source.sizes}
       />
-    )
+    ))
   }
   <img
     src={sitePath(picture.src)}

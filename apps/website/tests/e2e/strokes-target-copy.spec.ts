@@ -9,9 +9,9 @@ test('Strokes guidance stays readable across themes, widths, and deploy bases', 
   const route = (path: string) => `${basePath}${path}`;
   const errors: string[] = [];
   const reportUnexpectedError = (message: string) => {
-    // Static GitHub Pages cannot set response headers, so the shared layout's
-    // CSP meta emits this Chromium warning about frame-ancestors. It is not a
-    // page exception or a route failure; keep all other errors fatal.
+    // Clickjacking protection is a response-header concern; the shared
+    // layout no longer emits frame-ancestors in the meta CSP. Keep this
+    // filter so a host that adds the header later cannot fail this spec.
     if (message.includes("The Content Security Policy directive 'frame-ancestors' is ignored")) {
       return;
     }

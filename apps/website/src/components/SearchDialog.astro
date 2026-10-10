@@ -5,8 +5,9 @@
  * Rendered once per page by Layout.astro and opened by the triggers in
  * the desktop or mobile header button, or by `/` and Ctrl/Cmd+K. The mobile
  * button dismisses its navigation sheet before search opens. The index is generated at build time by
- * scripts/search-index.mjs and fetched lazily, so a page load that never
- * opens search transfers none of it.
+ * scripts/search-index.mjs and fetched on first hover/focus of a search
+ * trigger or when `/` or Ctrl/Cmd+K opens the dialog, so a page load that
+ * never intends to search transfers none of it.
  *
  * The dialog is a native <dialog> element: top-layer stacking, an inert
  * background, Escape handling, and ::backdrop all come from the platform
@@ -406,7 +407,7 @@ const magnifier = 'M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7
     async function loadIndex(): Promise<void> {
       if (prepared || loading || failed) return;
       loading = true;
-      setStatus('Loading search…');
+      if (dialog!.open) setStatus('Loading search…');
       try {
         const response = await fetch(indexUrl, { credentials: 'omit' });
         if (!response.ok) throw new Error(`index request failed: ${response.status}`);
@@ -612,7 +613,13 @@ const magnifier = 'M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7
       (visibleTrigger ?? document.querySelector<HTMLElement>('.mobile-menu-toggle'))?.focus();
     }
 
+    function prefetchIndex(): void {
+      if (!canPrefetch()) return;
+      void loadIndex();
+    }
+
     function openSearch(event?: Event): void {
+      void loadIndex();
       if (dialog!.open) return;
       opener =
         event?.type === 'click'
@@ -643,6 +650,8 @@ const magnifier = 'M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7
 
     for (const trigger of triggers) {
       trigger.addEventListener('click', openSearch);
+      trigger.addEventListener('pointerenter', prefetchIndex);
+      trigger.addEventListener('focus', prefetchIndex);
     }
 
     closeButton?.addEventListener('click', closeSearch);
@@ -703,21 +712,5 @@ const magnifier = 'M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7
     });
 
     document.documentElement.setAttribute('data-search-ready', '');
-
-    if (canPrefetch()) {
-      const prefetch = () => {
-        void loadIndex();
-      };
-      const idleCallback = (
-        window as Window & {
-          requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-        }
-      ).requestIdleCallback;
-      if (idleCallback) {
-        idleCallback(prefetch, { timeout: 4000 });
-      } else {
-        window.setTimeout(prefetch, 2500);
-      }
-    }
   }
 </script>
