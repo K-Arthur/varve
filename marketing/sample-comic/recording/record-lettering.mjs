@@ -1167,9 +1167,6 @@ async function placeDialogue(page, placement) {
     await ensureInspector(page);
     await wrapSelectedText(page, placement.query, placement.action);
     await beat(page, 420, 700);
-    const map = await pageScreenMap(page);
-    const body = localToScreen(map, placement.panel, placement.localX + 36, placement.localY + 22);
-    await clickAt(page, body.x, body.y);
     await openComicSection(page);
     if (placement.action.includes('Caption')) {
       await clickInspectorButton(page, 'Remove tail');
@@ -1560,6 +1557,7 @@ async function encodeToWindow(input, output, minSec, maxSec, vf, options = {}) {
   const filters = [];
   if (vf) filters.push(vf);
   if (Math.abs(rate - 1) > 0.04) filters.push(`setpts=${(1 / rate).toFixed(4)}*PTS`);
+  log(`encode ${output} duration=${duration.toFixed(2)}s rate=${rate.toFixed(2)}`);
   await encodeMp4(input, output, filters.length ? ['-vf', filters.join(',')] : []);
   return probeDuration(output);
 }
@@ -1715,7 +1713,10 @@ async function main() {
       );
       if (session.raw) {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
-        const duration = await writeWindowed(session, dest, 35, 45, { realtime: true });
+        const duration = await writeWindowed(session, dest, 35, 45, {
+          realtime: true,
+          maxRate: 1.35,
+        });
         await extractStills(dest, join(RAW_DIR, 'stills-vertical'));
         outputs.push({ path: dest, duration, width: 1080, height: 1920 });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
