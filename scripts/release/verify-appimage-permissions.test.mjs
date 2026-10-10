@@ -7,8 +7,8 @@
  * so the checker must parse `unsquashfs -lln` output, not an extracted tree.
  */
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -149,6 +149,46 @@ lrwxrwxrwx 0/0              40 2026-10-09 04:41 squashfs-root/dev.varve.desktop.
   );
   assert.match(workflow, /verify-appimage-permissions\.mjs \\\n\s+--bundle-dir/);
   assert.match(workflow, /verify-appimage-permissions\.mjs --appimage/);
+}
+
+function have(cmd) {
+  return spawnSync('sh', ['-c', `command -v ${cmd}`], { encoding: 'utf8' }).status === 0;
+}
+
+if (have('mksquashfs') && have('unsquashfs')) {
+  const work = mkdtempSync(join(tmpdir(), 'varve-appimage-sq-'));
+  try {
+    const root = join(work, 'root');
+    mkdirSync(join(root, 'usr', 'bin'), { recursive: true });
+    writeFileSync(join(root, 'AppRun'), '#!/bin/sh\n');
+    writeFileSync(join(root, 'AppRun.wrapped'), 'x');
+    writeFileSync(join(root, 'usr', 'bin', 'varve-desktop'), 'x');
+    chmodSync(root, 0o700);
+    chmodSync(join(root, 'usr'), 0o700);
+    chmodSync(join(root, 'usr', 'bin'), 0o700);
+    chmodSync(join(root, 'AppRun'), 0o755);
+    chmodSync(join(root, 'AppRun.wrapped'), 0o770);
+    chmodSync(join(root, 'usr', 'bin', 'varve-desktop'), 0o755);
+
+    const squash = join(work, 'payload.squashfs');
+    execFileSync('mksquashfs', [root, squash, '-all-root', '-noappend', '-quiet']);
+    const offset = 128;
+    const image = join(work, 'Varve-0.5.1-linux-x86_64.AppImage');
+    writeFileSync(image, Buffer.concat([Buffer.alloc(offset, 0), readFileSync(squash)]));
+
+    const result = inspectAppImagePermissions(image, {
+      execFile(cmd, args) {
+        if (args?.includes('--appimage-offset')) return `${offset}\n`;
+        return execFileSync(cmd, args, { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+      },
+    });
+    const paths = result.violations.map((item) => item.path).sort();
+    assert.ok(paths.includes('/'), `root must be flagged, got ${paths.join(', ')}`);
+    assert.ok(paths.includes('/AppRun.wrapped'), '0770 AppRun.wrapped must be flagged');
+    assert.ok(paths.includes('/usr'), '0700 /usr must be flagged');
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
 }
 
 console.log('verify-appimage-permissions tests passed');
