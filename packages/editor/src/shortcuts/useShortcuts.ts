@@ -53,6 +53,7 @@ export function useShortcuts(
       case 'shortcutPalette':
         return () => setPaletteOpen((p) => !p);
       case 'quickActions':
+      case 'quickActionsAlt':
         return () => setQuickActionsOpen((p) => !p);
       case 'home':
         return () => onBackToHomeRef.current?.();

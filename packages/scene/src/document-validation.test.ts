@@ -254,6 +254,26 @@ describe('repairDocument — safe neutralization of dangling references', () => 
     expect(repaired.changed).toBe(true);
     expect(validateDocument(repaired.doc).valid).toBe(true);
   });
+
+  it('coerces malformed text fields to empty strings', () => {
+    const doc = baseDoc();
+    const textNode = {
+      kind: 'text',
+      id: 'text1',
+      name: 'Malformed text',
+      visible: true,
+      text: { ops: [{ insert: 'Hello' }] }, // Wrong type - should be string
+    } as unknown as SceneNode;
+    doc.nodes.text1 = textNode;
+    doc.rootChildren.push('text1');
+
+    const { doc: repaired, changed } = repairDocument(doc);
+    expect(changed).toBe(true);
+    const fixed = repaired.nodes.text1 as { kind: string; text: unknown };
+    expect(fixed.kind).toBe('text');
+    expect(fixed.text).toBe('');
+    expect(typeof fixed.text).toBe('string');
+  });
 });
 
 describe('unknown future container traversal', () => {
