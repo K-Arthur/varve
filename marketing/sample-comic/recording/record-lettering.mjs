@@ -976,8 +976,13 @@ async function finishOnPage(page) {
   await blurChrome(page);
   await page.keyboard.press('v');
   await pause(page, 120);
-  await page.keyboard.press('Shift+Digit1');
-  await pause(page, 1200);
+  const fitAll = page.getByRole('button', { name: /fit all to viewport/i }).first();
+  if (await fitAll.isVisible({ timeout: 800 }).catch(() => false)) {
+    await fitAll.click();
+  } else {
+    await page.keyboard.press('Shift+Digit1');
+  }
+  await pause(page, 3600);
 }
 
 async function letterPage(page, options = {}) {
