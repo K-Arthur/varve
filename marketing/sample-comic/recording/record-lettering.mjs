@@ -441,6 +441,13 @@ async function beat(page, min = 380, max = 720) {
 }
 
 async function currentZoom(page) {
+  const zoomField = page.locator('.editor-status__zoom-value');
+  const label = await zoomField.getAttribute('aria-label').catch(() => null);
+  const fromLabel = /([\d.]+)\s*%/.exec(label ?? '');
+  if (fromLabel) return Number(fromLabel[1]) / 100;
+  const raw = await zoomField.inputValue().catch(() => '');
+  const parsed = Number.parseFloat(raw);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed / 100;
   const map = await pageScreenMap(page);
   return map.h / PAGE_H;
 }
@@ -469,26 +476,28 @@ async function dispatchCanvasWheel(page, x, y, deltaY) {
 
 async function wheelZoomToward(page, x, y, targetZoom) {
   await humanMove(page, x, y);
-  await think(page, 180, 380);
+  await think(page, 160, 320);
   let px = x;
   let py = y;
-  const before = await currentZoom(page);
-  for (let i = 0; i < 32; i++) {
+  const ceiling = Math.min(2.35, targetZoom * 1.12);
+  const floor = Math.max(0.38, targetZoom * 0.88);
+  for (let i = 0; i < 14; i++) {
     const zoom = await currentZoom(page);
-    if (Math.abs(zoom - targetZoom) < 0.06) break;
     const inward = zoom < targetZoom;
-    const mag = randBetween(5, 11);
-    if (i === 4 && Math.abs(zoom - before) < 0.01) {
+    if (Math.abs(zoom - targetZoom) < 0.07) break;
+    if (inward && zoom >= ceiling) break;
+    if (!inward && zoom <= floor) break;
+    const mag = randBetween(9, 18);
+    await dispatchCanvasWheel(page, px, py, inward ? -mag : mag);
+    await pause(page, randBetween(48, 82));
+    if (i === 2 && Math.abs((await currentZoom(page)) - zoom) < 0.01) {
       await page.keyboard.down('Control');
       await page.mouse.wheel(0, inward ? -mag : mag);
       await page.keyboard.up('Control');
-    } else {
-      await dispatchCanvasWheel(page, px, py, inward ? -mag : mag);
     }
-    await pause(page, randBetween(42, 78));
-    if (i % 5 === 4) {
-      px += randBetween(-8, 8);
-      py += randBetween(-8, 8);
+    if (i % 4 === 3) {
+      px += randBetween(-7, 7);
+      py += randBetween(-7, 7);
       await page.mouse.move(px, py);
       pointerByPage.set(page, { x: px, y: py });
     }
@@ -515,15 +524,13 @@ async function humanPanBy(page, dx, dy) {
     await humanMove(page, start.x, start.y);
   }
   await blurChrome(page);
-  await page.keyboard.down(' ');
-  await pause(page, 70);
-  await page.mouse.down();
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down({ button: 'middle' });
   await pause(page, 40);
   await humanMove(page, end.x, end.y);
-  await pause(page, 90);
-  await page.mouse.up();
-  await page.keyboard.up(' ');
-  await pause(page, 180);
+  await pause(page, 80);
+  await page.mouse.up({ button: 'middle' });
+  await pause(page, 160);
 }
 
 async function humanPanTo(page, fromX, fromY, toX, toY) {
@@ -537,7 +544,7 @@ async function easeCameraToPanel(page, panelIndex) {
   const view = page.viewportSize() ?? { width: 1920, height: 1080 };
   const viewCx = view.width * 0.5;
   const viewCy = view.height * (compactByPage.get(page) ? 0.46 : 0.5);
-  const targetZoom = compactByPage.get(page) ? randBetween(1.68, 2.08) : randBetween(1.48, 1.88);
+  const targetZoom = compactByPage.get(page) ? randBetween(1.52, 1.82) : randBetween(1.42, 1.78);
   let map = await pageScreenMap(page);
   let mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
   await humanPanTo(page, mid.x, mid.y, viewCx, viewCy);
@@ -1165,6 +1172,13 @@ async function placeDialogue(page, placement) {
   await editor.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
   await page.keyboard.press('v');
   await beat(page, 260, 480);
+  if (compactByPage.get(page)) {
+    await ensureInspector(page);
+    await wrapSelectedText(page, placement.query, placement.action);
+    await beat(page, 480, 820);
+    await hideSidePanels(page);
+    return;
+  }
   const snippet = placement.text
     .split('\n')[0]
     .slice(0, 10)
@@ -1179,9 +1193,7 @@ async function placeDialogue(page, placement) {
   ) {
     await selectLayer(page, new RegExp(`text:.*${snippet}`, 'i'), 'last');
   }
-  if (!compactByPage.get(page) && placement.fontSize) {
-    await setSpin(page, 'size', placement.fontSize);
-  }
+  if (placement.fontSize) await setSpin(page, 'size', placement.fontSize);
   await clampTextBox(page, placement);
   if (
     await textLayer
@@ -1195,15 +1207,12 @@ async function placeDialogue(page, placement) {
   await beat(page, 500, 900);
   await revealBalloon(page, placement.layer ?? /balloon/i);
   if (PROBE) await dumpBalloon(page, `wrap-${placement.action.replace(/\s+/g, '-').toLowerCase()}`);
-  if (!compactByPage.get(page)) {
-    await seatTextInBalloon(page);
-    await revealBalloon(page, placement.layer ?? /balloon/i);
-    await clickInspectorButton(page, 'Fit balloon to text');
-    await beat(page, 480, 820);
-  }
+  await seatTextInBalloon(page);
+  await revealBalloon(page, placement.layer ?? /balloon/i);
+  await clickInspectorButton(page, 'Fit balloon to text');
+  await beat(page, 480, 820);
   await clampBalloonInPanel(page, placement);
   if (PROBE) await dumpBalloon(page, `fit-${placement.action.replace(/\s+/g, '-').toLowerCase()}`);
-  if (compactByPage.get(page)) await hideSidePanels(page);
   await beat(page, 360, 640);
 }
 
@@ -1224,7 +1233,12 @@ async function captionHasTail(page) {
 
 async function removeCaptionTail(page) {
   for (let attempt = 0; attempt < 3; attempt++) {
-    await revealBalloon(page, /caption balloon/i);
+    if (compactByPage.get(page)) {
+      await ensureInspector(page);
+      await openComicSection(page);
+    } else {
+      await revealBalloon(page, /caption balloon/i);
+    }
     const remove = page.getByRole('button', { name: 'Remove tail', exact: true }).first();
     if (
       await remove
@@ -1240,6 +1254,10 @@ async function removeCaptionTail(page) {
       await pause(page, 360);
     } else {
       await clickInspectorButton(page, 'Remove tail');
+    }
+    if (compactByPage.get(page)) {
+      await beat(page, 280, 480);
+      return;
     }
     if (!(await captionHasTail(page))) {
       await filterLayers(page, '');
@@ -1316,16 +1334,21 @@ async function dragSelectedTail(page, placement) {
   if (!placement.tailToward) return;
   // Aim the parametric tail from the balloon group. Canvas-dragging the tail
   // path translates a detached stub and is what previously grabbed the panel.
-  await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
+  if (!compactByPage.get(page)) {
+    await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
+  } else {
+    await ensureInspector(page);
+    await openComicSection(page);
+  }
   const startX = (await readSpin(page, 'tail x')) ?? 40;
   const startY = (await readSpin(page, 'tail y')) ?? 80;
   const tailX = Math.round(placement.tailToward.localX - placement.localX);
   const tailY = Math.round(placement.tailToward.localY - placement.localY);
   log(`tail aim ${startX},${startY} -> ${tailX},${tailY}`);
   await scrubSpin(page, 'tail x', tailX - startX);
-  if (Math.abs(tailY - startY) > 6) await scrubSpin(page, 'tail y', tailY - startY);
+  if (Math.abs(tailY - startY) > 8) await scrubSpin(page, 'tail y', tailY - startY);
   await beat(page, 360, 680);
-  await filterLayers(page, '');
+  if (!compactByPage.get(page)) await filterLayers(page, '');
   if (compactByPage.get(page)) await hideSidePanels(page);
 }
 
@@ -1357,7 +1380,9 @@ async function letterPage(page, options = {}) {
     const placement = PLACEMENTS[key];
     await placeDialogue(page, placement);
     if (key === 'caption') {
+      if (compactByPage.get(page)) await ensureInspector(page);
       await removeCaptionTail(page);
+      if (compactByPage.get(page)) await hideSidePanels(page);
       await beat(page, 420, 720);
     }
     if (placement.tailToward) await dragSelectedTail(page, placement);
