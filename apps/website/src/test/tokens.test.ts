@@ -416,6 +416,19 @@ describe('website page styling', () => {
     expect(read('layouts/Layout.astro')).not.toMatch(/["']frame-ancestors/);
   });
 
+  it('preloads the three latin variable faces as first-paint fonts', () => {
+    const layout = read('layouts/Layout.astro');
+    for (const file of [
+      'geist-latin-wght-normal.woff2',
+      'ibm-plex-sans-latin-wght-normal.woff2',
+      'fraunces-latin-opsz-normal.woff2',
+    ]) {
+      expect(layout).toContain(file);
+    }
+    expect(layout).toMatch(/rel="preload"[\s\S]*as="font"[\s\S]*crossorigin/);
+    expect(read('styles/global.css')).toMatch(/font-display:\s*optional/);
+  });
+
   it('pages/components/layouts contain no legacy or hardcoded colors', () => {
     const targets = [
       ...pageFiles.map((f) => `pages/${f}`),

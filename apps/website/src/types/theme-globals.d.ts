@@ -25,3 +25,8 @@ interface VarveThemeApi {
 interface Window {
   __varveTheme?: VarveThemeApi;
 }
+
+declare module '*.woff2?url' {
+  const src: string;
+  export default src;
+}

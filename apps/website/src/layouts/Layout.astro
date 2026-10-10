@@ -5,6 +5,9 @@ import SiteFooter from '../components/SiteFooter.astro';
 import SearchDialog from '../components/SearchDialog.astro';
 import { CONTACTS } from '@varve/shared';
 import { canonicalUrl as canonicalUrlOf, ogImageUrl as ogImageUrlOf, siteOrigin as siteOriginOf, sitePath, siteUrl } from '../lib/siteUrl';
+import geistLatinWoff2 from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
+import plexLatinWoff2 from '@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-wght-normal.woff2?url';
+import frauncesLatinWoff2 from '@fontsource-variable/fraunces/files/fraunces-latin-opsz-normal.woff2?url';
 
 interface Props {
   title: string;
@@ -201,6 +204,15 @@ const csp = [
     <meta charset="UTF-8" />
     <meta name="description" content={description} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {/*
+      Preload the three latin variable faces so font-display: optional can
+      apply them on first paint. A cold Chromium (CI, LHCI) otherwise keeps
+      the metric fallback for the document lifetime and full-page snapshots
+      grow when lines wrap differently.
+    */}
+    <link rel="preload" href={geistLatinWoff2} as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href={plexLatinWoff2} as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href={frauncesLatinWoff2} as="font" type="font/woff2" crossorigin="anonymous" />
     <link rel="icon" type="image/svg+xml" href={sitePath('/favicon.svg')} />
     <link rel="icon" type="image/png" sizes="32x32" href={sitePath('/favicon-32x32.png')} />
     <link
