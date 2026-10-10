@@ -42,7 +42,9 @@ export function committedIdentityHasPlaceholders(identity = loadIdentityFile()) 
 }
 
 export function fourPartVersion(version) {
-  const match = String(version).trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-.*)?$/);
+  const match = String(version)
+    .trim()
+    .match(/^v?(\d+)\.(\d+)\.(\d+)(?:-.*)?$/);
   if (!match) throw new Error(`MSIX version must be major.minor.patch, got ${version}`);
   return `${match[1]}.${match[2]}.${match[3]}.0`;
 }
@@ -82,9 +84,10 @@ export function resolveStoreIdentity({
       ...CI_TEST_IDENTITY,
       publisherDisplayName,
       storeSubmittable: false,
-      reason: signMode === 'test-signed'
-        ? 'test-signed packages use the CI certificate subject, not Partner Center'
-        : 'Partner Center identity variables are unset',
+      reason:
+        signMode === 'test-signed'
+          ? 'test-signed packages use the CI certificate subject, not Partner Center'
+          : 'Partner Center identity variables are unset',
     };
   }
 
@@ -104,7 +107,11 @@ export function resolveStoreIdentity({
   };
 }
 
-export function renderManifest(template, identity, { version, architecture, displayName = 'Varve' }) {
+export function renderManifest(
+  template,
+  identity,
+  { version, architecture, displayName = 'Varve' },
+) {
   const replacements = {
     PACKAGE_NAME: identity.packageName,
     PUBLISHER_CN: identity.publisherCn,

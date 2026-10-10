@@ -15,7 +15,9 @@ import { fileURLToPath } from 'node:url';
  * Source: tauri-bundler Windows NSIS `installer.nsi` (`UNINSTKEY`).
  */
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../..');
-const tauriConf = JSON.parse(readFileSync(join(root, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf8'));
+const tauriConf = JSON.parse(
+  readFileSync(join(root, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf8'),
+);
 
 describe('NSIS upgrade identity', () => {
   it('keeps the 0.5.0 uninstall key inputs stable while renaming the publisher', () => {

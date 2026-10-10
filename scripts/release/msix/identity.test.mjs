@@ -4,17 +4,17 @@ import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
-  CI_TEST_IDENTITY,
-  IDENTITY_VARIABLES,
-  STORE_ASSET_FILES,
   assertStoreManifestContract,
+  CI_TEST_IDENTITY,
   committedIdentityHasPlaceholders,
   fourPartVersion,
+  IDENTITY_VARIABLES,
   loadIdentityFile,
   loadManifestTemplate,
   msixArchitecture,
   renderManifest,
   resolveStoreIdentity,
+  STORE_ASSET_FILES,
 } from './identity.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../..');
