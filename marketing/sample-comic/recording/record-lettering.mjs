@@ -1078,23 +1078,42 @@ async function selectionKind(page) {
   return page.evaluate(() => window.__varveIsoTest?.getSelectionGeometry?.()?.[0]?.kind ?? null);
 }
 
-async function showSettledCalloutInspector(page) {
-  const kind = await selectionKind(page);
-  if (kind !== 'group') {
-    const center = await selectionScreenCenter(page);
-    if (center) await clickAt(page, center.x, center.y);
+async function selectCalloutGroup(page, placement) {
+  await setSidePanel(page, 'inspector', false);
+  const map = await pageScreenMap(page);
+  const body = localToScreen(map, placement.panel, placement.localX + 36, placement.localY + 22);
+  await clickAt(page, body.x, body.y);
+  if ((await selectionKind(page)) === 'group') return true;
+  await ensureLayers(page);
+  await filterLayers(page, 'balloon');
+  const item = page.getByRole('treeitem', { name: placement.layer ?? /balloon/i }).first();
+  if (await item.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await selectLayer(page, placement.layer ?? /balloon/i);
+  }
+  await setSidePanel(page, 'layers', false);
+  return (await selectionKind(page)) === 'group';
+}
+
+async function showSettledCalloutInspector(page, placement) {
+  if ((await selectionKind(page)) !== 'group') {
+    await selectCalloutGroup(page, placement);
+  }
+  if ((await selectionKind(page)) !== 'group') {
+    log('callout group not selected; inspector stays hidden');
+    return false;
   }
   await ensureInspector(page);
   const comic = page.getByRole('button', { name: /comic balloon/i }).first();
-  if (!(await comic.isVisible({ timeout: 1500 }).catch(() => false))) {
+  if (!(await comic.isVisible({ timeout: 2000 }).catch(() => false))) {
     await setSidePanel(page, 'inspector', false);
-    await think(page, 400, 900);
-    const center = await selectionScreenCenter(page);
-    if (center) await clickAt(page, center.x, center.y);
+    await think(page, 400, 800);
+    await selectCalloutGroup(page, placement);
+    if ((await selectionKind(page)) !== 'group') return false;
     await ensureInspector(page);
   }
   await openComicSection(page);
   await think(page, 400, 1500);
+  return true;
 }
 
 async function clickInspectorButton(page, name) {
@@ -1277,13 +1296,16 @@ async function placeDialogue(page, placement) {
     await think(page, 400, 1100);
     await wrapSelectedText(page, placement.query, placement.action);
     await think(page, 500, 1400);
-    await showSettledCalloutInspector(page);
-    await clickInspectorButton(page, 'Fit balloon to text');
-    await think(page, 400, 1200);
-    if (placement.action.includes('Caption')) {
+    await selectCalloutGroup(page, placement);
+    const inspectorReady = await showSettledCalloutInspector(page, placement);
+    if (inspectorReady) {
+      await clickInspectorButton(page, 'Fit balloon to text');
+      await think(page, 400, 1200);
+    }
+    if (inspectorReady && placement.action.includes('Caption')) {
       await clickInspectorButton(page, 'Remove tail');
       await think(page, 400, 1100);
-    } else if (placement.tailToward) {
+    } else if (inspectorReady && placement.tailToward) {
       const startX = (await readSpin(page, 'tail x')) ?? 40;
       const startY = (await readSpin(page, 'tail y')) ?? 80;
       const tailX = Math.round(placement.tailToward.localX - placement.localX);
@@ -1820,6 +1842,8 @@ async function main() {
           await followPanel(page, PLACEMENTS.speech.panel);
           await revealBalloon(page, /speech balloon/i);
           await setSidePanel(page, 'layers', false);
+          const park = await tailXParkPoint(page);
+          if (park) await humanMove(page, park.x, park.y);
         },
       );
       if (session.raw) {
