@@ -471,14 +471,18 @@ test('install guidance is honest about Gatekeeper, SmartScreen, and checksums', 
   const page = await context.newPage();
   await openDownload(page);
 
-  await expect(page.getByText('sha256sum --ignore-missing -c SHA256SUMS.txt')).toBeVisible();
-  await expect(page.getByText('shasum -a 256 <filename>')).toBeVisible();
-  await expect(page.getByText('Get-FileHash .\\<filename> -Algorithm SHA256')).toBeVisible();
+  await expect(
+    page.getByText('sha256sum --ignore-missing -c SHA256SUMS.txt').first(),
+  ).toBeVisible();
+  await expect(page.getByText('shasum -a 256 <filename>').first()).toBeVisible();
+  await expect(
+    page.getByText('Get-FileHash .\\<filename> -Algorithm SHA256').first(),
+  ).toBeVisible();
   await expect(page.locator('body')).not.toContainText('sha256sum -c SHA256SUMS.txt');
   await expect(
-    page.getByText('xattr -dr com.apple.quarantine /Applications/Varve.app'),
+    page.getByText('xattr -dr com.apple.quarantine /Applications/Varve.app', { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText(/Smart App Control/)).toBeVisible();
+  await expect(page.getByText(/Smart App Control/).first()).toBeVisible();
   await expect(page.locator('body')).not.toContainText('winget install K-Arthur.Varve');
   await expect(page.locator('body')).not.toContainText('brew install --cask k-arthur/varve/varve');
   await expect(page.locator('#package-managers')).toHaveCount(0);
