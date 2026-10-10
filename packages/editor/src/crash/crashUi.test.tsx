@@ -380,6 +380,20 @@ describe('controller + dialog flow (integration)', () => {
     controller.dispose();
   });
 
+  it('ignores font-face prefetch failures instead of opening the crash dialog', async () => {
+    const { controller } = makeController({ state: 'unknown' });
+    await controller.boot();
+    const reason = new Error('Failed to load font "Geist Variable"');
+    reason.name = 'NetworkError';
+    const promise = Promise.reject(reason);
+    void promise.catch(() => undefined);
+    window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', { promise, reason }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(controller.getState().awaitingReport).toBeNull();
+    expect(controller.getState().queuedReports).toHaveLength(0);
+    controller.dispose();
+  });
+
   it('ignores recovered WebGL context loss from compositor teardown', async () => {
     const { controller } = makeController({ state: 'unknown' });
     await controller.boot();
