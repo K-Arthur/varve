@@ -26,9 +26,132 @@
    axis set including SOFT/WONK costs 121 KB, and the italic a further 150 KB.
    Headings are not worth a quarter-megabyte of font. Fontsource splits by
    unicode-range, so a Latin reader fetches only the Latin subset. */
-@import "@fontsource-variable/geist";
-@import "@fontsource-variable/ibm-plex-sans";
-@import "@fontsource-variable/fraunces/opsz.css";
+/*
+ * Latin (+ latin-ext) only, font-display: optional. The fontsource defaults
+ * use swap and pull every subset; late swaps were 0.10 CLS on /download/.
+ * Optional never restyles after first paint, so the metric fallbacks below
+ * hold the line boxes. Cached and fast loads still get the variable faces.
+ */
+@font-face {
+  font-family: "Geist Variable";
+  font-style: normal;
+  font-display: optional;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Geist Variable";
+  font-style: normal;
+  font-display: optional;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/geist/files/geist-latin-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans Variable";
+  font-style: normal;
+  font-display: optional;
+  font-weight: 100 700;
+  src: url("@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-ext-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans Variable";
+  font-style: normal;
+  font-display: optional;
+  font-weight: 100 700;
+  src: url("@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-wght-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Fraunces Variable";
+  font-style: normal;
+  font-display: optional;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/fraunces/files/fraunces-latin-ext-opsz-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Fraunces Variable";
+  font-style: normal;
+  font-display: optional;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/fraunces/files/fraunces-latin-opsz-normal.woff2")
+    format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/*
+ * Metric-matched local fallbacks. font-display: swap still paints immediately,
+ * but without these overrides the download banner (and any other wrapped
+ * marketing copy) jumps when Geist / IBM Plex / Fraunces replace Arial and
+ * Georgia. The three variable families stay; this only aligns fallback
+ * advance widths so CLS stays under the Lighthouse budget.
+ */
+@font-face {
+  font-family: "Geist Fallback";
+  src:
+    local("Liberation Sans"), local("DejaVu Sans"), local("Arial"), local("Helvetica Neue"),
+    local("Helvetica");
+  size-adjust: 104%;
+  ascent-override: 93%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans Fallback";
+  src:
+    local("Liberation Sans"), local("DejaVu Sans"), local("Arial"), local("Helvetica Neue"),
+    local("Helvetica");
+  size-adjust: 105%;
+  ascent-override: 97%;
+  descent-override: 23%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Fraunces Fallback";
+  src: local("Liberation Serif"), local("DejaVu Serif"), local("Georgia"), local("Times New Roman");
+  size-adjust: 102%;
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+:root {
+  --font-display: "Geist Variable", "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-body:
+    "IBM Plex Sans Variable", "IBM Plex Sans", "IBM Plex Sans Fallback", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-editorial: "Fraunces Variable", "Fraunces", "Fraunces Fallback", ui-serif, Georgia, serif;
+}
 
 @tailwind base;
 @tailwind components;
