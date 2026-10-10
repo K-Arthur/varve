@@ -118,14 +118,14 @@ const PLACEMENTS = {
   },
   thought: {
     panel: 5,
-    localX: 164,
+    localX: 48,
     localY: 18,
-    boxW: 210,
-    boxH: 88,
-    text: 'Did I use magic flour...?',
+    boxW: 168,
+    boxH: 72,
+    text: 'Did I use\nmagic flour...?',
     action: 'Add Thought Balloon',
     query: 'thought balloon',
-    fontSize: 16,
+    fontSize: 15,
     layer: /thought balloon/i,
     tailToward: { localX: 86, localY: 176 },
   },
@@ -350,7 +350,11 @@ async function clickAt(page, x, y, durationMs = 380) {
 }
 
 async function typeHuman(page, text, delay = 38) {
-  await page.keyboard.type(text, { delay });
+  const lines = String(text).split('\n');
+  for (let index = 0; index < lines.length; index++) {
+    if (lines[index]) await page.keyboard.type(lines[index], { delay });
+    if (index < lines.length - 1) await page.keyboard.press('Enter');
+  }
 }
 
 async function hideOverlays(page) {
@@ -576,6 +580,47 @@ async function chooseTextTool(page) {
     await page.keyboard.press('t');
   }
   await pause(page, 120);
+}
+
+async function setTextResizingFixed(page) {
+  await ensureInspector(page);
+  const trigger = page.getByRole('combobox', { name: /text resizing mode/i }).first();
+  if (!(await trigger.isVisible({ timeout: 800 }).catch(() => false))) return false;
+  await trigger.click();
+  const option = page.getByRole('option', { name: /fixed size/i }).first();
+  if (
+    !(await option
+      .waitFor({ state: 'visible', timeout: 800 })
+      .then(() => true)
+      .catch(() => false))
+  ) {
+    await page.keyboard.press('Escape').catch(() => undefined);
+    return false;
+  }
+  await option.click();
+  await pause(page, 160);
+  return true;
+}
+
+async function clampTextBox(page, placement) {
+  await setTextResizingFixed(page);
+  const width = await setSpin(page, 'w', placement.boxW);
+  const height = await setSpin(page, 'h', placement.boxH);
+  log(
+    `clamp text ${placement.action} -> ${placement.boxW}x${placement.boxH} spins=${width}/${height}`,
+  );
+}
+
+async function clampBalloonInPanel(page, placement) {
+  await revealBalloon(page, placement.layer ?? /balloon/i);
+  const maxW = Math.max(96, Math.round(PANEL_W - placement.localX - 16));
+  const maxH = Math.max(64, Math.round(PANEL_H - placement.localY - 56));
+  const width = await readSpin(page, 'w');
+  const height = await readSpin(page, 'h');
+  if (width != null && width > maxW) await setSpin(page, 'w', maxW);
+  if (height != null && height > maxH) await setSpin(page, 'h', maxH);
+  await seatTextInBalloon(page);
+  await revealBalloon(page, placement.layer ?? /balloon/i);
 }
 
 async function setSpin(page, name, value) {
@@ -910,7 +955,6 @@ async function editBalloonText(page, text) {
 }
 
 async function seatTextInBalloon(page) {
-  if (compactByPage.get(page)) return;
   const textLayer = page.getByRole('treeitem', { name: /balloon text|text:/i }).last();
   if (!(await textLayer.isVisible({ timeout: 800 }).catch(() => false))) return;
   await selectLayer(page, /balloon text|text:/i, 'last');
@@ -928,12 +972,21 @@ async function placeDialogue(page, placement) {
     map = await pageScreenMap(page);
     start = localToScreen(map, placement.panel, placement.localX, placement.localY);
   }
-  const end = localToScreen(
+  let end = localToScreen(
     map,
     placement.panel,
     placement.localX + placement.boxW,
     placement.localY + placement.boxH,
   );
+  const inset = 16;
+  start = {
+    x: Math.min(view.width - inset - 80, Math.max(inset, start.x)),
+    y: Math.min(view.height - 120, Math.max(80, start.y)),
+  };
+  end = {
+    x: Math.min(view.width - inset, Math.max(start.x + 80, end.x)),
+    y: Math.min(view.height - 80, Math.max(start.y + 36, end.y)),
+  };
   const editor = page.getByRole('textbox', { name: /editing text/i });
   let opened = false;
   for (let attempt = 0; attempt < 3 && !opened; attempt++) {
@@ -962,7 +1015,10 @@ async function placeDialogue(page, placement) {
   await editor.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
   await page.keyboard.press('v');
   await pause(page, 160);
-  const snippet = placement.text.slice(0, 10).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const snippet = placement.text
+    .split('\n')[0]
+    .slice(0, 10)
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   await filterLayers(page, '');
   const textLayer = page.getByRole('treeitem', { name: new RegExp(`text:.*${snippet}`, 'i') });
   if (
@@ -982,6 +1038,15 @@ async function placeDialogue(page, placement) {
   ) {
     await selectLayer(page, new RegExp(`text:.*${snippet}`, 'i'), 'last');
   }
+  await clampTextBox(page, placement);
+  if (
+    await textLayer
+      .last()
+      .isVisible({ timeout: 800 })
+      .catch(() => false)
+  ) {
+    await selectLayer(page, new RegExp(`text:.*${snippet}`, 'i'), 'last');
+  }
   await wrapSelectedText(page, placement.query, placement.action);
   await revealBalloon(page, placement.layer ?? /balloon/i);
   if (PROBE) await dumpBalloon(page, `wrap-${placement.action.replace(/\s+/g, '-').toLowerCase()}`);
@@ -991,6 +1056,7 @@ async function placeDialogue(page, placement) {
   await revealBalloon(page, placement.layer ?? /balloon/i);
   await clickInspectorButton(page, 'Fit balloon to text');
   await pause(page, 360);
+  await clampBalloonInPanel(page, placement);
   if (PROBE) await dumpBalloon(page, `fit-${placement.action.replace(/\s+/g, '-').toLowerCase()}`);
   if (compactByPage.get(page)) await hideSidePanels(page);
 }
@@ -1066,6 +1132,40 @@ async function removeCaptionTail(page) {
   throw new Error('caption still has a Balloon tail after Remove tail');
 }
 
+async function readSpin(page, name) {
+  await ensureInspector(page);
+  const field = page
+    .locator('.editor-inspector, .editor__inspector-panel, [data-panel-root="inspector"]')
+    .getByRole('spinbutton', { name: new RegExp(`^${name}(?:\\s*\\([^)]*\\))?$`, 'i') })
+    .first();
+  if (!(await field.isVisible({ timeout: 1800 }).catch(() => false))) return null;
+  const raw = await field.inputValue().catch(async () => field.getAttribute('aria-valuenow'));
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+async function loopTailCycle(page) {
+  await revealBalloon(page, /speech balloon/i);
+  const startX = (await readSpin(page, 'tail x')) ?? 80;
+  const startY = (await readSpin(page, 'tail y')) ?? 140;
+  const endX = Math.round(PLACEMENTS.speech.tailToward.localX - PLACEMENTS.speech.localX);
+  const endY = Math.round(PLACEMENTS.speech.tailToward.localY - PLACEMENTS.speech.localY);
+  log(`loop tail ${startX},${startY} -> ${endX},${endY} -> ${startX},${startY}`);
+  await pause(page, 900);
+  await setSpin(page, 'tail x', Math.round(startX + (endX - startX) * 0.4));
+  await setSpin(page, 'tail y', Math.round(startY + (endY - startY) * 0.4));
+  await pause(page, 240);
+  await setSpin(page, 'tail x', endX);
+  await setSpin(page, 'tail y', endY);
+  await pause(page, 560);
+  await setSpin(page, 'tail x', Math.round(startX + (endX - startX) * 0.4));
+  await setSpin(page, 'tail y', Math.round(startY + (endY - startY) * 0.4));
+  await pause(page, 240);
+  await setSpin(page, 'tail x', startX);
+  await setSpin(page, 'tail y', startY);
+  await pause(page, 1100);
+}
+
 async function dragSelectedTail(page, placement) {
   if (!placement.tailToward) return;
   // Aim the parametric tail from the balloon group. Canvas-dragging the tail
@@ -1123,7 +1223,9 @@ async function letterPage(page, options = {}) {
       await page.screenshot({ path: join(RAW_DIR, `probe-${key}.png`) });
     }
   }
-  if (!options.only) await demonstrateFit(page).catch(() => undefined);
+  if (!options.only && !options.skipFitDemo) {
+    await demonstrateFit(page).catch(() => undefined);
+  }
   await finishOnPage(page);
 }
 
@@ -1139,6 +1241,73 @@ function runFfmpeg(argv) {
       else reject(new Error(`ffmpeg ${argv.join(' ')} failed (${code})\n${err.slice(-2000)}`));
     });
   });
+}
+
+async function probeVideo(file) {
+  const child = spawn(
+    'ffprobe',
+    [
+      '-v',
+      'error',
+      '-select_streams',
+      'v:0',
+      '-show_entries',
+      'stream=width,height,codec_name:format=duration',
+      '-of',
+      'json',
+      file,
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  const out = await new Promise((resolve, reject) => {
+    let text = '';
+    child.stdout.on('data', (chunk) => {
+      text += chunk.toString();
+    });
+    child.on('close', (code) => {
+      if (code === 0) resolve(text);
+      else reject(new Error(`ffprobe failed for ${file}`));
+    });
+  });
+  const json = JSON.parse(out);
+  const stream = json.streams?.[0] ?? {};
+  return {
+    width: Number(stream.width) || 0,
+    height: Number(stream.height) || 0,
+    codec: stream.codec_name ?? '',
+    duration: Number(json.format?.duration) || 0,
+  };
+}
+
+async function assertVideo(file, width, height) {
+  const info = await probeVideo(file);
+  if (info.width !== width || info.height !== height) {
+    throw new Error(`${file} is ${info.width}x${info.height}, expected ${width}x${height}`);
+  }
+  if (Math.abs(width / height - 9 / 16) < 0.02 && (width < 1080 || height < 1920)) {
+    throw new Error(`${file} is a ${info.width}x${info.height} crop, not a 1080x1920 viewport`);
+  }
+  return info;
+}
+
+async function extractStills(file, destDir) {
+  mkdirSync(destDir, { recursive: true });
+  const info = await probeVideo(file);
+  writeFileSync(join(destDir, 'probe.json'), `${JSON.stringify(info, null, 2)}\n`);
+  const last = Math.floor(info.duration);
+  for (let t = 0; t <= last; t++) {
+    await runFfmpeg([
+      '-y',
+      '-ss',
+      String(t),
+      '-i',
+      file,
+      '-frames:v',
+      '1',
+      join(destDir, `t${String(t).padStart(2, '0')}.png`),
+    ]);
+  }
+  return info;
 }
 
 async function probeDuration(file) {
@@ -1206,21 +1375,28 @@ async function encodeToWindow(input, output, minSec, maxSec, vf) {
   return probeDuration(output);
 }
 
-async function recordSession(browser, filePath, name, act, size) {
+async function recordSession(browser, filePath, name, act, size, prepare) {
   mkdirSync(RAW_DIR, { recursive: true });
   const width = size?.width ?? 1920;
   const height = size?.height ?? 1080;
   const context = await browser.newContext({
     viewport: { width, height },
+    screen: { width, height },
     deviceScaleFactor: 1,
     recordVideo: { dir: RAW_DIR, size: { width, height } },
   });
   const page = await context.newPage();
+  const view = page.viewportSize();
+  if (!view || view.width !== width || view.height !== height) {
+    await context.close().catch(() => undefined);
+    throw new Error(`Playwright viewport ${JSON.stringify(view)} != ${width}x${height}`);
+  }
   pointerByPage.set(page, { x: width * 0.55, y: height * 0.45 });
   const videoOrigin = Date.now();
   try {
     await openUnlettered(page, filePath);
     await lockAllWalls(page);
+    if (prepare) await prepare(page);
     if (PROBE) {
       const map = await pageScreenMap(page);
       await page.screenshot({ path: join(RAW_DIR, `${name}-open.png`), animations: 'disabled' });
@@ -1231,13 +1407,22 @@ async function recordSession(browser, filePath, name, act, size) {
       return { raw: null, trimStart: 0, width, height };
     }
     await pageScreenMap(page);
-    await pause(page, 280);
+    await pause(page, 500);
     const contentStart = Date.now();
     await act(page);
     await pause(page, 900);
     const video = page.video();
     await context.close();
     const raw = await video.path();
+    const rawInfo = await probeVideo(raw);
+    log(`raw ${name} ${rawInfo.width}x${rawInfo.height} ${rawInfo.duration.toFixed(2)}s`);
+    const rawAspect = rawInfo.width / rawInfo.height;
+    const targetAspect = width / height;
+    if (Math.abs(rawAspect - targetAspect) > 0.03) {
+      throw new Error(
+        `raw ${name} is ${rawInfo.width}x${rawInfo.height} (aspect ${rawAspect.toFixed(3)}), not ${width}x${height}`,
+      );
+    }
     return {
       raw,
       trimStart: Math.max(0, (contentStart - videoOrigin) / 1000),
@@ -1261,8 +1446,10 @@ async function writeWindowed(session, dest, minSec, maxSec) {
     '-vf',
     `scale=${session.width}:${session.height}:flags=lanczos`,
   ]);
-  const duration = await encodeToWindow(trimmed, dest, minSec, maxSec);
-  return duration;
+  await encodeToWindow(trimmed, dest, minSec, maxSec);
+  const info = await assertVideo(dest, session.width, session.height);
+  log(`encoded ${dest} ${info.width}x${info.height} ${info.duration.toFixed(2)}s`);
+  return info.duration;
 }
 
 async function main() {
@@ -1270,9 +1457,11 @@ async function main() {
   mkdirSync(RAW_DIR, { recursive: true });
   const unlettered = writeUnletteredCopy();
   const server = await startServer();
+  const windowW = WANT_VERTICAL && !WANT_FULL && !WANT_LOOP ? 1080 : 1920;
+  const windowH = WANT_VERTICAL && !WANT_FULL && !WANT_LOOP ? 1920 : 1920;
   const browser = await chromium.launch({
     headless: true,
-    args: ['--disable-dev-shm-usage'],
+    args: ['--disable-dev-shm-usage', `--window-size=${windowW},${windowH}`],
   });
   const outputs = [];
   try {
@@ -1299,18 +1488,21 @@ async function main() {
       log('recording balloon + tail loop');
       const session = await recordSession(
         browser,
-        unlettered.path,
+        SOURCE_VARVE,
         'loop',
         async (page) => {
-          await placeDialogue(page, PLACEMENTS.speech);
-          await dragSelectedTail(page, PLACEMENTS.speech);
-          await pause(page, 800);
+          await loopTailCycle(page);
         },
         { width: 1920, height: 1080 },
+        async (page) => {
+          await followPanel(page, PLACEMENTS.speech.panel);
+          await revealBalloon(page, /speech balloon/i);
+        },
       );
       if (session.raw) {
         const dest = join(VIDEO_DIR, 'balloon-tail-loop.mp4');
         const duration = await writeWindowed(session, dest, 6, 10);
+        await extractStills(dest, join(RAW_DIR, 'stills-loop'));
         outputs.push({ path: dest, duration, width: 1920, height: 1080 });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
       }
@@ -1322,15 +1514,18 @@ async function main() {
         unlettered.path,
         'vertical',
         async (page) => {
-          compactByPage.set(page, true);
-          await hideSidePanels(page);
-          await letterPage(page);
+          await letterPage(page, { skipFitDemo: true });
         },
         { width: 1080, height: 1920 },
+        async (page) => {
+          compactByPage.set(page, true);
+          await hideSidePanels(page);
+        },
       );
       if (session.raw) {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
         const duration = await writeWindowed(session, dest, 15, 25);
+        await extractStills(dest, join(RAW_DIR, 'stills-vertical'));
         outputs.push({ path: dest, duration, width: 1080, height: 1920 });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
       }
