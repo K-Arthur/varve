@@ -43,7 +43,7 @@ describe('install guidance', () => {
     expect(PACKAGE_MANAGER_CHANNELS.every((channel) => channel.live === false)).toBe(true);
     expect(livePackageManagerChannels()).toEqual([]);
     expect(PACKAGE_MANAGER_CHANNELS.find((channel) => channel.id === 'winget')?.command).toBe(
-      'winget install K-Arthur.Varve',
+      'winget install VarveStudio.Varve',
     );
     expect(PACKAGE_MANAGER_CHANNELS.find((channel) => channel.id === 'homebrew')?.command).toBe(
       'brew install --cask k-arthur/varve/varve',

@@ -4,7 +4,7 @@
       "id": "winget",
       "platform": "windows",
       "label": "WinGet",
-      "command": "winget install K-Arthur.Varve",
+      "command": "winget install VarveStudio.Varve",
       "live": false
     },
     {
