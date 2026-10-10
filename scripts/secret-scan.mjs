@@ -115,6 +115,7 @@ const SKIP_PATH = [
   /^target\//,
   /^test-results\//,
   /^playwright-report\//,
+  /^\.lighthouseci\//,
   /^reports\//,
   /^\.worktrees\//,
   /^apps\/desktop\/src-tauri\/target\//,
