@@ -1,0 +1,16 @@
+{
+  "displayName": "Varve",
+  "publisherDisplayName": "Varve",
+  "packageName": "",
+  "publisherCn": "",
+  "placeholders": {
+    "packageName": "VARVE_STORE_PACKAGE_NAME",
+    "publisherCn": "VARVE_STORE_PUBLISHER_CN",
+    "publisherDisplayName": "VARVE_STORE_PUBLISHER_DISPLAY_NAME"
+  },
+  "notes": {
+    "packageName": "Copy Identity.Name from Partner Center after reserving the name Varve. Do not invent a value.",
+    "publisherCn": "Copy Identity.Publisher from Partner Center. It looks like CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX. Do not invent a CN.",
+    "publisherDisplayName": "Intended listing publisher is Varve. Confirm in Partner Center that an individual developer account can use this display name before the first submission."
+  }
+}

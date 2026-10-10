@@ -243,4 +243,9 @@ The local x86_64 AUR package definition targets the v0.5.0 AppImage and passes
 checksum verification, but it has not been submitted to AUR. The Flatpak
 manifest remains a failing stub and is not buildable or Flathub-ready. No
 Microsoft Store, Flathub, AUR, winget, or Homebrew Cask package is currently
-published.
+published. The repository can now build an unsigned or test-signed MSIX from
+any release tag (including v0.5.0) without changing GitHub Release assets; the
+first Store submission still needs Partner Center identity values. See
+[microsoft-store.md](../distribution/microsoft-store.md). Direct Windows `.exe`
+downloads remain unsigned; only a Store-installed copy is re-signed by
+Microsoft.

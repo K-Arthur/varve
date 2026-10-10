@@ -36,7 +36,11 @@ import type { ThemeMode, UnitType } from '../../settings';
 import { DEFAULT_NUDGE_SETTINGS, NUDGE_MAX, NUDGE_MIN } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
-import { useOptionalUpdateCoordinator } from '../../updates';
+import {
+  isStoreManagedAuthority,
+  storeManagedUpdateMessage,
+  useOptionalUpdateCoordinator,
+} from '../../updates';
 import { BackupSettingsPanel } from '../Backup/BackupSettingsPanel';
 import { ContactLink } from '../ContactLink';
 import { InspectorColorPopover } from '../Inspector/controls/InspectorColorPopover';
@@ -872,15 +876,18 @@ function UpdatesSection() {
   }
 
   const { context, preferences, state } = updates;
-  const canUseUpdater = context?.updateAuthority === 'self-managed' && context.runtimeSupported;
-  const status = updateStatusLabel(state);
+  const storeManaged = isStoreManagedAuthority(context?.updateAuthority);
+  const canUseUpdater =
+    !storeManaged && context?.updateAuthority === 'self-managed' && context.runtimeSupported;
+  const status = storeManaged ? storeManagedUpdateMessage() : updateStatusLabel(state);
 
   return (
     <div className="settings-section">
       <h3 className="settings-section__title">Updates</h3>
       <p className="settings-desc">
-        Update checks contact Varve's configured release endpoint. No account, document data, or
-        device identifier is sent.
+        {storeManaged
+          ? storeManagedUpdateMessage()
+          : "Update checks contact Varve's configured release endpoint. No account, document data, or device identifier is sent."}
       </p>
       <div className="settings-about">
         <div className="settings-about__row">
@@ -901,62 +908,71 @@ function UpdatesSection() {
         </div>
       </div>
       <Divider />
-      <h4 className="settings-section__subtitle">Update permission</h4>
-      <fieldset className="settings-fieldset">
-        <legend className="settings-sr-only">Update permission</legend>
-        {(
-          [
-            ['manual', 'Manual — only check when I ask'],
-            ['notify', 'Automatically check and notify me'],
-            ['download-automatically', 'Automatically check and download verified updates'],
-          ] as const
-        ).map(([value, label]) => (
-          <label className="settings-checkbox-row" key={value}>
-            <input
-              type="radio"
-              name="update-consent"
-              value={value}
-              checked={preferences.consent === value}
-              onChange={() => updates.setPreferences({ consent: value })}
-              disabled={!canUseUpdater}
-            />
-            <span>{label}</span>
-          </label>
-        ))}
-      </fieldset>
-      <SwitchField
-        label="Install a verified update when I quit Varve"
-        description="Installation still waits for the normal save/close workflow. Varve never discards unsaved design work to apply an update."
-        checked={preferences.installOnQuit}
-        onChange={(event) => updates.setPreferences({ installOnQuit: event.target.checked })}
-        disabled={!canUseUpdater || preferences.consent !== 'download-automatically'}
-        disabledReason={
-          !canUseUpdater
-            ? 'Automatic installation is unavailable in this build.'
-            : preferences.consent !== 'download-automatically'
-              ? 'Choose automatic downloads above to enable install-on-quit.'
-              : undefined
-        }
-      />
-      <Divider />
-      <p className="settings-hint" role="status" aria-live="polite">
-        Current status: {status}
-      </p>
-      {(context?.installLocation === 'translocated' ||
-        context?.installLocation === 'not-writable') &&
-        context?.platform === 'darwin' && (
-          <p className="settings-hint">
-            Move Varve into your Applications folder and launch it from there to enable updates.
+      {storeManaged ? (
+        <p className="settings-hint" role="status">
+          Check for Updates is not available in Microsoft Store installs. Open Microsoft Store to
+          see whether a newer Varve version is ready.
+        </p>
+      ) : (
+        <>
+          <h4 className="settings-section__subtitle">Update permission</h4>
+          <fieldset className="settings-fieldset">
+            <legend className="settings-sr-only">Update permission</legend>
+            {(
+              [
+                ['manual', 'Manual — only check when I ask'],
+                ['notify', 'Automatically check and notify me'],
+                ['download-automatically', 'Automatically check and download verified updates'],
+              ] as const
+            ).map(([value, label]) => (
+              <label className="settings-checkbox-row" key={value}>
+                <input
+                  type="radio"
+                  name="update-consent"
+                  value={value}
+                  checked={preferences.consent === value}
+                  onChange={() => updates.setPreferences({ consent: value })}
+                  disabled={!canUseUpdater}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </fieldset>
+          <SwitchField
+            label="Install a verified update when I quit Varve"
+            description="Installation still waits for the normal save/close workflow. Varve never discards unsaved design work to apply an update."
+            checked={preferences.installOnQuit}
+            onChange={(event) => updates.setPreferences({ installOnQuit: event.target.checked })}
+            disabled={!canUseUpdater || preferences.consent !== 'download-automatically'}
+            disabledReason={
+              !canUseUpdater
+                ? 'Automatic installation is unavailable in this build.'
+                : preferences.consent !== 'download-automatically'
+                  ? 'Choose automatic downloads above to enable install-on-quit.'
+                  : undefined
+            }
+          />
+          <Divider />
+          <p className="settings-hint" role="status" aria-live="polite">
+            Current status: {status}
           </p>
-        )}
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => void updates.check()}
-        disabled={!canUseUpdater || state.kind === 'checking'}
-      >
-        {state.kind === 'checking' ? 'Checking…' : 'Check for Updates'}
-      </Button>
+          {(context?.installLocation === 'translocated' ||
+            context?.installLocation === 'not-writable') &&
+            context?.platform === 'darwin' && (
+              <p className="settings-hint">
+                Move Varve into your Applications folder and launch it from there to enable updates.
+              </p>
+            )}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void updates.check()}
+            disabled={!canUseUpdater || state.kind === 'checking'}
+          >
+            {state.kind === 'checking' ? 'Checking…' : 'Check for Updates'}
+          </Button>
+        </>
+      )}
       {state.kind === 'update-available' && (
         <>
           {state.update.notes && <p className="settings-release-notes">{state.update.notes}</p>}

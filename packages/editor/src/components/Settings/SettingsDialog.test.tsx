@@ -6,6 +6,17 @@ import { enableDrawDiagnostics, isDiagnosticsEnabled } from '../../canvas/drawDi
 import { EditorProvider } from '../../context';
 import { setCompositorDiagnostics } from '../../render/compositorDiagnosticsStore';
 import { loadSettings } from '../../settings';
+import type {
+  DownloadedUpdate,
+  DownloadProgress,
+  PackagingContext,
+  UpdateInfo,
+  UpdatePreferences,
+  UpdatePreferencesStore,
+  UpdateProvider,
+  VerifiedUpdate,
+} from '../../updates';
+import { UpdateCoordinatorProvider } from '../../updates';
 import { SettingsProvider } from './SettingsContext';
 import { SettingsDialog } from './SettingsDialog';
 
@@ -342,5 +353,53 @@ describe('PerformanceSettingsTab', () => {
     openPerformanceTab();
     const copyBtn = screen.getByText('Copy performance diagnostics');
     expect(() => fireEvent.click(copyBtn)).not.toThrow();
+  });
+
+  it('replaces Check for Updates in Microsoft Store installs', async () => {
+    const storeContext: PackagingContext = {
+      platform: 'windows',
+      architecture: 'x86_64',
+      packageType: 'msix',
+      currentVersion: '0.5.0',
+      channel: 'stable',
+      updateAuthority: 'store-managed',
+      installLocation: 'unknown',
+      runtimeSupported: false,
+      buildLabel: 'x86_64 Microsoft Store',
+    };
+    const provider: UpdateProvider = {
+      getPackagingContext: async () => storeContext,
+      check: async () => null,
+      download: async (_update: UpdateInfo, _onProgress: (progress: DownloadProgress) => void) =>
+        ({ __brand: 'DownloadedUpdate' }) as DownloadedUpdate,
+      verify: async () => ({ __brand: 'VerifiedUpdate' }) as VerifiedUpdate,
+      install: async () => undefined,
+      relaunch: async () => undefined,
+    };
+    const preferenceStore: UpdatePreferencesStore = {
+      load: (): UpdatePreferences => ({
+        schemaVersion: 1,
+        consentPromptSeen: false,
+        consent: 'manual',
+        installOnQuit: false,
+        channel: 'stable',
+        skippedVersions: {},
+        lastCheckedAt: null,
+        nextEligibleCheckAt: null,
+      }),
+      save() {},
+    };
+    render(
+      <EditorProvider>
+        <SettingsProvider>
+          <UpdateCoordinatorProvider provider={provider} preferenceStore={preferenceStore}>
+            <SettingsDialog open={true} onClose={() => {}} initialSection="updates" />
+          </UpdateCoordinatorProvider>
+        </SettingsProvider>
+      </EditorProvider>,
+    );
+    expect(await screen.findByText(/Microsoft Store delivers updates/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /check for updates/i })).toBeNull();
+    expect(screen.queryByText('Automatically check and notify me')).toBeNull();
   });
 });

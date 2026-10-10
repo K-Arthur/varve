@@ -272,7 +272,7 @@ describe('ModelLoader', () => {
     const upstream = new Uint8Array([1, 2, 3]);
     const repaired = new Uint8Array([1, 2, 3, 9]);
     const digest = async (bytes: Uint8Array): Promise<string> => {
-      const hash = await crypto.subtle.digest('SHA-256', bytes.slice().buffer);
+      const hash = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes));
       return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
     };
     const upstreamChecksum = await digest(upstream);

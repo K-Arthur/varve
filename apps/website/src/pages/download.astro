@@ -5,6 +5,12 @@ import Layout from '../layouts/Layout.astro';
 import { sitePath, siteUrl } from '../lib/siteUrl';
 import { primaryFormatFor } from '../lib/download-detection';
 import { appImageUpdaterSignatureNotice } from '../lib/release-availability';
+import {
+  MICROSOFT_STORE_LIVE,
+  MICROSOFT_STORE_URL,
+  WINGET_LIVE,
+  wingetInstallCommand,
+} from '../lib/distribution-channels';
 import { PRODUCT_STATUS, type ProductStatusStage } from '@varve/shared';
 
 const appImageSignatureNotice = appImageUpdaterSignatureNotice();
@@ -571,6 +577,28 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               <p class="download-meta trust-line">
                 <span class="trust-badge">{p.trust.badge}</span> {p.trust.detail}
               </p>
+              {p.id === 'windows' && (
+                <p class="download-meta">
+                  Direct Windows <code>.exe</code> downloads remain unsigned. Only a Microsoft
+                  Store-installed copy is re-signed by Microsoft after Store certification; that
+                  signature does not apply to the GitHub installer.
+                  {WINGET_LIVE && (
+                    <>
+                      {' '}
+                      Package Manager install: <code>{wingetInstallCommand()}</code>.
+                    </>
+                  )}
+                  {MICROSOFT_STORE_LIVE && MICROSOFT_STORE_URL && (
+                    <>
+                      {' '}
+                      <a href={MICROSOFT_STORE_URL} rel="noopener noreferrer">
+                        Get it from Microsoft Store
+                      </a>
+                      .
+                    </>
+                  )}
+                </p>
+              )}
 
               {p.id === 'linux' && (
                 <div class="format-tradeoffs">
@@ -756,7 +784,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   <li>
                     <strong>Windows (NSIS):</strong> updates install through the installer with a
                     visible progress window, and installation happens only after your approval.
-                    {!release.signed && ' Windows may show a SmartScreen warning for unsigned builds — choose More info, then Run anyway.'}
+                    {!release.signed && ' Direct .exe downloads remain unsigned — Windows may show a SmartScreen warning; choose More info, then Run anyway. Microsoft Store installs, when available, are a separate signed package and do not update this .exe.'}
                   </li>
                   <li>
                     <strong>macOS:</strong> in-app updates are available for installed copies

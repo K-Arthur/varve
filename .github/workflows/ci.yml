@@ -511,6 +511,20 @@ jobs:
         env:
           VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/website.json
         run: node scripts/quality/heavy-lease.mjs "CI website E2E" -- pnpm exec playwright test -c playwright.website.config.ts --workers=1 --retries=0 --update-snapshots=none --fail-on-flaky-tests --trace=retain-on-failure
+      # Preserve screenshots, diffs, and Playwright output on every outcome so
+      # a remote visual regression is actionable. website-deploy.yml already
+      # uploads the same class of diagnostics; this job previously kept only
+      # the execution receipt and inventory.
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-website-e2e-report-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
       - name: Write website execution receipt
         if: always()
         env:

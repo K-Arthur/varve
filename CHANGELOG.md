@@ -10,6 +10,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
+## [Unreleased]
+
+### Distribution
+
+- Windows NSIS publisher display name is **Varve** (was "K-Arthur (Varve Founder)"). The uninstall registry key stays `Varve`, so a 0.5.0 to 0.5.1 NSIS upgrade still finds the existing install.
+- Intended winget package ID is `VarveStudio.Varve`. Website and docs mention it only when that package is live.
+- A Microsoft Store MSIX workflow can package any release tag, including v0.5.0, without changing GitHub Release assets. Store-installed copies disable the in-app updater. Direct `.exe` downloads remain unsigned; only Store-installed copies are re-signed by Microsoft.
+
 ## [0.5.0] - 2026-10-09
 
 Varve remains in public beta. This release adds broad authoring workflows while

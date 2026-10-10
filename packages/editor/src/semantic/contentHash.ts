@@ -25,7 +25,10 @@ export function contentHashForSrc(src: string): Promise<string> {
 
 async function computeContentHash(src: string): Promise<string> {
   const bytes = await srcBytes(src);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  // Node's SubtleCrypto.digest is stricter than the spec and may reject
+  // ArrayBuffers that don't come from its own allocation. Wrap in Uint8Array
+  // which is always accepted as a BufferSource.
+  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes));
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
