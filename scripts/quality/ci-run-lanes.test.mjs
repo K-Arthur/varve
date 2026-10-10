@@ -38,6 +38,29 @@ assert.deepEqual(js.map((entry) => entry.lane).sort(), [
 assert.ok(js.every((entry) => Array.isArray(entry.argv)));
 assert.ok(js.every((entry) => !entry.argv.includes('sh')));
 
+const e2eTypecheckPlan = {
+  ...plan,
+  selectedLanes: [
+    'e2e:settings',
+    'js-unit:@varve/ui',
+    'typecheck:@varve/ui',
+    'typecheck:e2e',
+    'pipeline-validate',
+  ],
+};
+assert.deepEqual(
+  commandsForCategory(e2eTypecheckPlan, 'js')
+    .map((entry) => entry.lane)
+    .sort(),
+  ['js-unit:@varve/ui', 'typecheck:@varve/ui', 'typecheck:e2e'],
+  'selected typecheck:e2e must execute on the JS job so certification can see it',
+);
+assert.deepEqual(
+  commandsForCategory(e2eTypecheckPlan, 'e2e').map((entry) => entry.lane),
+  ['e2e:settings'],
+  'Playwright cells stay browser-only; the E2E compiler check is JS evidence',
+);
+
 const e2e = commandsForCategory(plan, 'e2e');
 assert.ok(e2e.some((entry) => entry.argv.includes('tests/e2e/canvas')));
 assert.ok(e2e.every((entry) => !entry.argv.includes('sh')));

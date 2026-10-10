@@ -48,8 +48,35 @@ import { sitePath } from '../../lib/siteUrl';
         </div>
 
         <div class="troubleshoot-item">
-          <h3>macOS says "app is damaged" on launch</h3>
-          <p><strong>Solution:</strong> This is a macOS security gate for unsigned apps. Right-click the app and select "Open", then click "Open" in the dialog. This only needs to be done once.</p>
+          <h3>macOS says the app is damaged, or blocks the first launch</h3>
+          <p>
+            <strong>0.5.0:</strong> that release has no bundle-wide signature, so a
+            browser-downloaded copy shows &ldquo;Varve is damaged and can&rsquo;t be opened&rdquo;
+            with no Open Anyway option. Right-click &gt; Open also stopped working in macOS 15.
+            After dragging Varve to Applications, run:
+          </p>
+          <code class="code-block">xattr -dr com.apple.quarantine /Applications/Varve.app</code>
+          <p>
+            That command removes the browser-download quarantine flag so Gatekeeper will open
+            the app. Do not disable Gatekeeper.
+          </p>
+          <p>
+            <strong>Later releases:</strong> after the first launch attempt, open System Settings
+            &gt; Privacy &amp; Security and choose Open Anyway. Do not disable Gatekeeper.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Windows SmartScreen or Smart App Control blocks the installer</h3>
+          <p>
+            <strong>SmartScreen:</strong> choose More info, then Run anyway — after verifying
+            the SHA-256 checksum on the <a href={sitePath('/download')}>download page</a>.
+          </p>
+          <p>
+            <strong>Windows 11 Smart App Control</strong> can block unsigned apps with no
+            override. If that happens, use the <a href={sitePath('/try/')}>browser version</a>
+            instead of turning the protection off.
+          </p>
         </div>
       </div>
 

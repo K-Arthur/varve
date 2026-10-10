@@ -32,8 +32,33 @@ export function releaseUpdaterAvailability(release, verifiedFeeds = {}) {
   );
 }
 
+/** 0.5.0 has no bundle-wide signature; later ad-hoc-signed builds can use Open Anyway. */
+const MACOS_QUARANTINE_ONLY_RELEASES = new Set(['0.5.0']);
+
+export function macosUnsignedCaveat(version) {
+  if (version && MACOS_QUARANTINE_ONLY_RELEASES.has(version)) {
+    return (
+      '0.5.0 has no bundle-wide signature, so a browser-downloaded copy shows ' +
+      '"Varve is damaged and can\'t be opened" with no Open Anyway option. ' +
+      'After dragging Varve to Applications, run: xattr -dr com.apple.quarantine /Applications/Varve.app — ' +
+      'that removes the download quarantine flag so macOS will open the app. Do not disable Gatekeeper.'
+    );
+  }
+  return (
+    'Not Developer ID signed or notarized. After the first launch attempt, open ' +
+    'System Settings > Privacy & Security and choose Open Anyway. Do not disable Gatekeeper.'
+  );
+}
+
+export function windowsUnsignedCaveat() {
+  return (
+    'Unsigned: Windows will show "Windows protected your PC". Choose More info, then Run anyway. ' +
+    'Windows 11 Smart App Control can block unsigned apps with no override — use the browser version at /try if that happens.'
+  );
+}
+
 /** Copy for each installer format, keyed by the manifest `format` field. */
-export function formatCopy(product) {
+export function formatCopy(product, version) {
   return {
     appimage: {
       title: 'AppImage',
@@ -58,8 +83,7 @@ export function formatCopy(product) {
     nsis: {
       title: 'Windows installer',
       blurb: 'Installs for the current user. No administrator rights needed.',
-      caveat:
-        'Unsigned: Windows will show "Windows protected your PC". Choose More info, then Run anyway.',
+      caveat: windowsUnsignedCaveat(),
       caveatSigned:
         'Digitally signed. Windows may still show a SmartScreen "unrecognized" warning until the ' +
         'publisher builds reputation — verify the publisher name shown before running.',
@@ -73,8 +97,7 @@ export function formatCopy(product) {
     dmg: {
       title: 'macOS disk image',
       blurb: 'Apple Silicon.',
-      caveat:
-        'Unsigned and not notarized: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
+      caveat: macosUnsignedCaveat(version),
       caveatSigned:
         'Signed with an Apple Developer ID and notarized by Apple. No Gatekeeper override needed.',
       install: `Open the .dmg and drag ${product} to Applications`,
@@ -87,7 +110,7 @@ export function formatCopy(product) {
  * signing block. The copy is chosen ONLY from verification state recorded in
  * the manifest — never from intent.
  */
-export function platformTrustLabel(platform, signing = {}) {
+export function platformTrustLabel(platform, signing = {}, version) {
   if (platform === 'windows') {
     const s = signing.windows;
     if (s?.signed) {
@@ -100,8 +123,7 @@ export function platformTrustLabel(platform, signing = {}) {
     }
     return {
       badge: 'Not code-signed',
-      detail:
-        'Unsigned build: Windows will show "Windows protected your PC". Choose More info, then Run anyway.',
+      detail: windowsUnsignedCaveat(),
       signed: false,
     };
   }
@@ -125,8 +147,7 @@ export function platformTrustLabel(platform, signing = {}) {
     }
     return {
       badge: 'Not code-signed',
-      detail:
-        'Unsigned and not notarized: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
+      detail: macosUnsignedCaveat(version),
       signed: false,
     };
   }
@@ -160,7 +181,7 @@ export function buildWebsiteReleaseData({
   integrity = 'verified',
 }) {
   const product = productSlug();
-  const copy = formatCopy(product);
+  const copy = formatCopy(product, manifest.version);
   const base = `https://github.com/${repo}/releases/download/${tag}`;
 
   // The checksum file is the ground truth for what is actually published. An

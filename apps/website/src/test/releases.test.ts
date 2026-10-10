@@ -92,6 +92,14 @@ describe('website release manifest', () => {
       if (artifact.format === 'nsis' || artifact.format === 'msi' || artifact.format === 'dmg') {
         expect(artifact.caveat, `${artifact.filename} needs an unsigned-build caveat`).toBeTruthy();
       }
+      if (artifact.format === 'dmg' && data.version === '0.5.0') {
+        expect(artifact.caveat).toContain('xattr -dr com.apple.quarantine');
+        expect(artifact.caveat).toMatch(/no Open Anyway option/);
+      }
+      if (artifact.format === 'nsis') {
+        expect(artifact.caveat).toMatch(/More info, then Run anyway/);
+        expect(artifact.caveat).toMatch(/Smart App Control/);
+      }
     }
   });
 });

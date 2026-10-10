@@ -87,6 +87,7 @@ export type SectionId =
   | 'table-cells'
   | 'table-columns'
   | 'ai-tools-hint'
+  | 'ai-provenance'
   | 'layer-states'
   | 'snapping'
   | 'insights';
@@ -660,6 +661,33 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     // a one-click way to reach them — never neither.
     isAvailable: (ctx) =>
       isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode !== 'image',
+  },
+  {
+    id: 'ai-provenance',
+    title: 'AI Edit History',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 281,
+    category: 'advanced',
+    // Only show for single selections with AI edit history
+    isAvailable: (ctx) => {
+      if (!isSingleSelection(ctx) || ctx.selectedNodes.length === 0) {
+        return false;
+      }
+      // Check if the node has AI edit history by looking for generativeEdits
+      const doc = ctx.document;
+      if (!doc?.generativeEdits) {
+        return false;
+      }
+      const nodeId = ctx.selectedNodes[0]?.id;
+      if (!nodeId) {
+        return false;
+      }
+      return Object.values(doc.generativeEdits).some(
+        (edit) => edit.resultNodeId === nodeId || edit.sourceNodeId === nodeId,
+      );
+    },
   },
   {
     id: 'layer-states',

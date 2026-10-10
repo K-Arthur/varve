@@ -3,6 +3,12 @@ import Button from '../components/Button.astro';
 import release from '../data/release-manifest.json';
 import Layout from '../layouts/Layout.astro';
 import { sitePath, siteUrl } from '../lib/siteUrl';
+import {
+  CHECKSUM_COMMANDS,
+  livePackageManagerChannels,
+  macosUnsignedCaveat,
+  windowsUnsignedCaveat,
+} from '../data/install-guidance';
 import { primaryFormatFor } from '../lib/download-detection';
 import { appImageUpdaterSignatureNotice } from '../lib/release-availability';
 import { PRODUCT_STATUS, type ProductStatusStage } from '@varve/shared';
@@ -128,6 +134,7 @@ interface PlatformSigning {
 function platformTrustLabel(
   platform: string,
   signing: PlatformSigning,
+  version: string | null,
 ): { badge: string; detail: string; signed: boolean } {
   if (platform === 'windows') {
     const s = signing.windows;
@@ -141,8 +148,7 @@ function platformTrustLabel(
     }
     return {
       badge: 'Not code-signed',
-      detail:
-        'Unsigned build: Windows will show "Windows protected your PC". Choose More info, then Run anyway.',
+      detail: windowsUnsignedCaveat(),
       signed: false,
     };
   }
@@ -166,8 +172,7 @@ function platformTrustLabel(
     }
     return {
       badge: 'Not code-signed',
-      detail:
-        'Unsigned and not notarised: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
+      detail: macosUnsignedCaveat(version),
       signed: false,
     };
   }
@@ -216,7 +221,7 @@ const available = ['linux', 'macos', 'windows']
     label: PLATFORM_LABELS[id] ?? id,
     artifacts: platformMap[id],
     requirements: REQUIREMENTS[id] ?? [],
-    trust: platformTrustLabel(id, signing),
+    trust: platformTrustLabel(id, signing, release.version),
   }));
 const first = available[0]?.id;
 
@@ -265,6 +270,18 @@ const quickArchitectureRowCount = Math.max(
   1,
   ...quickPlatforms.map((platform) => platform.architectures.length),
 );
+
+function artifactCaveat(artifact: Artifact): string | undefined {
+  if (artifact.format === 'dmg' && !signing.macos?.signed) {
+    return macosUnsignedCaveat(release.version);
+  }
+  if ((artifact.format === 'nsis' || artifact.format === 'msi') && !signing.windows?.signed) {
+    return windowsUnsignedCaveat();
+  }
+  return artifact.caveat;
+}
+
+const livePackageManagers = livePackageManagerChannels();
 
 /** Install command of a platform's primary artifact, for the install steps. */
 function primaryInstallCommand(p: (typeof available)[number]): string | null {
@@ -482,14 +499,19 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   : 'Varve does not yet have code-signing certificates, so your operating system cannot verify who built these files. That is a statement about this project\'s budget, not about the files — but you cannot tell the difference without checking, so please check.'}
               </p>
               <p>
-                <strong>Verify your download</strong> against the published checksum before
-                running it:
+                <strong>Verify the file you downloaded</strong> against the published checksum
+                before running it. Checking the whole <code>SHA256SUMS.txt</code> fails for
+                files that are not on disk:
               </p>
-              <code class="code-block">sha256sum -c SHA256SUMS.txt</code>
+              <p class="download-meta">Linux</p>
+              <code class="code-block">{CHECKSUM_COMMANDS.linuxIgnoreMissing}</code>
               <p class="download-meta">
-                macOS: <code>shasum -a 256 -c SHA256SUMS.txt</code> &middot; Windows PowerShell:
-                <code>Get-FileHash .\Varve-*.exe -Algorithm SHA256</code>
+                Or: <code>{CHECKSUM_COMMANDS.linuxGrep}</code>
               </p>
+              <p class="download-meta">macOS</p>
+              <code class="code-block">{CHECKSUM_COMMANDS.macosFile}</code>
+              <p class="download-meta">Windows PowerShell</p>
+              <code class="code-block">{CHECKSUM_COMMANDS.windowsFile}</code>
               <p>
                 <a href={release.checksumsUrl} target="_blank" rel="noopener noreferrer">
                   Download SHA256SUMS.txt
@@ -679,7 +701,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       {artifact.filename}
                     </p>
                     {artifact.install && <code class="code-block">{artifact.install}</code>}
-                    {artifact.caveat && <p class="download-meta"><strong>Note:</strong> {artifact.caveat}</p>}
+                    {artifactCaveat(artifact) && <p class="download-meta"><strong>Note:</strong> {artifactCaveat(artifact)}</p>}
                     <div class="checksum-block">
                       <p class="download-meta" id={`checksum-label-${artifact.filename}`}>
                         SHA-256 of {artifact.filename}
@@ -756,7 +778,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   <li>
                     <strong>Windows (NSIS):</strong> updates install through the installer with a
                     visible progress window, and installation happens only after your approval.
-                    {!release.signed && ' Windows may show a SmartScreen warning for unsigned builds — choose More info, then Run anyway.'}
+                    {!release.signed &&
+                      ' Windows may show a SmartScreen warning for unsigned builds — choose More info, then Run anyway. Windows 11 Smart App Control can block unsigned apps with no override; use the browser version if that happens.'}
                   </li>
                   <li>
                     <strong>macOS:</strong> in-app updates are available for installed copies
@@ -765,7 +788,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     from the{' '}
                     <a href={sitePath('/releases')}>release page</a>{' '}
                     and replace your installed copy.
-                    {release.signed !== true && ' macOS may block unsigned builds — use System Settings > Privacy & Security to allow it.'}
+                    {release.signed !== true &&
+                      (release.version === '0.5.0'
+                        ? ' 0.5.0 has no bundle-wide signature — after installing, run xattr -dr com.apple.quarantine /Applications/Varve.app.'
+                        : ' After the first launch attempt, use System Settings > Privacy & Security > Open Anyway.')}
                   </li>
                   <li>
                     <strong>Debian / RPM packages:</strong> installed files are owned by your package
@@ -838,7 +864,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   <strong>First launch.</strong> Varve opens a welcome screen where you can start a
                   new document, open a recent file, or load the sample document. If your operating
                   system blocks the app (unsigned build), the platform notes above say exactly what
-                  to click — and verify the checksum first.
+                  to do — and verify the checksum first.
                 </div>
               </li>
               <li>
@@ -854,6 +880,20 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               </li>
             </ol>
           </div>
+
+          {livePackageManagers.length > 0 && (
+            <div class="package-managers" id="package-managers">
+              <h2>Package managers</h2>
+              <ul>
+                {livePackageManagers.map((channel) => (
+                  <li>
+                    <strong>{channel.label}:</strong>{' '}
+                    <code class="code-block">{channel.command}</code>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div class="troubleshoot-help" id="troubleshoot-help">
             <h2>Having trouble launching?</h2>
@@ -900,13 +940,29 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 PKGBUILD directory.
               </li>
               <li>
-                <strong>macOS — the app is blocked:</strong> this build is unsigned and not
-                notarized: System Settings &gt; Privacy &amp; Security &gt; Open Anyway. Do not
-                disable Gatekeeper.
+                <strong>macOS — the app is blocked:</strong>{' '}
+                {release.version === '0.5.0' ? (
+                  <>
+                    0.5.0 has no bundle-wide signature, so Open Anyway does not appear. After
+                    dragging Varve to Applications, run{' '}
+                    <code>xattr -dr com.apple.quarantine /Applications/Varve.app</code> — that
+                    removes the download quarantine flag so macOS will open the app. Do not
+                    disable Gatekeeper.
+                  </>
+                ) : (
+                  <>
+                    After the first launch attempt, open System Settings &gt; Privacy &amp;
+                    Security and choose Open Anyway. Do not disable Gatekeeper. If you still have
+                    0.5.0, run{' '}
+                    <code>xattr -dr com.apple.quarantine /Applications/Varve.app</code>.
+                  </>
+                )}
               </li>
               <li>
                 <strong>Windows — SmartScreen warning:</strong> choose More info, then Run
-                anyway — after verifying the SHA-256 checksum shown above.
+                anyway — after verifying the SHA-256 checksum shown above. Windows 11 Smart App
+                Control can block unsigned apps with no override; use the{' '}
+                <a href={sitePath('/try/')}>browser version</a> if that happens.
               </li>
               <li>
                 <strong>Still stuck?</strong>{' '}
@@ -1957,6 +2013,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     detect,
     orderArchitectures,
     recommendationCopy,
+    platformFromDownloadHash,
     type DetectionResult,
   } from '../lib/download-detection';
 
@@ -2228,5 +2285,23 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     });
   });
 
-  applyRecommendation();
+  function activateFromHash() {
+    const platform = platformFromDownloadHash(window.location.hash);
+    if (!platform) return false;
+    const tab = document.querySelector('.platform-tab[data-platform="' + platform + '"]');
+    if (tab instanceof HTMLButtonElement) {
+      activatePlatform(tab);
+      return true;
+    }
+    return false;
+  }
+
+  window.addEventListener('hashchange', function () {
+    activateFromHash();
+  });
+
+  // A URL hash is an explicit this-visit choice and wins over UA recommendation.
+  if (!activateFromHash()) {
+    applyRecommendation();
+  }
 </script>

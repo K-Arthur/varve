@@ -1,3 +1,10 @@
+export type { DiagnosticParts } from './benign';
+export {
+  diagnosticParts,
+  isBenignDiagnostic,
+  isBenignRejection,
+  isBenignWindowErrorEvent,
+} from './benign';
 export type { BreadcrumbSink } from './breadcrumbs';
 export { NOOP_BREADCRUMB_SINK, RingBreadcrumbBuffer } from './breadcrumbs';
 export type { CrashCapabilities } from './capabilities';

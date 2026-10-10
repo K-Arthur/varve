@@ -937,6 +937,11 @@ jobs:
           VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
           TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.update.channel.json"
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            # Free ad-hoc bundle signature (signingIdentity: "-"). This is not
+            # Developer ID and must never be confused with paid Apple signing.
+            TAURI_EXTRA_ARGS+=" --config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.signing.macos-adhoc.json"
+          fi
           pnpm tauri build --target ${{ matrix.rust_target }} --bundles ${{ matrix.bundles }} --ci ${TAURI_EXTRA_ARGS}
         working-directory: apps/desktop
 
@@ -952,6 +957,9 @@ jobs:
           VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
           TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.update.channel.json"
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            TAURI_EXTRA_ARGS+=" --config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.signing.macos-adhoc.json"
+          fi
           pnpm tauri build --target ${{ matrix.rust_target }} --bundles ${{ matrix.bundles }} --ci ${TAURI_EXTRA_ARGS}
         working-directory: apps/desktop
 
@@ -978,6 +986,15 @@ jobs:
             --bundle-dir "${TAURI_BUNDLE_DIR}" \
             --arch ${{ matrix.arch_slug }} \
             --tools-dir "$HOME/.cache/tauri"
+
+      # firejail --appimage (AppImageHub) kernel-mounts the SquashFS and
+      # enforces mode bits. FUSE / --appimage-extract hide 0700 directories
+      # and 0770 AppRun.wrapped, so read the image with unsquashfs -lln.
+      - name: Verify AppImage squashfs permissions
+        if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
+        run: |
+          node scripts/release/verify-appimage-permissions.mjs \
+            --bundle-dir "${TAURI_BUNDLE_DIR}"
 
       # linuxdeploy re-assembles the AppImage from a fresh squashfs, so
       # the .sig produced by Tauri's build step is no longer valid.
@@ -1263,7 +1280,7 @@ jobs:
             podman fuse xvfb dbus-x11 at-spi2-core \
             libegl1 libgl1 libgles2 libgbm1 libxkbcommon0 \
             libwebkit2gtk-4.1-0 libgtk-3-0 gstreamer1.0-plugins-base \
-            librsvg2-2
+            librsvg2-2 squashfs-tools
           podman info >/dev/null 2>&1 || echo "::warning::podman info failed — install tests will fail fast"
 
       - name: Install-test .deb and .rpm in clean containers
@@ -1303,6 +1320,17 @@ jobs:
           node scripts/quality/run-bounded-command.mjs 540000 "$PWD" node release-qualification-tooling/scripts/quality/heavy-lease.mjs "Actual upgraded Linux production qualification" -- dbus-run-session -- xvfb-run --auto-servernum bash release-qualification-tooling/scripts/release/production/linux-session.sh /usr/bin/varve-desktop "$QUALIFIED/current-document" "$PROFILE" '${{ needs.preflight.outputs.version }}' '${{ matrix.node_arch }}' "$QUALIFIED/old-document/Migrated save β.varve" 2.33 false
           node --input-type=module -e 'import assert from "node:assert/strict";import{readFileSync}from"node:fs";const[a,b]=process.argv.slice(1).map(p=>JSON.parse(readFileSync(p)));assert.equal(a.appDataDirectory,b.appDataDirectory,"Actual Linux native profile changed during upgrade");' "$QUALIFIED/old-document/qualification.json" "$QUALIFIED/current-document/qualification.json"
           sudo apt-get remove -y "$(dpkg-deb -f "$CURRENT" Package)"
+
+      - name: Verify staged AppImage squashfs permissions
+        if: matrix.enabled
+        run: |
+          set -euo pipefail
+          IMG="$(find staged/linux-${{ matrix.arch_slug }} -name '*.AppImage' | head -1)"
+          if [[ -z "${IMG}" ]]; then
+            echo "::error::No AppImage found in staged/linux-${{ matrix.arch_slug }}"
+            exit 1
+          fi
+          node scripts/release/verify-appimage-permissions.mjs --appimage "$(realpath "${IMG}")"
 
       - name: Launch smoke (AppImage under Xvfb)
         if: matrix.enabled

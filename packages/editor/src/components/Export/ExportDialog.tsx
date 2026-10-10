@@ -87,6 +87,7 @@ export interface ExportDialogProps {
     signal?: AbortSignal,
     onProgress?: (event: ExportProgressEvent) => void,
     preparedDocument?: Document,
+    options?: { includeAiDisclosure?: boolean },
   ) => Promise<ExportReport | undefined>;
   onPackageExport?: () => Promise<void>;
   onApplyBackgroundRemoval?: (nodeId: NodeId, state: PreparedBackgroundRemoval) => void;
@@ -368,6 +369,7 @@ export function ExportDialog({
   const [destinationLabel, setDestinationLabel] = useState('');
   const [announceMsg, setAnnounceMsg] = useState('');
   const [removeBgBeforeExport, setRemoveBgBeforeExport] = useState(false);
+  const [includeAiDisclosure, setIncludeAiDisclosure] = useState(true);
   const [bgMethod, setBgMethod] = useState<BackgroundRemovalMethod>('quick');
   const [aiAvailable, setAiAvailable] = useState(true);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
@@ -610,6 +612,7 @@ export function ExportDialog({
           setProgressDetail({ stage: event.stage, currentFile: event.currentFile });
         },
         preparedDocument,
+        { includeAiDisclosure },
       );
       if (!controller.signal.aborted) {
         for (const prepared of preparedMasks)
@@ -670,6 +673,7 @@ export function ExportDialog({
     bgMethod,
     aiAvailable,
     findings,
+    includeAiDisclosure,
   ]);
 
   const handleRetryFailed = useCallback(() => {
@@ -691,10 +695,16 @@ export function ExportDialog({
       batchAbortRef.current = controller;
       try {
         const retryBatch = { ...exportBatch, jobs: failedJobs };
-        const report = await onExport(retryBatch, controller.signal, (event) => {
-          setProgress({ done: event.completed, errors: event.failed });
-          setProgressDetail({ stage: event.stage, currentFile: event.currentFile });
-        });
+        const report = await onExport(
+          retryBatch,
+          controller.signal,
+          (event) => {
+            setProgress({ done: event.completed, errors: event.failed });
+            setProgressDetail({ stage: event.stage, currentFile: event.currentFile });
+          },
+          undefined,
+          { includeAiDisclosure },
+        );
         if (report) {
           setSuccessEmphasisActive(
             !controller.signal.aborted &&
@@ -724,7 +734,7 @@ export function ExportDialog({
         setRunning(false);
       }
     })();
-  }, [exportBatch, lastReport, onExport]);
+  }, [exportBatch, lastReport, onExport, includeAiDisclosure]);
 
   const handleCancel = useCallback(() => {
     if (videoExporting) {
@@ -1067,6 +1077,19 @@ export function ExportDialog({
                   />
                 </div>
               )}
+
+              <section
+                className="export-dialog__section export-dialog__section--card"
+                aria-label="AI disclosure"
+              >
+                <h3 className="export-dialog__section-title">AI disclosure</h3>
+                <SwitchField
+                  label="Include AI disclosure"
+                  description="Embed IPTC DigitalSourceType metadata when this document contains AI edits. On by default."
+                  checked={includeAiDisclosure}
+                  onChange={(e) => setIncludeAiDisclosure(e.target.checked)}
+                />
+              </section>
 
               <section
                 className="export-dialog__section export-dialog__section--card"

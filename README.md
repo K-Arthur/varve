@@ -1,7 +1,9 @@
-<h1 align="center">
+# Varve
+
+<p align="center">
   <img src="packages/ui/src/icons/varve-wordmark.svg#gh-light-mode-only" alt="Varve" width="340">
   <img src="packages/ui/src/icons/varve-wordmark-dark.svg#gh-dark-mode-only" alt="Varve" width="340">
-</h1>
+</p>
 <p align="center">
   <img src="docs/brand/github-repository-icon.png" alt="" width="88">
 </p>
@@ -26,6 +28,7 @@
   <a href="https://varve.studio/download"><strong>Download Varve</strong></a> ·
   <a href="https://varve.studio"><strong>Website</strong></a> ·
   <a href="https://varve.studio/docs"><strong>Docs</strong></a> ·
+  <a href="https://varve.studio/about/how-its-built"><strong>How it's built</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/releases"><strong>Releases</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a> ·
   <a href="https://github.com/sponsors/K-Arthur"><strong>Sponsor</strong></a>

@@ -37,6 +37,7 @@ describe('Inspector feature ownership', () => {
         'paint-library',
         'stroke',
         'effects',
+        'ai-provenance',
         'smart-filters',
         'adjustment-layer-access',
         'animation',

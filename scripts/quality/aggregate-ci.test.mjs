@@ -184,6 +184,39 @@ const wrongTree = validateExecutionEvidence({
   plan: strictPlan,
 });
 assert.equal(wrongTree.passed, false, 'a report from another tree cannot certify the plan');
+const e2eTypecheckPlan = {
+  ...strictPlan,
+  categories: { ...strictPlan.categories, js: true },
+  selectedLanes: ['js-unit:@varve/editor', 'typecheck:@varve/editor', 'typecheck:e2e'],
+};
+const jsTypecheckReport = {
+  ...pipelineExecution,
+  category: 'js',
+  executedLanes: ['js-unit:@varve/editor', 'typecheck:@varve/editor', 'typecheck:e2e'],
+};
+assert.equal(
+  validateExecutionEvidence({
+    reports: [pipelineExecution, jsTypecheckReport],
+    plan: e2eTypecheckPlan,
+  }).passed,
+  true,
+  'typecheck:e2e certifies as JS evidence',
+);
+const missingE2eTypecheck = validateExecutionEvidence({
+  reports: [
+    pipelineExecution,
+    { ...jsTypecheckReport, executedLanes: ['js-unit:@varve/editor', 'typecheck:@varve/editor'] },
+  ],
+  plan: e2eTypecheckPlan,
+});
+assert.equal(missingE2eTypecheck.passed, false, 'omitting typecheck:e2e from the JS receipt fails');
+assert.ok(
+  missingE2eTypecheck.failures.some(
+    (failure) =>
+      failure.job === 'js' && failure.reason.includes("lane 'typecheck:e2e' was not executed"),
+  ),
+  'the missing E2E compiler check is attributed to the JS job',
+);
 const e2ePlan = {
   ...strictPlan,
   categories: { ...strictPlan.categories, pipeline: false, e2e: true },

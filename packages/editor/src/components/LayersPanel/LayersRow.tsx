@@ -26,7 +26,7 @@ import {
   isImageShape,
   nodeHasStyle,
 } from '@varve/scene';
-import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
+import { Icon, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
 import type { ParentIndexCache } from '../../scene/parentIndexCache';
@@ -37,6 +37,7 @@ import {
 } from '../../scene/world';
 import type { LayersBadgeGroup } from '../../workspace/workspaceTypes';
 import { summarizeAdjustmentStack } from './adjustmentStackSummary';
+import { formatAiEditTimestamp, getNodeAiEditInfo } from './aiEditedBadge';
 import { containerHasContent } from './containerPreview';
 import { EffectStackTransferBadge } from './EffectStackTransferBadge';
 import { LayerDetailsPopover } from './LayerDetailsPopover';
@@ -264,6 +265,9 @@ export const LayersRow = memo(function LayersRow({
   const traceDetail = traceMeta
     ? `Traced image — ${traceMeta.mode === 'pixel-art' ? 'pixel art' : traceMeta.mode}, ${traceMeta.traceMode}`
     : undefined;
+
+  // Check if this node has AI edit provenance
+  const aiEditInfo = useMemo(() => (doc ? getNodeAiEditInfo(doc, node.id) : null), [doc, node.id]);
   const isEffectivelyLocked = doc ? isNodeEffectivelyLocked(doc, node.id) : node.locked;
   // Visibility inherits down: a child of a hidden group paints nothing even
   // though its own visible flag is still true. Distinguish that inherited
@@ -873,6 +877,23 @@ export const LayersRow = memo(function LayersRow({
           {keyframeCount != null && keyframeCount > 0 && !editing && (
             <span className="layers-row__badge-slot" {...badgeAttrs('motion')}>
               <span className="layers-row__keyframe-badge">{keyframeCount}</span>
+            </span>
+          )}
+
+          {/* AI-edited badge — shows when the layer has been modified by any AI tool */}
+          {aiEditInfo && !editing && (
+            <span className="layers-row__badge-slot" {...badgeAttrs('ai')}>
+              <Tooltip
+                label={`${aiEditInfo.label} • ${aiEditInfo.model} • ${formatAiEditTimestamp(aiEditInfo.timestamp)}`}
+              >
+                <span
+                  className="layers-row__ai-badge"
+                  role="img"
+                  aria-label={`AI-edited: ${aiEditInfo.label} with ${aiEditInfo.model}`}
+                >
+                  <Icon name="Sparkles" size={12} />
+                </span>
+              </Tooltip>
             </span>
           )}
 

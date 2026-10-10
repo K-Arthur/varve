@@ -167,7 +167,18 @@ function applyTextCase(text: string, textCase: TextMeasureOptions['textCase']): 
 function sourceParagraphs(node: TextGeometryInput): TextGeometryRichParagraph[] {
   const paragraphs = node.richText?.paragraphs;
   if (paragraphs && paragraphs.length > 0) return paragraphs;
-  return node.text.split('\n').map((line) => ({ runs: [{ text: line }] }));
+
+  // Defensive: coerce malformed text to string. A document created with an
+  // incorrect text field type (e.g., Quill Delta object instead of string)
+  // should degrade gracefully instead of crashing the canvas and layers panel.
+  const text = typeof node.text === 'string' ? node.text : '';
+  if (text !== node.text && typeof node.text !== 'string') {
+    console.warn(
+      `TextNode ${(node as any).id ?? '(unknown)'} has invalid text field (type: ${typeof node.text}). Expected string, falling back to empty string.`,
+    );
+  }
+
+  return text.split('\n').map((line) => ({ runs: [{ text: line }] }));
 }
 
 /** Per-run options, inheriting anything the run does not override. */

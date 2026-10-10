@@ -787,6 +787,8 @@ function CollabSection() {
 }
 
 function AISection() {
+  const { settings, updateSection } = useSettings();
+
   return (
     <div className="settings-section">
       <h3 className="settings-section__title">On-device Assistants</h3>
@@ -794,6 +796,18 @@ function AISection() {
         Varve's design assistants (contrast checks, design-debt scans, layer-name suggestions,
         spacing harmonization) run entirely on your device. Nothing is sent to a server and no model
         downloads are required — the assistants work offline and never leave your document.
+      </p>
+      <SettingsFieldRow label="AI features">
+        <SwitchField
+          label={settings.ai.enabled ? 'On' : 'Off'}
+          checked={settings.ai.enabled}
+          onChange={(checked) => updateSection('ai', { enabled: checked })}
+          id="ai-features-toggle"
+        />
+      </SettingsFieldRow>
+      <p className="settings-section__hint">
+        When off, all AI and ML features are disabled: generative edit, background removal, upscale,
+        object selection, depth blur, semantic search, and model downloads.
       </p>
       <SettingsFieldRow label="Usage & diagnostics">
         <span className="settings-section__description">

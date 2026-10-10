@@ -1,0 +1,18 @@
+---
+import DownloadRedirect from '../components/DownloadRedirect.astro';
+import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
+
+const dest = `${sitePath('/download')}#platform-linux`;
+---
+
+<Layout
+  title="Linux downloads"
+  description="Varve Linux installers have moved to the download page."
+  noindex
+  canonicalPath="/download"
+>
+  <div class="container-custom">
+    <DownloadRedirect heading="Linux" dest={dest} destLabel="download page Linux tab" />
+  </div>
+</Layout>

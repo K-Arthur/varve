@@ -59,6 +59,7 @@ const routes = [
   '/about/license',
   '/about/privacy',
   '/about/security',
+  '/about/how-its-built',
   '/accessibility',
   '/releases',
   '/404',

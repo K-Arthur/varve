@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDidYouKnow } from './useDidYouKnow';
 
 function createTracker() {
@@ -14,6 +14,10 @@ function createTracker() {
 describe('useDidYouKnow', () => {
   beforeEach(() => {
     localStorage.removeItem('strata:tips-today');
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('returns null when no tips are eligible (condition fails)', () => {
@@ -100,6 +104,11 @@ describe('useDidYouKnow', () => {
 
   it('does not show more than 5 tips per day', () => {
     vi.useFakeTimers();
+    // Pin midday so the 15s idle advance cannot roll the calendar date.
+    // A wall-clock run near midnight made `new Date().toDateString()`
+    // disagree with the hook's later `loadTipsToday()` check and leaked
+    // the always-eligible `panel-toggle` tip.
+    vi.setSystemTime(new Date('2026-06-15T12:00:00.000Z'));
     const tracker = createTracker();
     tracker.setCount('tool:select', 50);
     tracker.setCount('op:createNode', 10);

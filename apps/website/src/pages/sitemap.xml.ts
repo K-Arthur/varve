@@ -27,6 +27,15 @@ function toRoute(filePath: string): string | null {
   // /releases is a noindex redirect alias for /changelog; a sitemap must not
   // advertise a page that asks not to be indexed.
   if (relative === 'releases') return null;
+  // Platform/install shortcuts redirect to /download; keep them out of the sitemap.
+  if (
+    relative === 'linux' ||
+    relative === 'windows' ||
+    relative === 'mac' ||
+    relative === 'install'
+  ) {
+    return null;
+  }
   if (relative.includes('[')) return null;
 
   if (relative === 'index') return '/';

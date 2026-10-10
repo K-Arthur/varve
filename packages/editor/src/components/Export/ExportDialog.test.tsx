@@ -90,6 +90,23 @@ describe('ExportDialog', () => {
     expect(batch.jobs[0]?.fileName).toBe('png/Rectangle 1-200.png');
   });
 
+  it('includes AI disclosure by default and can turn it off', async () => {
+    const onExport = vi.fn(async () => undefined);
+    render(
+      <ExportDialog isOpen={true} onClose={() => {}} nodes={[mockNode()]} onExport={onExport} />,
+    );
+
+    const toggle = screen.getByRole('switch', { name: 'Include AI disclosure' });
+    expect(toggle).toBeChecked();
+
+    fireEvent.click(toggle);
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
+
+    await waitFor(() => expect(onExport).toHaveBeenCalledOnce());
+    expect(onExport.mock.calls[0]?.[4]).toEqual({ includeAiDisclosure: false });
+  });
+
   it('renders when isOpen is true', () => {
     const { container } = render(
       <ExportDialog

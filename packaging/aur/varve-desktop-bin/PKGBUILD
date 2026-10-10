@@ -1,4 +1,4 @@
-# Maintainer: Kevin Arthur <hello@kevinarthur.design>
+# Maintainer: Varve <hello at varve dot studio>
 #
 # Binary package: extracts the released AppImage rather than running it in
 # place. Extracting gives real .desktop/icon/MIME integration, avoids the FUSE
@@ -14,9 +14,9 @@ _appname=varve-desktop
 pkgver=0.5.0
 pkgrel=1
 pkgdesc="Local-first design suite for vector, layout, typography, motion and print"
-arch=('x86_64')
+arch=('x86_64' 'aarch64')
 url="https://github.com/K-Arthur/varve"
-license=('LicenseRef-FSL-1.1-MIT')
+license=('FSL-1.1-MIT')
 # Runtime libraries the Tauri binary links against. Deliberately not the full
 # AppImage payload: on Arch these are all present as system packages, and using
 # them keeps the install small and patched by the distro.
@@ -40,9 +40,10 @@ provides=("${_appname}")
 conflicts=("${_appname}" "${_appname}-git")
 options=('!strip' '!debug')
 
-source=("Varve-${pkgver}-linux-x86_64.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-x86_64.AppImage")
-sha256sums=('fb0c188286fbd92479f88dd0eefc4547d3544b33e7dc5120abd399bfdf2237af')  # v0.5.0 published SHA256SUMS.txt
-noextract=("Varve-${pkgver}-linux-x86_64.AppImage")
+source=("Varve-${pkgver}-linux-${CARCH}.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-${CARCH}.AppImage")
+sha256sums_x86_64=('fb0c188286fbd92479f88dd0eefc4547d3544b33e7dc5120abd399bfdf2237af')
+sha256sums_aarch64=('4684fef861cdf3dd51cfd326f5a9452d29d733af9e9d4c53b18f06fc0ab8c404')
+noextract=("Varve-${pkgver}-linux-${CARCH}.AppImage")
 
 # Install a directory tree with world-readable dirs (755), regular files 644,
 # and executables / shared objects 755. The v0.5.0 AppImage squashfs ships
@@ -70,10 +71,10 @@ _install_tree() {
 
 prepare() {
   cd "${srcdir}"
-  chmod +x "Varve-${pkgver}-linux-x86_64.AppImage"
+  chmod +x "Varve-${pkgver}-linux-${CARCH}.AppImage"
   # --appimage-extract does not need FUSE, so this works in a clean chroot and
   # in CI containers where /dev/fuse is unavailable.
-  "./Varve-${pkgver}-linux-x86_64.AppImage" --appimage-extract >/dev/null
+  "./Varve-${pkgver}-linux-${CARCH}.AppImage" --appimage-extract >/dev/null
 
   # World-readable extract: dirs 755, files 644, anything that already had
   # user-execute (binaries, AppRun.wrapped, most .so files) 755.
@@ -83,20 +84,33 @@ prepare() {
 package() {
   cd "${srcdir}/squashfs-root"
 
+  # Main executable
   install -Dm755 "usr/bin/${_appname}" "${pkgdir}/usr/bin/${_appname}"
 
   # The AppImage bundles copies of system libraries so it can run anywhere.
   # On Arch those come from `depends` above, so they are intentionally dropped —
   # keeping them would ship stale, unpatched duplicates of distro libraries.
 
-  # Tauri resources (bundled ONNX Runtime, LICENSE, helper binaries) live at
-  # usr/lib/Varve — productName is "Varve", and the binary resolves resources
-  # from /usr/lib/Varve. Do not rename this directory.
+  # Tauri resources (bundled ONNX Runtime) must be kept under /usr/lib/Varve/
+  # where Tauri looks for them. This includes ONNX Runtime which is not in any
+  # distro repo.
   if [[ -d "usr/lib/Varve" ]]; then
     _install_tree "usr/lib/Varve" "${pkgdir}/usr/lib/Varve"
   fi
 
-  # Desktop entry, normalised to the packaged binary path.
+  # Install license files (required for non-common licenses)
+  install -Dm644 "usr/lib/Varve/_up_/_up_/_up_/LICENSE" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  if [[ -f "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_NOTICES" ]]; then
+    install -Dm644 "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_NOTICES" \
+      "${pkgdir}/usr/share/licenses/${pkgname}/THIRD_PARTY_NOTICES"
+  fi
+  if [[ -d "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_LICENSES" ]]; then
+    _install_tree "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_LICENSES" \
+      "${pkgdir}/usr/share/licenses/${pkgname}/THIRD_PARTY_LICENSES"
+  fi
+
+  # Desktop entry, normalised to the packaged binary path
   local _desktop
   _desktop="$(find usr/share/applications -name '*.desktop' | head -1)"
   if [[ -n "${_desktop}" ]]; then
@@ -107,44 +121,24 @@ package() {
       "${pkgdir}/usr/share/applications/dev.varve.desktop.desktop"
   fi
 
+  # MetaInfo for GNOME Software, KDE Discover, etc.
+  if [[ -f "usr/share/metainfo/dev.varve.desktop.metainfo.xml" ]]; then
+    install -Dm644 "usr/share/metainfo/dev.varve.desktop.metainfo.xml" \
+      "${pkgdir}/usr/share/metainfo/dev.varve.desktop.metainfo.xml"
+  fi
+
   # Icons — every size the AppImage carries, with modes reset (not `cp -a`).
   if [[ -d usr/share/icons/hicolor ]]; then
     _install_tree usr/share/icons/hicolor "${pkgdir}/usr/share/icons/hicolor"
   fi
 
-  if [[ -f usr/share/metainfo/dev.varve.desktop.metainfo.xml ]]; then
-    install -Dm644 usr/share/metainfo/dev.varve.desktop.metainfo.xml \
-      "${pkgdir}/usr/share/metainfo/dev.varve.desktop.metainfo.xml"
+  # MIME types for .varve and .strata documents, so double-click opens the app
+  if [[ -f "usr/share/mime/packages/dev.varve.desktop.xml" ]]; then
+    install -Dm644 "usr/share/mime/packages/dev.varve.desktop.xml" \
+      "${pkgdir}/usr/share/mime/packages/dev.varve.desktop.xml"
   fi
 
-  # LICENSE is a Tauri resource. The AppImage stores ../../../LICENSE as
-  # usr/lib/Varve/_up_/_up_/_up_/LICENSE — do not cap find depth.
-  local _license
-  _license="$(find usr/lib/Varve -type f -name LICENSE -print -quit 2>/dev/null)"
-  if [[ -z "${_license}" ]]; then
-    _license="$(find . -type f -name LICENSE -print -quit 2>/dev/null)"
-  fi
-  if [[ -n "${_license}" ]]; then
-    install -Dm644 "${_license}" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
-  fi
-
-  # MIME types for .varve and .strata documents, so double-click opens the app.
-  install -Dm644 /dev/stdin "${pkgdir}/usr/share/mime/packages/dev.varve.desktop.xml" <<'MIME'
-<?xml version="1.0" encoding="UTF-8"?>
-<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
-  <mime-type type="application/x-varve">
-    <comment>Varve design document</comment>
-    <glob pattern="*.varve"/>
-    <icon name="dev.varve.desktop"/>
-  </mime-type>
-  <mime-type type="application/x-strata">
-    <comment>Varve design document (legacy Strata format)</comment>
-    <glob pattern="*.strata"/>
-    <icon name="dev.varve.desktop"/>
-  </mime-type>
-</mime-info>
-MIME
-
+  # Documentation
   install -Dm644 /dev/stdin "${pkgdir}/usr/share/doc/${pkgname}/README" <<'DOC'
 Varve stores documents as .varve files (legacy .strata files stay openable) and keeps everything on your machine.
 

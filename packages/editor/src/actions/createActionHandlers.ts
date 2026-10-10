@@ -1843,5 +1843,11 @@ export function createActionHandlers(
       // The dialog owns the count choice (3-12 colors) and the analysis.
       e.openPaletteExtract(src);
     },
+    toggleAiFeatures: () => {
+      const current = loadSettings();
+      const newEnabled = !current.ai.enabled;
+      updateSettings({ ai: { enabled: newEnabled } });
+      e.announce?.(newEnabled ? 'AI features enabled' : 'AI features disabled');
+    },
   };
 }
