@@ -175,7 +175,10 @@ async function sha256(data: ArrayBuffer): Promise<string> {
   if (typeof crypto === 'undefined' || !crypto.subtle) {
     throw new Error('Secure font hashing is unavailable in this environment.');
   }
-  const digest = await crypto.subtle.digest('SHA-256', data);
+  // Node's SubtleCrypto.digest is stricter than the spec and may reject
+  // ArrayBuffers that don't come from its own allocation. Wrap in Uint8Array
+  // which is always accepted as a BufferSource.
+  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(data));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
