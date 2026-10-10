@@ -27,12 +27,12 @@ offsets, overshoot and correction on longer moves, small jitter, and a
 per-move irregular speed profile (not one shared cubic ease). The
 recorder waits 0.4-1.5s before clicks, after a panel opens, and between
 tasks. Typing uses 60-220ms per key with longer pauses at word
-boundaries. Compact 9:16 keeps the inspector hidden until a callout
-group has settled, then Fits the balloon and, for speech, resizes it
-the way a person would (wrap leaves top-aligned text in the ellipse
-crown; that is an app bug, not papered over in product code). The tail
-loop restores the exact starting Tail X/Y and parks the cursor on Tail
-X so the first and last frames match.
+boundaries. Compact 9:16 opens the Inspector with a visible toggle
+click before lettering and keeps it open. Wrap is followed immediately
+by Fit so a clipped balloon is not held on screen. The tail loop
+restores Tail X and Tail Y to the exact starting integers and parks
+the cursor on the frozen Tail X point so the first and last frames
+match.
 
 `--probe` letters only the speech balloon, dumps wrap/bind JSON, and writes
 screenshots under `.tmp/`.
