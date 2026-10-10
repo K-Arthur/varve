@@ -8,15 +8,15 @@
  * assets.
  */
 import { cpSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
-  STORE_ASSET_FILES,
   assertStoreManifestContract,
   loadIdentityFile,
   loadManifestTemplate,
   renderManifest,
   resolveStoreIdentity,
+  STORE_ASSET_FILES,
 } from './identity.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -66,7 +66,8 @@ export function stageMsixLayout({
 
   const onnx = join(releaseDir, 'onnxruntime-libs');
   try {
-    if (statSync(onnx).isDirectory()) cpSync(onnx, join(outputDir, 'onnxruntime-libs'), { recursive: true });
+    if (statSync(onnx).isDirectory())
+      cpSync(onnx, join(outputDir, 'onnxruntime-libs'), { recursive: true });
   } catch {
     // Optional when a tagged source predates bundled ONNX, or the prune step
     // removed a foreign-arch tree. The pack still needs the exe.

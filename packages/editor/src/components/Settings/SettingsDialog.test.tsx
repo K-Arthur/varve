@@ -6,7 +6,6 @@ import { enableDrawDiagnostics, isDiagnosticsEnabled } from '../../canvas/drawDi
 import { EditorProvider } from '../../context';
 import { setCompositorDiagnostics } from '../../render/compositorDiagnosticsStore';
 import { loadSettings } from '../../settings';
-import { UpdateCoordinatorProvider } from '../../updates';
 import type {
   DownloadedUpdate,
   DownloadProgress,
@@ -17,6 +16,7 @@ import type {
   UpdateProvider,
   VerifiedUpdate,
 } from '../../updates';
+import { UpdateCoordinatorProvider } from '../../updates';
 import { SettingsProvider } from './SettingsContext';
 import { SettingsDialog } from './SettingsDialog';
 
