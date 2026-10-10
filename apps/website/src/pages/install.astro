@@ -1,0 +1,18 @@
+---
+import DownloadRedirect from '../components/DownloadRedirect.astro';
+import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
+
+const dest = sitePath('/download');
+---
+
+<Layout
+  title="Install Varve"
+  description="Varve installers live on the download page."
+  noindex
+  canonicalPath="/download"
+>
+  <div class="container-custom">
+    <DownloadRedirect heading="Install" dest={dest} destLabel="download page" />
+  </div>
+</Layout>

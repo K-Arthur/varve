@@ -202,3 +202,24 @@ export function recommendationCopy(result: DetectionResult): string | null {
           : '';
   return `Based on your browser, we recommend <strong>${platformName}</strong>${archPart}. This is a best guess — you can choose any other platform or architecture below.`;
 }
+
+const DOWNLOAD_HASH_PLATFORMS = new Set(['linux', 'macos', 'windows']);
+
+/**
+ * Platform tab encoded in a download-page hash (`#platform-linux`).
+ * `/mac` aliases to the macOS tab; unknown hashes return null.
+ */
+export function platformFromDownloadHash(
+  hash: string | null | undefined,
+): Exclude<DetectedPlatform, 'chromeos' | 'unknown'> | null {
+  const value = String(hash ?? '')
+    .replace(/^#/, '')
+    .trim()
+    .toLowerCase();
+  const match = /^platform-(linux|macos|windows|mac)$/.exec(value);
+  if (!match) return null;
+  const platform = match[1] === 'mac' ? 'macos' : match[1];
+  return DOWNLOAD_HASH_PLATFORMS.has(platform)
+    ? (platform as Exclude<DetectedPlatform, 'chromeos' | 'unknown'>)
+    : null;
+}

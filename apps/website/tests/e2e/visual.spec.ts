@@ -114,8 +114,11 @@ async function articleClip(page: import('@playwright/test').Page, selector: stri
  * Visual regression baselines.
  *
  * Screenshots are only meaningful once the corrected rendering is deliberate —
- * regenerate deliberately with:
- *   pnpm test:website:e2e -- --update-snapshots
+ * regenerate on ubuntu-latest (Visual Baselines workflow), or locally only
+ * after hiding Cascadia / JetBrains Mono / SF Mono. Those families sit in
+ * `--font-mono` before generic monospace and are absent on CI, so code
+ * blocks wrap differently if they stay visible.
+ *   FONTCONFIG_FILE=<reject extra mono dirs> pnpm test:website:e2e -- --update-snapshots
  *
  * Determinism: every snapshot runs with reduced motion emulated and the
  * design field renders its static seeded frame, so no animation can smear

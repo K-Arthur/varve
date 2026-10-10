@@ -1,0 +1,25 @@
+{
+  "channels": [
+    {
+      "id": "winget",
+      "platform": "windows",
+      "label": "WinGet",
+      "command": "winget install K-Arthur.Varve",
+      "live": false
+    },
+    {
+      "id": "scoop",
+      "platform": "windows",
+      "label": "Scoop",
+      "command": "scoop install varve",
+      "live": false
+    },
+    {
+      "id": "homebrew",
+      "platform": "macos",
+      "label": "Homebrew",
+      "command": "brew install --cask k-arthur/varve/varve",
+      "live": false
+    }
+  ]
+}

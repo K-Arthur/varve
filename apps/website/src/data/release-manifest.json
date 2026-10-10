@@ -158,7 +158,7 @@
         "sbomUrl": "https://github.com/K-Arthur/varve/releases/download/v0.5.0/varve-0.5.0-sbom-macos-aarch64.cdx.json",
         "title": "macOS disk image",
         "blurb": "Apple Silicon.",
-        "caveat": "Unsigned and not notarized: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.",
+        "caveat": "0.5.0 has no bundle-wide signature, so a browser-downloaded copy shows \"Varve is damaged and can't be opened\" with no Open Anyway option. After dragging Varve to Applications, run: xattr -dr com.apple.quarantine /Applications/Varve.app — that removes the download quarantine flag so macOS will open the app. Do not disable Gatekeeper.",
         "caveatSigned": "Signed with an Apple Developer ID and notarized by Apple. No Gatekeeper override needed.",
         "install": "Open the .dmg and drag Varve to Applications"
       }
@@ -179,7 +179,7 @@
         "sbomUrl": "https://github.com/K-Arthur/varve/releases/download/v0.5.0/varve-0.5.0-sbom-windows-x86_64.cdx.json",
         "title": "Windows installer",
         "blurb": "Installs for the current user. No administrator rights needed.",
-        "caveat": "Unsigned: Windows will show \"Windows protected your PC\". Choose More info, then Run anyway.",
+        "caveat": "Unsigned: Windows will show \"Windows protected your PC\". Choose More info, then Run anyway. Windows 11 Smart App Control can block unsigned apps with no override — use the browser version at /try if that happens.",
         "caveatSigned": "Digitally signed. Windows may still show a SmartScreen \"unrecognized\" warning until the publisher builds reputation — verify the publisher name shown before running.",
         "install": "Run the downloaded .exe"
       },
@@ -198,7 +198,7 @@
         "sbomUrl": "https://github.com/K-Arthur/varve/releases/download/v0.5.0/varve-0.5.0-sbom-windows-aarch64.cdx.json",
         "title": "Windows installer",
         "blurb": "Installs for the current user. No administrator rights needed.",
-        "caveat": "Unsigned: Windows will show \"Windows protected your PC\". Choose More info, then Run anyway.",
+        "caveat": "Unsigned: Windows will show \"Windows protected your PC\". Choose More info, then Run anyway. Windows 11 Smart App Control can block unsigned apps with no override — use the browser version at /try if that happens.",
         "caveatSigned": "Digitally signed. Windows may still show a SmartScreen \"unrecognized\" warning until the publisher builds reputation — verify the publisher name shown before running.",
         "install": "Run the downloaded .exe"
       }

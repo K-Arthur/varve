@@ -208,7 +208,8 @@
     "macOS": {
       "minimumSystemVersion": "13.0",
       "frameworks": [],
-      "exceptionDomain": null
+      "exceptionDomain": null,
+      "signingIdentity": "-"
     },
     "windows": {
       "webviewInstallMode": {

@@ -1,0 +1,18 @@
+---
+import DownloadRedirect from '../components/DownloadRedirect.astro';
+import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
+
+const dest = `${sitePath('/download')}#platform-macos`;
+---
+
+<Layout
+  title="macOS downloads"
+  description="Varve macOS installers have moved to the download page."
+  noindex
+  canonicalPath="/download"
+>
+  <div class="container-custom">
+    <DownloadRedirect heading="macOS" dest={dest} destLabel="download page macOS tab" />
+  </div>
+</Layout>
