@@ -100,6 +100,11 @@ const appImageSignatureNotice = appImageUpdaterSignatureNotice();
         <h2>Which installs stay manual?</h2>
         <ul>
           <li>
+            <strong>Microsoft Store:</strong> Store-installed copies do not use the in-app
+            updater. Microsoft Store delivers updates. Only those Store-installed copies are
+            re-signed by Microsoft; the GitHub <code>.exe</code> stays unsigned.
+          </li>
+          <li>
             <strong>Debian and RPM packages:</strong> the package manager owns the installed
             files, and no Varve package repository is configured. Update by installing the newer
             package file from the <a href={sitePath('/download')}>download page</a> over the

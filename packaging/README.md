@@ -1,14 +1,22 @@
-# Linux Packaging
+# Packaging
 
-Varve v0.5.0 publishes Linux AppImage, `.deb`, and `.rpm` downloads. This
-directory also contains a prepared AUR package definition (x86_64 and aarch64
-AppImage sources) and an incomplete Flatpak stub; neither AUR nor Flathub is
-currently a published Varve distribution channel.
+Varve v0.5.0 publishes Linux AppImage, `.deb`, and `.rpm` downloads plus
+unsigned Windows NSIS installers. This directory also contains a prepared
+AUR package definition (x86_64 and aarch64 AppImage sources), an incomplete
+Flatpak stub, Microsoft Store MSIX identity/layout files, and the intended
+winget package ID. AUR, Flathub, winget, and the Store listing are not
+published channels yet.
 
 ## Directory structure
 
 ```
 packaging/
+  msix/
+    identity.json             # Partner Center slots (empty until filled)
+    Package.appxmanifest.template
+    README.md
+  winget/
+    README.md                 # Package ID VarveStudio.Varve (not submitted)
   aur/
     varve-desktop-bin/        # prepared AUR package (extracts upstream AppImage)
       PKGBUILD

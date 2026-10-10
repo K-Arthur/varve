@@ -12,7 +12,7 @@
 
 ## Release status (verified against the published release on 2026-10-09)
 
-- Status: public beta. The latest **published** application release is **Varve 0.5.0**, published 2026-10-09; the first public release was **0.1.0**. Installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon DMG), and Windows (x86_64 and ARM64 NSIS installers). Windows and macOS installers are not code-signed; the macOS DMG is not notarized. The release includes SHA-256 checksums, SBOMs, and GitHub build provenance. Its signed updater feed covers writable Linux AppImage, Windows NSIS, and installed Apple Silicon macOS apps; deb/rpm installs update manually.
+- Status: public beta. The latest **published** application release is **Varve 0.5.0**, published 2026-10-09; the first public release was **0.1.0**. Installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon DMG), and Windows (x86_64 and ARM64 NSIS installers). Windows and macOS installers are not code-signed; the macOS DMG is not notarized. A Microsoft Store listing is not published; only a Store-installed copy would be re-signed by Microsoft, and that signature would not apply to the GitHub `.exe`. The release includes SHA-256 checksums, SBOMs, and GitHub build provenance. Its signed updater feed covers writable Linux AppImage, Windows NSIS, and installed Apple Silicon macOS apps; deb/rpm installs update manually. Store installs, when they exist, update through Microsoft Store.
 - Version **0.5.0** is available from the official [GitHub release](https://github.com/K-Arthur/varve/releases/tag/v0.5.0) and the download page. Verify the downloaded installer against the published checksum before running it.
 - The download page renders every artifact from the verified release manifest (SHA-256 checksums, SBOMs, system requirements); nothing is hand-typed.
 - The document format (`.varve`) is versioned. Published v0.2.1 wrote schema 2.21; v0.5.0 writes schema 2.33 and migrates older documents on open, including a pointed comic-balloon tail correction. Newer documents are not backward-compatible with older app versions, so keep backups. Documents saved by pre-release builds with the legacy `.strata` extension remain openable through the versioned migration pipeline.
@@ -22,7 +22,7 @@
 
 - Linux: x86_64 and ARM64 (aarch64). AppImage, deb, rpm. Requires glibc 2.35+ (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS).
 - macOS: Apple Silicon (aarch64), macOS 13 Ventura or later. No Intel build.
-- Windows: 10 (1809) or 11. x86_64 and ARM64 NSIS installers.
+- Windows: 10 (1809) or 11. x86_64 and ARM64 NSIS installers. Direct `.exe` downloads remain unsigned.
 - Minimum 4 GB RAM (8 GB recommended), 500 MB storage.
 - macOS and Windows releases are not yet code-signed. Linux artifacts ship with SHA-256 checksums, an SBOM, and GitHub build provenance.
 - ChromeOS is not a supported native platform. Several routes are documented: the browser demo, an installed web app, and Linux packages through ChromeOS's Linux environment. None has been verified on physical Chromebook hardware.

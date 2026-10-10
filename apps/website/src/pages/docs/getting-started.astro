@@ -1,5 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import {
+  MICROSOFT_STORE_LIVE,
+  MICROSOFT_STORE_URL,
+  WINGET_LIVE,
+  wingetInstallCommand,
+} from '../../lib/distribution-channels';
 import { sitePath } from '../../lib/siteUrl';
 import shotManifest from '../../data/screenshot-manifest.json';
 import '../../styles/docs-prose.css';
@@ -68,7 +74,20 @@ const firstDocHowTo = {
         <p>Download the dmg and drag Varve to your Applications folder. Requires macOS 13 Ventura or later and an Apple Silicon Mac — there is no Intel build yet.</p>
 
         <h3>Windows</h3>
-        <p>Download the NSIS installer (.exe) and run it. Requires Windows 10 or Windows 11.</p>
+        <p>Download the NSIS installer (.exe) and run it. Requires Windows 10 or Windows 11. Direct <code>.exe</code> downloads from GitHub remain unsigned. Only a Microsoft Store install is re-signed by Microsoft after Store certification.</p>
+        {WINGET_LIVE && (
+          <p>
+            Or install with Windows Package Manager:{' '}
+            <code>{wingetInstallCommand()}</code>
+          </p>
+        )}
+        {MICROSOFT_STORE_LIVE && MICROSOFT_STORE_URL && (
+          <p>
+            Or install from the{' '}
+            <a href={MICROSOFT_STORE_URL} rel="noopener noreferrer">Microsoft Store</a>.
+            Store updates replace the in-app updater for that install.
+          </p>
+        )}
       </section>
 
       <section class="docs-section">

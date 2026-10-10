@@ -67,11 +67,13 @@ Microsoft Security Intelligence file submission exists for enterprise/managed
 use).
 
 **Why not the Microsoft Store as the primary path (yet):** the Store would
-eliminate SmartScreen entirely at $0, and remains the documented future option —
-but it requires an MSIX package this repo has never built, a Store account with
-identity verification, and it changes the installation/update model (Store
-updates instead of manual downloads). Artifact Signing keeps today's NSIS
-distribution intact. The Store stays on the roadmap; nothing here blocks it.
+eliminate SmartScreen entirely at $0. The repository now builds an unsigned or
+test-signed MSIX from any release tag without changing GitHub Release assets
+([microsoft-store.md](../distribution/microsoft-store.md)), but the first
+listing still needs a Partner Center account, identity values, and
+certification. Artifact Signing remains the path for a signed direct `.exe`.
+Only Store-installed copies are re-signed by Microsoft; NSIS downloads stay
+unsigned until that separate pipeline is configured.
 
 **Why not EV:** Microsoft's own documentation states EV no longer affects
 SmartScreen. Paying a premium for it would be a mistake.

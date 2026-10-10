@@ -13,7 +13,14 @@ export type UpdateAuthority =
 
 export type UpdatePlatform = 'linux' | 'windows' | 'darwin' | 'unknown';
 export type UpdateArchitecture = 'x86_64' | 'aarch64' | 'i686' | 'armv7' | 'unknown';
-export type UpdatePackageType = 'appimage' | 'deb' | 'rpm' | 'nsis' | 'dmg-app' | 'unknown';
+export type UpdatePackageType =
+  | 'appimage'
+  | 'deb'
+  | 'rpm'
+  | 'nsis'
+  | 'msix'
+  | 'dmg-app'
+  | 'unknown';
 export type UpdateChannel = 'stable' | 'beta' | 'nightly';
 
 export interface PackagingContext {
