@@ -1,6 +1,12 @@
 import type { AnalyticsEvent } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { GoatCounterProvider, safeGoatCounterDomain, websiteReferrer } from '../lib/goatcounter';
+import {
+  GoatCounterProvider,
+  pathWithCampaign,
+  safeGoatCounterDomain,
+  websiteCampaignRef,
+  websiteReferrer,
+} from '../lib/goatcounter';
 
 function event(name: 'website_page_viewed' | 'website_download_started'): AnalyticsEvent {
   return {
@@ -27,7 +33,7 @@ function event(name: 'website_page_viewed' | 'website_download_started'): Analyt
   };
 }
 
-function fixture() {
+function fixture(search = '') {
   const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response('', { status: 202 }));
   let allowed = true;
   const provider = new GoatCounterProvider({
@@ -35,6 +41,7 @@ function fixture() {
     canSend: () => allowed,
     route: () => '/download',
     referrer: () => 'https://example.org',
+    search: () => search,
     fetchImpl,
   });
   return {
@@ -102,10 +109,43 @@ describe('minimal GoatCounter website transport', () => {
     });
   });
 
+  it('keeps an allowlisted campaign ref on the path and drops every other query param', async () => {
+    expect(websiteCampaignRef('?ref=masto-p1&utm_source=evil&q=secret')).toBe('masto-p1');
+    expect(pathWithCampaign('/download', '?ref=bsky-p1&next=/admin')).toBe('/download?ref=bsky-p1');
+    const { provider, fetchImpl } = fixture('?ref=masto-p1&utm_campaign=other&token=secret');
+    provider.track(event('website_page_viewed'));
+    await provider.flush();
+    const query = Object.fromEntries(new URL(String(fetchImpl.mock.calls[0]![0])).searchParams);
+    expect(query).toEqual({ p: '/download?ref=masto-p1', ns: 'true', r: 'https://example.org' });
+    expect(String(fetchImpl.mock.calls[0]![0])).not.toContain('utm_campaign');
+    expect(String(fetchImpl.mock.calls[0]![0])).not.toContain('token');
+    expect(String(fetchImpl.mock.calls[0]![0])).not.toContain('secret');
+  });
+
+  it('drops an unknown campaign ref and never forwards other query params', async () => {
+    expect(websiteCampaignRef('?ref=unknown-channel&fbclid=1')).toBeNull();
+    expect(pathWithCampaign('/docs', '?ref=not-ours&q=private')).toBe('/docs');
+    const { provider, fetchImpl } = fixture('?ref=unknown-channel&q=private-design');
+    provider.track(event('website_page_viewed'));
+    await provider.flush();
+    const query = Object.fromEntries(new URL(String(fetchImpl.mock.calls[0]![0])).searchParams);
+    expect(query).toEqual({ p: '/download', ns: 'true', r: 'https://example.org' });
+    expect(String(fetchImpl.mock.calls[0]![0])).not.toContain('unknown-channel');
+    expect(String(fetchImpl.mock.calls[0]![0])).not.toContain('private-design');
+  });
+
   it('drops events when consent is withdrawn before flushing', async () => {
     const { provider, fetchImpl, deny } = fixture();
     provider.track(event('website_page_viewed'));
     deny();
+    await provider.flush();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('sends nothing without consent even when an allowlisted campaign ref is present', async () => {
+    const { provider, fetchImpl, deny } = fixture('?ref=masto-p1');
+    deny();
+    provider.track(event('website_page_viewed'));
     await provider.flush();
     expect(fetchImpl).not.toHaveBeenCalled();
   });

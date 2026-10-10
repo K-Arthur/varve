@@ -910,8 +910,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <code>libfuse2</code> on Debian 12 or Ubuntu 22.04
                 (<code>sudo apt install libfuse2</code>), or <code>libfuse2t64</code> on Debian 13
                 or Ubuntu 24.04 and later (<code>sudo apt install libfuse2t64</code>). You can
-                also run <code>./Varve-*.AppImage --appimage-extract-and-run</code>. The Arch AUR
-                package extracts the AppImage and does not need FUSE. See the{' '}
+                also run <code>./Varve-*.AppImage --appimage-extract-and-run</code>. The PKGBUILD
+                in the repository extracts the AppImage and does not need FUSE; an AUR package is
+                coming. See the{' '}
                 <a href="https://github.com/AppImage/AppImageKit/wiki/FUSE" target="_blank" rel="noopener noreferrer">official AppImage FUSE guide</a> for other distributions.
               </li>
               <li>
@@ -932,12 +933,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 See the <a href={sitePath('/docs/chromeos-linux')}>ChromeOS guide</a>.
               </li>
               <li>
-                <strong>Arch/CachyOS — prefer the PKGBUILD:</strong> the{' '}
-                <code>varve-desktop-bin</code> PKGBUILD is in the{' '}
-                <a href="https://github.com/K-Arthur/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">repository</a>.
-                It extracts the AppImage, providing proper desktop integration (icons, MIME types,
-                clean uninstall) without FUSE. Build with <code>makepkg -si</code> from the
-                PKGBUILD directory.
+                <strong>Arch/CachyOS — use the AppImage for now:</strong> a PKGBUILD fix is
+                pending in{' '}
+                <a href="https://github.com/K-Arthur/varve/pull/82" target="_blank" rel="noopener noreferrer">PR #82</a>.
+                Download the AppImage, then run{' '}
+                <code>chmod +x Varve-*.AppImage &amp;&amp; ./Varve-*.AppImage</code>.
+                The PKGBUILD in the repository extracts the AppImage for desktop integration
+                once that fix lands; an AUR package is coming.
               </li>
               <li>
                 <strong>macOS — the app is blocked:</strong>{' '}
