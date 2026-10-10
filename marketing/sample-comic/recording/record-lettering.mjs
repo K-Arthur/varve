@@ -570,12 +570,17 @@ async function beat(page, min = 380, max = 720) {
 }
 
 async function currentZoom(page) {
+  try {
+    const map = await pageScreenMap(page);
+    if (map.h > 80 && map.h < 8000) return map.h / PAGE_H;
+  } catch {
+    /* status label can lag the camera; only use it as a fallback */
+  }
   const zoomField = page.locator('.editor-status__zoom-value');
   const label = await zoomField.getAttribute('aria-label').catch(() => null);
   const fromLabel = /Zoom\s+([\d.]+)\s*%/i.exec(label ?? '');
   if (fromLabel) return Number(fromLabel[1]) / 100;
-  const map = await pageScreenMap(page);
-  return map.h / PAGE_H;
+  return 1;
 }
 
 async function clickStatusButton(page, name) {
@@ -643,12 +648,22 @@ async function wheelZoomToward(page, x, y, targetZoom) {
 async function easeCameraToPanel(page, panelIndex) {
   if (compactByPage.get(page)) {
     await hideSidePanels(page);
-    await clickStatusButton(page, /fit all to viewport/i);
+    await blurChrome(page);
+    await page.keyboard.press('Shift+Digit1');
+    await think(page, 500, 800);
     const map = await pageScreenMap(page);
-    const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
-    await wheelZoomToward(page, mid.x, mid.y, randBetween(1.7, 2.1));
-    log(`camera panel ${panelIndex + 1} zoom=${(await currentZoom(page)).toFixed(2)}`);
-    await think(page, 400, 1100);
+    const wall = localToScreen(map, panelIndex, PANEL_W * 0.72, PANEL_H * 0.22);
+    await clickAt(page, wall.x, wall.y);
+    await clickStatusButton(page, /fit selection to viewport/i);
+    let zoom = await currentZoom(page);
+    if (zoom > 3.2 || zoom < 0.8) {
+      await blurChrome(page);
+      await page.keyboard.press('Shift+Digit1');
+      await think(page, 400, 700);
+      zoom = await currentZoom(page);
+    }
+    log(`camera panel ${panelIndex + 1} zoom=${zoom.toFixed(2)}`);
+    await think(page, 400, 900);
     return;
   }
   const map = await pageScreenMap(page);
@@ -1317,10 +1332,15 @@ async function placeDialogue(page, placement) {
   let map = await pageScreenMap(page);
   let start = localToScreen(map, placement.panel, placement.localX, placement.localY);
   const view = page.viewportSize() ?? { width: 1920, height: 1080 };
-  if (start.x < 20 || start.y < 20 || start.x > view.width - 20 || start.y > view.height - 20) {
+  if (start.x < 40 || start.y < 90 || start.x > view.width - 40 || start.y > view.height - 90) {
     await followPanel(page, placement.panel);
     map = await pageScreenMap(page);
     start = localToScreen(map, placement.panel, placement.localX, placement.localY);
+  }
+  if (start.x < 40 || start.y < 90 || start.x > view.width - 40 || start.y > view.height - 90) {
+    throw new Error(
+      `text origin off-camera at ${start.x.toFixed(1)},${start.y.toFixed(1)} zoom=${(await currentZoom(page)).toFixed(2)}`,
+    );
   }
   let end = localToScreen(
     map,
