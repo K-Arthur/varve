@@ -877,7 +877,7 @@ async function main() {
       const full = join(VIDEO_DIR, 'lettering-timelapse.mp4');
       if (existsSync(full)) {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
-        const cropW = Math.floor((VIEW_H * 9) / 16);
+        const cropW = Math.floor((VIEW_H * 9) / 16 / 2) * 2;
         const cropX = Math.floor((VIEW_W - cropW) / 2);
         const duration = await encodeToWindow(
           full,
