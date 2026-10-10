@@ -51,7 +51,15 @@ const ROUTES = [
 ];
 
 /** Routes that must never appear in the sitemap. */
-const SITEMAP_EXCLUDED = ['/404', '/about/security', '/releases'];
+const SITEMAP_EXCLUDED = [
+  '/404',
+  '/about/security',
+  '/releases',
+  '/linux',
+  '/windows',
+  '/mac',
+  '/install',
+];
 
 test('every page emits complete, consistent head metadata', async ({ page }) => {
   for (const route of ROUTES) {
@@ -235,9 +243,12 @@ test('sitemap.xml enumerates every real page and excludes 404/alias/demo routes'
     expect(found, `sitemap includes ${route}`).toBe(true);
   }
   for (const excluded of SITEMAP_EXCLUDED) {
-    for (const path of sitemapPaths) {
-      expect(path, `sitemap excludes ${excluded}`).not.toContain(excluded);
-    }
+    const found = sitemapPaths.some((path) => {
+      const parts = path.replace(/\/+$/, '').split('/').filter(Boolean);
+      if (parts[0] === 'varve') parts.shift();
+      return `/${parts.join('/')}` === excluded;
+    });
+    expect(found, `sitemap excludes ${excluded}`).toBe(false);
   }
 });
 

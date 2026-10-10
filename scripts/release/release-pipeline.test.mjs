@@ -1266,6 +1266,35 @@ assert.throws(
     assert.ok(copy[format]?.title, `formatCopy must describe ${format}`);
     assert.ok(copy[format]?.install, `formatCopy must give install instructions for ${format}`);
   }
+  assert.match(
+    copy.dmg.caveat,
+    /Open Anyway/,
+    'later releases tell users to use Open Anyway after the first launch',
+  );
+  assert.match(
+    formatCopy('Varve', '0.5.0').dmg.caveat,
+    /xattr -dr com\.apple\.quarantine/,
+    '0.5.0 caveat names the quarantine command',
+  );
+  assert.doesNotMatch(
+    formatCopy('Varve', '0.5.0').dmg.caveat,
+    /Open Anyway\. Do not disable Gatekeeper\.$/,
+    '0.5.0 must not claim Open Anyway will appear',
+  );
+  assert.match(copy.nsis.caveat, /More info, then Run anyway/);
+  assert.match(copy.nsis.caveat, /Smart App Control/);
+  const tauriConf = JSON.parse(readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8'));
+  assert.equal(
+    tauriConf.bundle.macOS.signingIdentity,
+    '-',
+    'tauri.conf.json requests a free ad-hoc macOS bundle signature',
+  );
+  assert.match(
+    releaseWorkflow,
+    /tauri\.signing\.macos-adhoc\.json/,
+    'unsigned macOS release builds pass the ad-hoc signing overlay',
+  );
+
   // No formatCopy copy may tell users to disable OS security. The word
   // "disable" is only acceptable inside a "do not disable" warning.
   for (const entry of Object.values(copy)) {
