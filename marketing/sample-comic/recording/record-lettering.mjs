@@ -518,9 +518,26 @@ async function setSpin(page, name, value) {
 }
 
 async function wrapSelectedText(page, query, actionName) {
-  await page.keyboard.press('Control+k');
+  await blurChrome(page);
+  const inspectorAdd = page.getByRole('button', { name: actionName, exact: true }).first();
+  if (await inspectorAdd.isVisible({ timeout: 800 }).catch(() => false)) {
+    const box = await inspectorAdd.boundingBox();
+    if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2, 240);
+    else await inspectorAdd.click();
+    await pause(page, 380);
+    return;
+  }
   const input = page.getByRole('combobox', { name: /search actions/i });
-  await input.waitFor({ state: 'visible', timeout: 5000 });
+  let opened = false;
+  for (let attempt = 0; attempt < 3 && !opened; attempt++) {
+    await blurChrome(page);
+    await page.keyboard.press('Control+k');
+    opened = await input
+      .waitFor({ state: 'visible', timeout: 2500 })
+      .then(() => true)
+      .catch(() => false);
+  }
+  if (!opened) throw new Error(`quick actions did not open for ${actionName}`);
   await pause(page, 160);
   await typeHuman(page, query, 40);
   const option = page.getByRole('option', { name: new RegExp(actionName, 'i') }).first();
@@ -540,9 +557,16 @@ async function selectionKind(page) {
   return page.evaluate(() => window.__varveIsoTest?.getSelectionGeometry?.()?.[0]?.kind ?? null);
 }
 
-async function fitSelectedFrame(page) {
+async function fitSelectedFrame(page, expectedPattern) {
   const kind = await selectionKind(page);
-  if (kind !== 'frame') return false;
+  if (kind && kind !== 'frame') return false;
+  const selected = expectedPattern
+    ? await page
+        .getByRole('treeitem', { name: expectedPattern })
+        .first()
+        .getAttribute('aria-selected')
+    : 'true';
+  if (selected !== 'true') return false;
   const fit = page.getByRole('button', { name: /fit selection to viewport/i });
   if (await fit.isVisible({ timeout: 1500 }).catch(() => false)) {
     await fit.click();
@@ -574,7 +598,7 @@ async function followPanel(page, panelIndex) {
     await filterLayers(page, label);
     await selectLayer(page, pattern);
   }
-  await fitSelectedFrame(page);
+  await fitSelectedFrame(page, pattern);
   await filterLayers(page, '');
   const map = await pageScreenMap(page);
   const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
@@ -584,7 +608,7 @@ async function followPanel(page, panelIndex) {
     await resetView(page);
     await filterLayers(page, label);
     await selectLayer(page, pattern);
-    await fitSelectedFrame(page);
+    await fitSelectedFrame(page, pattern);
     await filterLayers(page, '');
   }
 }
