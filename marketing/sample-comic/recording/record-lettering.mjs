@@ -585,30 +585,47 @@ async function resetView(page) {
   await pause(page, 400);
 }
 
+async function zoomToLayer(page, pattern) {
+  const item = page.getByRole('treeitem', { name: pattern }).first();
+  await item.waitFor({ state: 'visible', timeout: 5000 });
+  const box = await item.boundingBox();
+  if (box) {
+    await clickAt(page, box.x + 28, box.y + box.height / 2, 200);
+    await item.click({ button: 'right' });
+  } else {
+    await item.click({ button: 'right' });
+  }
+  const zoom = page.getByRole('menuitem', { name: /zoom to selection/i }).first();
+  if (
+    await zoom
+      .waitFor({ state: 'visible', timeout: 2500 })
+      .then(() => true)
+      .catch(() => false)
+  ) {
+    await zoom.click();
+    await pause(page, 320);
+    return true;
+  }
+  await page.keyboard.press('Escape').catch(() => undefined);
+  return fitSelectedFrame(page, pattern);
+}
+
 async function followPanel(page, panelIndex) {
   const label = `Panel ${panelIndex + 1}`;
   const pattern = new RegExp(`${label}(?:,|$)`, 'i');
   await filterLayers(page, label);
   await selectLayer(page, pattern);
-  if ((await selectionKind(page)) !== 'frame') {
-    await selectLayer(page, pattern);
-  }
-  if ((await selectionKind(page)) !== 'frame') {
-    await resetView(page);
-    await filterLayers(page, label);
-    await selectLayer(page, pattern);
-  }
-  await fitSelectedFrame(page, pattern);
+  await zoomToLayer(page, pattern);
   await filterLayers(page, '');
   const map = await pageScreenMap(page);
   const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
   const view = page.viewportSize() ?? { width: 1920, height: 1080 };
-  const insane = map.h > 6000 || map.h < 80 || mid.y < 0 || mid.y > view.height;
+  const insane = map.h > 6000 || map.h < 80 || mid.y < 40 || mid.y > view.height - 40;
   if (insane) {
     await resetView(page);
     await filterLayers(page, label);
     await selectLayer(page, pattern);
-    await fitSelectedFrame(page, pattern);
+    await zoomToLayer(page, pattern);
     await filterLayers(page, '');
   }
 }
