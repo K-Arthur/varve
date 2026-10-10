@@ -16,17 +16,39 @@ export function websiteReferrer(referrer: string, origin: string): string {
   }
 }
 
+/**
+ * First-party channel tags we put on our own links (`?ref=masto-p1`).
+ * Anything else — including unknown `ref` values — is dropped.
+ */
+export const WEBSITE_CAMPAIGN_REF =
+  /^(masto|bsky|yt|reddit|hn|ph|uneed|saashub|x|ig|threads|discord|lnl|press|email|aur|flathub|winget)-[a-z0-9-]{1,24}$/;
+
+/** Keep only an allowlisted `ref` campaign tag; drop every other query param. */
+export function websiteCampaignRef(search: string): string | null {
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  const ref = params.get('ref');
+  return ref && WEBSITE_CAMPAIGN_REF.test(ref) ? ref : null;
+}
+
+/** GoatCounter campaign via documented `path?ref=` (pixel `/count` splits query from `p`). */
+export function pathWithCampaign(path: string, search: string): string {
+  const ref = websiteCampaignRef(search);
+  return ref ? `${path}?ref=${ref}` : path;
+}
+
 interface GoatCounterOptions {
   domain: string;
   canSend: () => boolean;
   route: () => string;
   referrer: () => string;
+  search?: () => string;
   fetchImpl?: typeof fetch;
 }
 
 /**
  * Aggregate website-only transport. No remote script, browser fingerprint, session,
- * screen dimensions, page title, campaign query, persistent ID or design content.
+ * screen dimensions, page title, persistent ID or design content. The only query
+ * forwarded is an allowlisted first-party `ref` campaign tag, as `path?ref=`.
  * The account MUST have Sessions and Individual pageviews disabled before activation.
  * GoatCounter's documented /count transport is only used from the visitor's browser.
  */
@@ -65,9 +87,12 @@ export class GoatCounterProvider implements AnalyticsProvider {
     for (const event of events) {
       if (!this.options.canSend()) return;
       const pageview = event.name === 'website_page_viewed';
-      const path = pageview
-        ? (event.payload as AnalyticsEventMap['website_page_viewed']).route
-        : this.downloadPath(event.payload as AnalyticsEventMap['website_download_started']);
+      const path = pathWithCampaign(
+        pageview
+          ? (event.payload as AnalyticsEventMap['website_page_viewed']).route
+          : this.downloadPath(event.payload as AnalyticsEventMap['website_download_started']),
+        this.options.search?.() ?? '',
+      );
       const url = new URL(this.endpoint);
       url.searchParams.set('p', path);
       url.searchParams.set('ns', 'true');

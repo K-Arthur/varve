@@ -215,8 +215,8 @@ function main() {
   out.push('```');
   out.push('');
   out.push(
-    'Download `SHA256SUMS.txt` and verify **only the file you downloaded** — ' +
-      '`sha256sum -c SHA256SUMS.txt` errors for files that are not present:',
+    'Download `SHA256SUMS.txt` and verify **only the file you downloaded** with ' +
+      '`sha256sum --ignore-missing -c SHA256SUMS.txt`:',
   );
   out.push('');
   out.push(
