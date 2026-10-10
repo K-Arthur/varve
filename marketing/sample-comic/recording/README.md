@@ -22,12 +22,17 @@ Writes:
   tail is scrubbed out and back on the open page so the first and last
   frames match (10-12s).
 
-Cursor paths are eased beziers with independent random control points,
-overshoot on longer moves, and small jitter. The recorder waits 0.4-1.5s
-before clicks and between tasks. Typing uses 60-220ms per key with longer
-pauses at word boundaries. Camera zooms and pans with animated Fit
-selection, then back out to the page. The tail loop holds the same rest
-pose and cursor park at the start and end.
+Cursor paths use Bezier curves with independent random control-point
+offsets, overshoot and correction on longer moves, small jitter, and a
+per-move irregular speed profile (not one shared cubic ease). The
+recorder waits 0.4-1.5s before clicks, after a panel opens, and between
+tasks. Typing uses 60-220ms per key with longer pauses at word
+boundaries. Compact 9:16 keeps the inspector hidden until a callout
+group has settled, then Fits the balloon and, for speech, resizes it
+the way a person would (wrap leaves top-aligned text in the ellipse
+crown; that is an app bug, not papered over in product code). The tail
+loop restores the exact starting Tail X/Y and parks the cursor on Tail
+X so the first and last frames match.
 
 `--probe` letters only the speech balloon, dumps wrap/bind JSON, and writes
 screenshots under `.tmp/`.

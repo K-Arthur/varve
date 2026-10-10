@@ -60,6 +60,40 @@ function randBetween(min, max) {
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
+
+/** Irregular progress so a move does not share one cubic ease with every other. */
+function humanEase() {
+  const pulses = 3 + Math.floor(rand() * 3);
+  const speeds = [];
+  const widths = [];
+  let widthSum = 0;
+  for (let i = 0; i < pulses; i++) {
+    speeds.push(randBetween(0.4, 1.85));
+    const width = randBetween(0.14, 0.42);
+    widths.push(width);
+    widthSum += width;
+  }
+  const cdf = [0];
+  let acc = 0;
+  for (let i = 0; i < pulses; i++) {
+    acc += (speeds[i] * widths[i]) / widthSum;
+    cdf.push(acc);
+  }
+  const total = cdf[cdf.length - 1] || 1;
+  return (u) => {
+    const target = Math.min(1, Math.max(0, u)) * total;
+    for (let i = 1; i < cdf.length; i++) {
+      if (target <= cdf[i]) {
+        const span = cdf[i] - cdf[i - 1];
+        const local = span <= 0 ? 1 : (target - cdf[i - 1]) / span;
+        const s = local * local * (3 - 2 * local);
+        return (i - 1) / pulses + s / pulses;
+      }
+    }
+    return 1;
+  };
+}
+
 function cubicBezier(p0, p1, p2, p3, t) {
   const u = 1 - t;
   return {
@@ -428,7 +462,7 @@ async function stepCursor(page, x, y) {
   await syncCursor(page, x, y);
 }
 
-async function humanMove(page, x, y) {
+async function humanMove(page, x, y, opts = {}) {
   const last = pointerByPage.get(page) ?? { x: 480, y: 420 };
   const dx = x - last.x;
   const dy = y - last.y;
@@ -438,46 +472,57 @@ async function humanMove(page, x, y) {
     pointerByPage.set(page, { x, y });
     return;
   }
+  const drag = opts.drag === true;
   const nx = -dy / dist;
   const ny = dx / dist;
-  const o1 = dist * randBetween(0.22, 0.58) * (rand() < 0.5 ? -1 : 1);
-  const o2 = dist * randBetween(0.16, 0.52) * (rand() < 0.5 ? -1 : 1);
+  const curve = drag ? [0.03, 0.1] : [0.24, 0.62];
+  const curve2 = drag ? [0.03, 0.1] : [0.18, 0.55];
+  const o1 = dist * randBetween(curve[0], curve[1]) * (rand() < 0.5 ? -1 : 1);
+  const o2 = dist * randBetween(curve2[0], curve2[1]) * (rand() < 0.5 ? -1 : 1);
   const p0 = last;
   const p1 = {
-    x: last.x + dx * randBetween(0.16, 0.4) + nx * o1 + randBetween(-16, 16),
-    y: last.y + dy * randBetween(0.16, 0.4) + ny * o1 + randBetween(-16, 16),
+    x: last.x + dx * randBetween(0.14, 0.42) + nx * o1 + randBetween(-18, 18),
+    y: last.y + dy * randBetween(0.14, 0.42) + ny * o1 + randBetween(-18, 18),
   };
   const p2 = {
-    x: last.x + dx * randBetween(0.58, 0.86) + nx * o2 + randBetween(-18, 18),
-    y: last.y + dy * randBetween(0.58, 0.86) + ny * o2 + randBetween(-18, 18),
+    x: last.x + dx * randBetween(0.56, 0.88) + nx * o2 + randBetween(-20, 20),
+    y: last.y + dy * randBetween(0.56, 0.88) + ny * o2 + randBetween(-20, 20),
   };
-  const longMove = dist > 70;
-  const overshoot = longMove && rand() < 0.78;
-  const ox = overshoot ? x + (dx / dist) * randBetween(12, 30) + nx * randBetween(-10, 10) : x;
-  const oy = overshoot ? y + (dy / dist) * randBetween(12, 30) + ny * randBetween(-10, 10) : y;
-  const speed = randBetween(360, 780);
-  const duration = Math.max(300, (dist / speed) * 1000);
-  const steps = Math.max(18, Math.round(duration / 18));
+  const longMove = !drag && dist > 70;
+  const overshoot = longMove && rand() < 0.8;
+  const ox = overshoot ? x + (dx / dist) * randBetween(14, 34) + nx * randBetween(-12, 12) : x;
+  const oy = overshoot ? y + (dy / dist) * randBetween(14, 34) + ny * randBetween(-12, 12) : y;
+  const speed = drag ? randBetween(480, 920) : randBetween(320, 820);
+  const duration = Math.max(drag ? 180 : 320, (dist / speed) * 1000);
+  const steps = Math.max(drag ? 12 : 20, Math.round(duration / (drag ? 16 : 17)));
+  const progress = drag ? easeInOutCubic : humanEase();
+  const pauseAt = !drag && rand() < 0.22 ? randBetween(0.28, 0.72) : -1;
   for (let i = 1; i <= steps; i++) {
     const u = i / steps;
-    const wobble = Math.sin(u * Math.PI) * randBetween(-0.05, 0.05);
-    const t = Math.min(1, Math.max(0, easeInOutCubic(u) + wobble));
+    const t = Math.min(1, Math.max(0, progress(u)));
     const pt = cubicBezier(p0, p1, p2, { x: ox, y: oy }, t);
-    await stepCursor(page, pt.x + randBetween(-2.2, 2.2), pt.y + randBetween(-2.2, 2.2));
+    const jitter = drag ? randBetween(-0.8, 0.8) : randBetween(-2.4, 2.4);
+    await stepCursor(page, pt.x + jitter, pt.y + (drag ? randBetween(-0.6, 0.6) : jitter));
+    if (pauseAt > 0 && u >= pauseAt && u - 1 / steps < pauseAt) {
+      await page.waitForTimeout(randBetween(70, 180));
+    }
     const edge = Math.min(u, 1 - u);
-    await page.waitForTimeout(edge < 0.2 ? randBetween(18, 34) : randBetween(9, 22));
+    await page.waitForTimeout(
+      drag ? randBetween(8, 16) : edge < 0.18 ? randBetween(16, 36) : randBetween(8, 24),
+    );
   }
   if (overshoot) {
     const mid = {
-      x: ox + (x - ox) * 0.55 + nx * randBetween(-7, 7),
-      y: oy + (y - oy) * 0.55 + ny * randBetween(-7, 7),
+      x: ox + (x - ox) * 0.55 + nx * randBetween(-8, 8),
+      y: oy + (y - oy) * 0.55 + ny * randBetween(-8, 8),
     };
-    const settle = Math.max(6, Math.round(randBetween(110, 200) / 16));
+    const settle = Math.max(6, Math.round(randBetween(120, 220) / 16));
+    const settleEase = humanEase();
     for (let i = 1; i <= settle; i++) {
-      const t = easeInOutCubic(i / settle);
+      const t = settleEase(i / settle);
       const sx = cubicBezier({ x: ox, y: oy }, mid, mid, { x, y }, t);
-      await stepCursor(page, sx.x + randBetween(-1.2, 1.2), sx.y + randBetween(-1.2, 1.2));
-      await page.waitForTimeout(randBetween(14, 26));
+      await stepCursor(page, sx.x + randBetween(-1.4, 1.4), sx.y + randBetween(-1.4, 1.4));
+      await page.waitForTimeout(randBetween(12, 28));
     }
   }
   await stepCursor(page, x, y);
@@ -494,9 +539,9 @@ async function think(page, min = 400, max = 1500) {
 
 async function clickAt(page, x, y) {
   await humanMove(page, x, y);
-  await think(page, 400, 1200);
+  await think(page, 400, 1500);
   await page.mouse.click(x, y);
-  await think(page, 280, 560);
+  await pause(page, randBetween(140, 320));
 }
 
 async function typeHuman(page, text) {
@@ -509,8 +554,8 @@ async function typeHuman(page, text) {
       await pause(page, randBetween(60, 220));
       const atWord = ch === ' ' || /[.,!?…;:]/.test(ch);
       const nextIsWord = i + 1 < line.length && line[i + 1] === ' ';
-      if (atWord || nextIsWord) await pause(page, randBetween(140, 420));
-      else if (rand() < 0.12) await pause(page, randBetween(160, 360));
+      if (atWord || nextIsWord) await pause(page, randBetween(180, 480));
+      else if (rand() < 0.16) await pause(page, randBetween(160, 380));
     }
     if (index < lines.length - 1) {
       await think(page, 400, 900);
@@ -596,7 +641,16 @@ async function wheelZoomToward(page, x, y, targetZoom) {
 }
 
 async function easeCameraToPanel(page, panelIndex) {
-  if (compactByPage.get(page)) await hideSidePanels(page);
+  if (compactByPage.get(page)) {
+    await hideSidePanels(page);
+    await clickStatusButton(page, /fit all to viewport/i);
+    const map = await pageScreenMap(page);
+    const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
+    await wheelZoomToward(page, mid.x, mid.y, randBetween(1.7, 2.1));
+    log(`camera panel ${panelIndex + 1} zoom=${(await currentZoom(page)).toFixed(2)}`);
+    await think(page, 400, 1100);
+    return;
+  }
   const map = await pageScreenMap(page);
   const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
   await clickAt(page, mid.x, mid.y);
@@ -698,10 +752,16 @@ async function ensureLayers(page) {
   await setSidePanel(page, 'layers', true);
 }
 
-async function ensureInspector(page) {
-  if (!compactByPage.get(page)) return;
+async function ensureInspector(page, opts = {}) {
+  if (!compactByPage.get(page)) return true;
+  const kind = await selectionKind(page);
+  if (opts.requireGroup !== false && kind !== 'group') {
+    log(`inspector stays hidden; selection=${kind}`);
+    return false;
+  }
   await setSidePanel(page, 'layers', false);
   await setSidePanel(page, 'inspector', true);
+  return true;
 }
 
 async function openUnlettered(page, filePath) {
@@ -955,9 +1015,9 @@ async function scrubSpin(page, name, deltaPx) {
   await think(page, 250, 620);
   await page.mouse.down();
   await pause(page, randBetween(50, 90));
-  const endX = startX + deltaPx + randBetween(-4, 4);
-  const endY = startY + randBetween(-5, 5);
-  await humanMove(page, endX, endY);
+  const endX = startX + deltaPx + randBetween(-2, 2);
+  const endY = startY + randBetween(-2, 2);
+  await humanMove(page, endX, endY, { drag: true });
   await pause(page, randBetween(80, 140));
   await page.mouse.up();
   await beat(page, 260, 520);
@@ -1075,38 +1135,55 @@ async function selectionKind(page) {
   return page.evaluate(() => window.__varveIsoTest?.getSelectionGeometry?.()?.[0]?.kind ?? null);
 }
 
-async function selectCalloutGroup(page, placement) {
+async function waitForCalloutGroup(page, placement) {
   await setSidePanel(page, 'inspector', false);
-  const map = await pageScreenMap(page);
-  const body = localToScreen(map, placement.panel, placement.localX + 36, placement.localY + 22);
-  await clickAt(page, body.x, body.y);
-  if ((await selectionKind(page)) === 'group') return true;
-  await ensureLayers(page);
-  await filterLayers(page, 'balloon');
-  const item = page.getByRole('treeitem', { name: placement.layer ?? /balloon/i }).first();
-  if (await item.isVisible({ timeout: 1500 }).catch(() => false)) {
-    await selectLayer(page, placement.layer ?? /balloon/i);
+  for (let i = 0; i < 12; i++) {
+    if ((await selectionKind(page)) === 'group') {
+      await pause(page, 240);
+      if ((await selectionKind(page)) === 'group') return true;
+    }
+    await setSidePanel(page, 'inspector', false);
+    await pause(page, 90);
   }
-  await setSidePanel(page, 'layers', false);
-  return (await selectionKind(page)) === 'group';
-}
-
-async function showSettledCalloutInspector(page, placement) {
   if ((await selectionKind(page)) !== 'group') {
     await selectCalloutGroup(page, placement);
   }
-  if ((await selectionKind(page)) !== 'group') {
+  await setSidePanel(page, 'inspector', false);
+  return (await selectionKind(page)) === 'group';
+}
+
+async function selectCalloutGroup(page, placement) {
+  await setSidePanel(page, 'inspector', false);
+  if ((await selectionKind(page)) === 'group') return true;
+  const map = await pageScreenMap(page);
+  const probes = [
+    [placement.localX + 36, placement.localY + 22],
+    [placement.localX + 52, placement.localY + 18],
+    [placement.localX + 24, placement.localY + 28],
+  ];
+  for (const [lx, ly] of probes) {
+    const body = localToScreen(map, placement.panel, lx, ly);
+    await clickAt(page, body.x, body.y);
+    await setSidePanel(page, 'inspector', false);
+    if ((await selectionKind(page)) === 'group') return true;
+  }
+  return false;
+}
+
+async function showSettledCalloutInspector(page, placement) {
+  const ready = await waitForCalloutGroup(page, placement);
+  if (!ready) {
     log('callout group not selected; inspector stays hidden');
     return false;
   }
-  await ensureInspector(page);
+  await think(page, 400, 1100);
+  if (!(await ensureInspector(page))) return false;
   const comic = page.getByRole('button', { name: /comic balloon/i }).first();
   if (!(await comic.isVisible({ timeout: 2000 }).catch(() => false))) {
     await setSidePanel(page, 'inspector', false);
     await think(page, 400, 800);
-    await selectCalloutGroup(page, placement);
-    if ((await selectionKind(page)) !== 'group') return false;
-    await ensureInspector(page);
+    if (!(await waitForCalloutGroup(page, placement))) return false;
+    if (!(await ensureInspector(page))) return false;
   }
   await openComicSection(page);
   await think(page, 400, 1500);
@@ -1292,14 +1369,15 @@ async function placeDialogue(page, placement) {
     await hideSidePanels(page);
     await think(page, 400, 1100);
     await wrapSelectedText(page, placement.query, placement.action);
+    await hideSidePanels(page);
     await think(page, 400, 900);
-    if ((await selectionKind(page)) !== 'group') {
-      await selectCalloutGroup(page, placement);
-    }
     const inspectorReady = await showSettledCalloutInspector(page, placement);
     if (inspectorReady) {
       await clickInspectorButton(page, 'Fit balloon to text');
       await think(page, 400, 1200);
+      if (placement.action.includes('Speech')) {
+        await growBalloonLikeAPerson(page);
+      }
     }
     if (inspectorReady && placement.action.includes('Caption')) {
       await clickInspectorButton(page, 'Remove tail');
@@ -1315,7 +1393,7 @@ async function placeDialogue(page, placement) {
       await think(page, 400, 1100);
     }
     await hideSidePanels(page);
-    await think(page, 400, 700);
+    await think(page, 400, 900);
     return;
   }
   const snippet = placement.text
@@ -1468,9 +1546,53 @@ async function tailXParkPoint(page) {
   return { x: box.x + Math.min(18, box.width * 0.4), y: box.y + box.height / 2 };
 }
 
+async function growBalloonLikeAPerson(page) {
+  const width = await readSpin(page, 'w');
+  const height = await readSpin(page, 'h');
+  const handle = await page.evaluate(
+    ({ w, h }) => {
+      const hooks = window.__varveIsoTest;
+      const canvas = document.querySelector('.editor-canvas');
+      const geometry = hooks?.getSelectionGeometry?.()?.[0];
+      if (!hooks || !canvas || !geometry || !(w > 0) || !(h > 0)) return null;
+      const rect = canvas.getBoundingClientRect();
+      const m = geometry.worldTransform;
+      const wx = m[0] * w + m[2] * h + m[4];
+      const wy = m[1] * w + m[3] * h + m[5];
+      const screen = hooks.worldToScreen(wx, wy);
+      return { x: rect.left + screen.x, y: rect.top + screen.y };
+    },
+    { w: width ?? 0, h: height ?? 0 },
+  );
+  if (!handle) return;
+  await humanMove(page, handle.x, handle.y);
+  await think(page, 400, 1100);
+  await page.mouse.down();
+  await pause(page, randBetween(40, 80));
+  await humanMove(page, handle.x + randBetween(22, 40), handle.y + randBetween(16, 32), {
+    drag: true,
+  });
+  await page.mouse.up();
+  await think(page, 400, 900);
+}
+
+async function restoreSpin(page, name, target) {
+  let current = await readSpin(page, name);
+  if (current != null && Math.abs(current - target) > 0.35) {
+    await scrubSpin(page, name, target - current);
+    current = await readSpin(page, name);
+  }
+  if (current == null || Math.abs(current - target) > 0.45) {
+    await setSpin(page, name, target);
+    current = await readSpin(page, name);
+  }
+  log(`restore ${name} target=${target} now=${current}`);
+  return current;
+}
+
 async function holdLoopRest(page, park) {
   if (park) await humanMove(page, park.x, park.y);
-  await think(page, 1100, 1700);
+  await think(page, 900, 1400);
 }
 
 async function loopTailCycle(page) {
@@ -1488,12 +1610,21 @@ async function loopTailCycle(page) {
   if (Math.abs(endY - startY) > 6) await scrubSpin(page, 'tail y', startY - endY);
   await think(page, 400, 800);
   await scrubSpin(page, 'tail x', startX - endX);
-  const backX = await readSpin(page, 'tail x');
-  const backY = await readSpin(page, 'tail y');
-  if (backX == null || Math.abs(backX - startX) > 0.4) await setSpin(page, 'tail x', startX);
-  if (backY == null || Math.abs(backY - startY) > 0.4) await setSpin(page, 'tail y', startY);
+  await restoreSpin(page, 'tail x', startX);
+  await restoreSpin(page, 'tail y', startY);
   const parkEnd = (await tailXParkPoint(page)) ?? park;
   await holdLoopRest(page, parkEnd);
+  const finalX = await readSpin(page, 'tail x');
+  const finalY = await readSpin(page, 'tail y');
+  log(`loop rest start=${startX},${startY} end=${finalX},${finalY}`);
+  if (
+    finalX == null ||
+    finalY == null ||
+    Math.abs(finalX - startX) > 0.5 ||
+    Math.abs(finalY - startY) > 0.5
+  ) {
+    throw new Error(`loop rest pose mismatch ${finalX},${finalY} != ${startX},${startY}`);
+  }
 }
 
 async function dragSelectedTail(page, placement) {
@@ -1644,6 +1775,17 @@ async function extractStills(file, destDir) {
       join(destDir, `t${String(t).padStart(2, '0')}.png`),
     ]);
   }
+  await runFfmpeg(['-y', '-ss', '0', '-i', file, '-frames:v', '1', join(destDir, 'first.png')]);
+  await runFfmpeg([
+    '-y',
+    '-sseof',
+    '-0.04',
+    '-i',
+    file,
+    '-frames:v',
+    '1',
+    join(destDir, 'last.png'),
+  ]);
   return info;
 }
 
@@ -1843,13 +1985,14 @@ async function main() {
           await setSidePanel(page, 'layers', false);
           const park = await tailXParkPoint(page);
           if (park) await humanMove(page, park.x, park.y);
+          await think(page, 500, 900);
         },
       );
       if (session.raw) {
         const dest = join(VIDEO_DIR, 'balloon-tail-loop.mp4');
         const duration = await writeWindowed(session, dest, 10, 12, {
           realtime: true,
-          maxRate: 1.45,
+          maxRate: 1.2,
         });
         await extractStills(dest, join(RAW_DIR, 'stills-loop'));
         outputs.push({ path: dest, duration, width: 1920, height: 1080 });
@@ -1875,7 +2018,7 @@ async function main() {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
         const duration = await writeWindowed(session, dest, 35, 45, {
           realtime: true,
-          maxRate: 2.15,
+          maxRate: 1.35,
         });
         await extractStills(dest, join(RAW_DIR, 'stills-vertical'));
         outputs.push({ path: dest, duration, width: 1080, height: 1920 });
