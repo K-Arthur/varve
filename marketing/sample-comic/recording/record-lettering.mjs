@@ -53,38 +53,46 @@ function panelOrigin(index) {
 const PLACEMENTS = {
   caption: {
     panel: 0,
-    localX: 110,
-    localY: 34,
+    localX: 118,
+    localY: 28,
     text: 'That morning...',
     action: 'Add Caption Box',
     query: 'caption box',
+    fontSize: 22,
+    layer: /caption balloon/i,
   },
   speech: {
     panel: 2,
-    localX: 271,
-    localY: 94,
+    localX: 268,
+    localY: 88,
     text: 'Perfect!',
     action: 'Add Speech Balloon',
     query: 'speech balloon',
-    tailToward: { localX: 78, localY: 168 },
+    fontSize: 28,
+    layer: /speech balloon/i,
+    tailToward: { localX: 92, localY: 172 },
   },
   shout: {
     panel: 4,
     localX: 202,
-    localY: 92,
+    localY: 86,
     text: "WE'RE ALIVE!",
     action: 'Add Shout Balloon',
     query: 'shout balloon',
-    tailToward: { localX: 202, localY: 210 },
+    fontSize: 30,
+    layer: /shout balloon/i,
+    tailToward: { localX: 202, localY: 220 },
   },
   thought: {
     panel: 5,
     localX: 268,
-    localY: 64,
+    localY: 58,
     text: 'Did I use magic flour...?',
     action: 'Add Thought Balloon',
     query: 'thought balloon',
-    tailToward: { localX: 86, localY: 176 },
+    fontSize: 20,
+    layer: /thought balloon/i,
+    tailToward: { localX: 90, localY: 180 },
   },
 };
 
@@ -325,13 +333,22 @@ async function openUnlettered(page, filePath) {
   await hideOverlays(page);
   await dismissNoise(page);
   const newBtn = page.getByRole('button', { name: /^new$/i });
-  await newBtn.waitFor({ state: 'visible', timeout: 120000 });
-  await newBtn.click({ force: true });
+  const firstDesign = page.getByRole('button', { name: /create your first design/i });
+  await newBtn.or(firstDesign).first().waitFor({ state: 'visible', timeout: 120000 });
+  if (await firstDesign.isVisible().catch(() => false)) {
+    await firstDesign.click({ force: true });
+  } else {
+    await newBtn.click({ force: true });
+  }
   const create = page
     .locator('dialog[open]')
     .getByRole('button', { name: /create design/i })
     .or(page.locator('dialog[open]').getByRole('button', { name: /create/i }))
+    .or(page.getByRole('button', { name: /create design/i }))
     .first();
+  if (!(await create.isVisible({ timeout: 8000 }).catch(() => false))) {
+    await newBtn.click({ force: true }).catch(() => undefined);
+  }
   await create.waitFor({ state: 'visible', timeout: 30000 });
   await create.click();
   await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 120000 });
@@ -363,22 +380,21 @@ async function openUnlettered(page, filePath) {
   await page.waitForTimeout(200);
 }
 
+async function layerNames(page) {
+  return page
+    .getByRole('treeitem')
+    .evaluateAll((items) =>
+      items.map((item) => item.getAttribute('aria-label') ?? item.textContent ?? ''),
+    );
+}
+
 async function pageScreenMap(page) {
-  const pageItem = page.getByRole('treeitem', { name: /^page$/i }).first();
-  await pageItem.waitFor({ state: 'visible', timeout: 10000 });
-  await pageItem.click();
-  await page.waitForTimeout(150);
   const map = await page.evaluate(() => {
     const hooks = window.__varveIsoTest;
     const canvas = document.querySelector('.editor-canvas');
     if (!hooks || !canvas) throw new Error('isoTest hooks or canvas missing');
-    const geometry = hooks.getSelectionGeometry()[0];
-    if (!geometry) throw new Error('page geometry missing');
     const rect = canvas.getBoundingClientRect();
-    const toScreen = (lx, ly) => {
-      const matrix = geometry.worldTransform;
-      const wx = matrix[0] * lx + matrix[2] * ly + matrix[4];
-      const wy = matrix[1] * lx + matrix[3] * ly + matrix[5];
+    const toScreen = (wx, wy) => {
       const screen = hooks.worldToScreen(wx, wy);
       return { x: rect.left + screen.x, y: rect.top + screen.y };
     };
@@ -391,6 +407,9 @@ async function pageScreenMap(page) {
       h: corner.y - origin.y,
     };
   });
+  if (map.w < 80 || map.h < 80) {
+    throw new Error(`page screen map is degenerate: ${JSON.stringify(map)}`);
+  }
   return map;
 }
 
@@ -403,7 +422,13 @@ function localToScreen(map, panelIndex, localX, localY) {
 
 async function selectLayer(page, pattern) {
   const item = page.getByRole('treeitem', { name: pattern }).first();
-  await item.waitFor({ state: 'visible', timeout: 8000 });
+  try {
+    await item.waitFor({ state: 'visible', timeout: 8000 });
+  } catch (error) {
+    throw new Error(`layer ${pattern} missing; layers=${JSON.stringify(await layerNames(page))}`, {
+      cause: error,
+    });
+  }
   const box = await item.boundingBox();
   if (box) await clickAt(page, box.x + 28, box.y + box.height / 2, 260);
   else await item.click();
@@ -411,11 +436,57 @@ async function selectLayer(page, pattern) {
   return item;
 }
 
-async function expandLayer(page, pattern) {
-  const item = await selectLayer(page, pattern);
-  await item.press('ArrowRight');
+async function filterLayers(page, query) {
+  const filter = page
+    .locator('.layers-panel')
+    .getByRole('searchbox')
+    .or(page.getByRole('searchbox', { name: /filter layers/i }))
+    .or(page.locator('.layers-panel input[placeholder*="Filter" i]'));
+  if (
+    await filter
+      .first()
+      .isVisible({ timeout: 800 })
+      .catch(() => false)
+  ) {
+    await filter.first().fill(query);
+    await pause(page, 160);
+  }
+}
+
+async function focusCanvas(page) {
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  const box = await canvas.boundingBox();
+  if (box) await page.mouse.click(box.x + 20, box.y + 20);
+  await page.keyboard.press('Escape').catch(() => undefined);
+  await pause(page, 80);
+}
+
+async function chooseTextTool(page) {
+  await focusCanvas(page);
+  const tool = page.getByRole('button', { name: /^text\b/i }).first();
+  if (await tool.isVisible({ timeout: 800 }).catch(() => false)) {
+    const box = await tool.boundingBox();
+    if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2, 240);
+    else await tool.click();
+  } else {
+    await page.keyboard.press('t');
+  }
+  await pause(page, 120);
+}
+
+async function setSelectedFontSize(page, size) {
+  const field = page
+    .locator('.inspector-panel')
+    .getByRole('spinbutton', { name: /^size$/i })
+    .first();
+  if (!(await field.isVisible({ timeout: 2500 }).catch(() => false))) return;
+  const box = await field.boundingBox();
+  if (box) await clickAt(page, box.x + 18, box.y + box.height / 2, 240);
+  else await field.click();
+  await page.keyboard.press('Control+a');
+  await typeHuman(page, String(size), 40);
+  await page.keyboard.press('Enter');
   await pause(page, 180);
-  return item;
 }
 
 async function wrapSelectedText(page, query, actionName) {
@@ -438,12 +509,25 @@ async function wrapSelectedText(page, query, actionName) {
 }
 
 async function placeDialogue(page, map, placement) {
+  await filterLayers(page, '');
+  await focusCanvas(page);
   const point = localToScreen(map, placement.panel, placement.localX, placement.localY);
-  await page.keyboard.press('t');
-  await pause(page, 160);
-  await clickAt(page, point.x, point.y, 420);
   const editor = page.getByRole('textbox', { name: /editing text/i });
-  await editor.waitFor({ state: 'visible', timeout: 5000 });
+  let opened = false;
+  for (let attempt = 0; attempt < 3 && !opened; attempt++) {
+    await chooseTextTool(page);
+    await clickAt(page, point.x, point.y, 420);
+    opened = await editor
+      .waitFor({ state: 'visible', timeout: 2500 })
+      .then(() => true)
+      .catch(() => false);
+    if (!opened) {
+      await page.keyboard.press('Escape').catch(() => undefined);
+      await pause(page, 160);
+    }
+  }
+  if (!opened)
+    throw new Error(`text editor did not open at ${point.x.toFixed(1)},${point.y.toFixed(1)}`);
   await pause(page, 160);
   await typeHuman(page, placement.text, 40);
   await pause(page, 280);
@@ -458,22 +542,52 @@ async function placeDialogue(page, map, placement) {
   if (await textLayer.isVisible({ timeout: 1500 }).catch(() => false)) {
     await selectLayer(page, new RegExp(`text:|${snippet}`, 'i'));
   }
+  if (placement.fontSize) await setSelectedFontSize(page, placement.fontSize);
+  if (await textLayer.isVisible({ timeout: 800 }).catch(() => false)) {
+    await selectLayer(page, new RegExp(`text:|${snippet}`, 'i'));
+  }
   await wrapSelectedText(page, placement.query, placement.action);
+  if (placement.layer) {
+    const balloon = page.getByRole('treeitem', { name: placement.layer }).first();
+    await balloon.waitFor({ state: 'visible', timeout: 6000 }).catch(() => undefined);
+  }
+}
+
+async function clickInspectorButton(page, name) {
+  const button = page.getByRole('button', { name, exact: true }).first();
+  if (!(await button.isVisible({ timeout: 1800 }).catch(() => false))) return false;
+  const box = await button.boundingBox();
+  if (box) await clickAt(page, box.x + Math.min(72, box.width / 2), box.y + box.height / 2, 260);
+  else await button.click();
+  await pause(page, 320);
+  return true;
+}
+
+async function revealBalloon(page, pattern) {
+  await filterLayers(page, 'balloon');
+  const item = page.getByRole('treeitem', { name: pattern }).first();
+  if (await item.isVisible({ timeout: 2500 }).catch(() => false)) {
+    await selectLayer(page, pattern);
+    await item.press('ArrowRight');
+    await pause(page, 160);
+    return true;
+  }
+  return false;
 }
 
 async function removeCaptionTail(page) {
-  const remove = page.getByRole('button', { name: 'Remove tail', exact: true });
-  if (await remove.isVisible({ timeout: 1200 }).catch(() => false)) {
-    const box = await remove.boundingBox();
-    if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2, 280);
-    else await remove.click();
-    await pause(page, 320);
+  await revealBalloon(page, /caption balloon/i);
+  const section = page.getByRole('button', { name: /comic balloon/i });
+  if (await section.isVisible({ timeout: 1500 }).catch(() => false)) {
+    if ((await section.getAttribute('aria-expanded')) === 'false') await section.click();
   }
+  await clickInspectorButton(page, 'Remove tail');
+  await filterLayers(page, '');
 }
 
 async function dragSelectedTail(page, map, placement) {
   if (!placement.tailToward) return;
-  await expandLayer(page, /(speech|shout|thought) balloon/i);
+  await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
   const tail = page.getByRole('treeitem', { name: /balloon tail|thought bubble/i }).first();
   if (!(await tail.isVisible({ timeout: 2000 }).catch(() => false))) return;
   await selectLayer(page, /balloon tail|thought bubble/i);
@@ -518,35 +632,53 @@ async function dragSelectedTail(page, map, placement) {
   await pause(page, 80);
   await page.mouse.up();
   await pause(page, 360);
+  await filterLayers(page, '');
 }
 
 async function demonstrateFit(page, map) {
-  await selectLayer(page, /speech balloon/i);
-  const canvasPoint = localToScreen(
-    map,
-    PLACEMENTS.speech.panel,
-    PLACEMENTS.speech.localX,
-    PLACEMENTS.speech.localY,
-  );
-  await humanMove(page, canvasPoint.x, canvasPoint.y, 320);
-  await page.mouse.dblclick(canvasPoint.x, canvasPoint.y);
-  const editor = page.getByRole('textbox', { name: /editing text/i });
-  await editor.waitFor({ state: 'visible', timeout: 4000 });
-  await page.keyboard.press('Control+a');
-  await pause(page, 120);
-  await typeHuman(page, 'Perfect! These came out just right!', 36);
-  await pause(page, 260);
-  await page.keyboard.press('Escape');
-  await editor.waitFor({ state: 'hidden', timeout: 4000 }).catch(() => undefined);
+  await filterLayers(page, '');
+  const revealed = await revealBalloon(page, /speech balloon/i);
+  if (!revealed) return;
+  const edit = page.getByRole('button', { name: 'Edit text', exact: true });
+  if (await edit.isVisible({ timeout: 1200 }).catch(() => false)) {
+    const box = await edit.boundingBox();
+    if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2, 260);
+    else await edit.click();
+    const editor = page.getByRole('textbox', { name: /editing text/i });
+    if (
+      await editor
+        .waitFor({ state: 'visible', timeout: 2500 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      await page.keyboard.press('Control+a');
+      await pause(page, 120);
+      await typeHuman(page, 'Perfect! These came out just right!', 36);
+      await pause(page, 260);
+      await page.keyboard.press('Escape');
+      await editor.waitFor({ state: 'hidden', timeout: 4000 }).catch(() => undefined);
+    }
+  } else {
+    const canvasPoint = localToScreen(
+      map,
+      PLACEMENTS.speech.panel,
+      PLACEMENTS.speech.localX,
+      PLACEMENTS.speech.localY,
+    );
+    await humanMove(page, canvasPoint.x, canvasPoint.y, 280);
+    await page.mouse.dblclick(canvasPoint.x, canvasPoint.y);
+    const editor = page.getByRole('textbox', { name: /editing text/i });
+    if (await editor.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await page.keyboard.press('Control+a');
+      await typeHuman(page, 'Perfect! These came out just right!', 36);
+      await page.keyboard.press('Escape');
+    }
+  }
   await page.keyboard.press('v');
-  await pause(page, 200);
-  await selectLayer(page, /speech balloon/i);
-  const fit = page.getByRole('button', { name: 'Fit balloon to text', exact: true });
-  await fit.waitFor({ state: 'visible', timeout: 4000 });
-  const box = await fit.boundingBox();
-  if (box) await clickAt(page, box.x + Math.min(80, box.width / 2), box.y + box.height / 2, 300);
-  else await fit.click();
-  await pause(page, 800);
+  await pause(page, 180);
+  await revealBalloon(page, /speech balloon/i);
+  await clickInspectorButton(page, 'Fit balloon to text');
+  await pause(page, 700);
 }
 
 async function letterPage(page, map, options = {}) {
@@ -554,11 +686,17 @@ async function letterPage(page, map, options = {}) {
   for (const key of include) {
     const placement = PLACEMENTS[key];
     await placeDialogue(page, map, placement);
-    if (key === 'caption') await removeCaptionTail(page);
+    if (key === 'caption') {
+      await removeCaptionTail(page);
+      await clickInspectorButton(page, 'Fit balloon to text');
+    }
     if (placement.tailToward) await dragSelectedTail(page, map, placement);
     await pause(page, 420);
+    if (PROBE) {
+      await page.screenshot({ path: join(RAW_DIR, `probe-${key}.png`) });
+    }
   }
-  if (!options.only) await demonstrateFit(page, map);
+  if (!options.only) await demonstrateFit(page, map).catch(() => undefined);
   await page.keyboard.press('Escape');
   await page.mouse.click(24, 24).catch(() => undefined);
   await page.keyboard.press('Shift+Digit1');
@@ -632,6 +770,18 @@ async function encodeMp4(input, output, extra = []) {
   ]);
 }
 
+async function encodeToWindow(input, output, minSec, maxSec, vf) {
+  const duration = await probeDuration(input);
+  let rate = 1;
+  if (duration > maxSec) rate = duration / maxSec;
+  if (duration / rate < minSec && duration < minSec) rate = duration / minSec;
+  const filters = [];
+  if (vf) filters.push(vf);
+  if (Math.abs(rate - 1) > 0.04) filters.push(`setpts=${(1 / rate).toFixed(4)}*PTS`);
+  await encodeMp4(input, output, filters.length ? ['-vf', filters.join(',')] : []);
+  return probeDuration(output);
+}
+
 async function recordSession(browser, filePath, name, act) {
   mkdirSync(RAW_DIR, { recursive: true });
   const context = await browser.newContext({
@@ -686,21 +836,18 @@ async function main() {
     if (WANT_FULL || PROBE) {
       log('recording full lettering pass');
       const session = await recordSession(browser, unlettered.path, 'full', async (page, map) => {
-        if (PROBE) {
-          await placeDialogue(page, map, PLACEMENTS.caption);
-          return;
-        }
         await letterPage(page, map);
       });
       if (session.raw) {
-        const dest = join(VIDEO_DIR, 'lettering-timelapse.mp4');
-        await encodeMp4(session.raw, dest, [
+        const trimmed = join(RAW_DIR, 'full-trimmed.mp4');
+        await encodeMp4(session.raw, trimmed, [
           '-ss',
           session.trimStart.toFixed(2),
           '-vf',
           `scale=${VIEW_W}:${VIEW_H}:flags=lanczos`,
         ]);
-        const duration = await probeDuration(dest);
+        const dest = join(VIDEO_DIR, 'lettering-timelapse.mp4');
+        const duration = await encodeToWindow(trimmed, dest, 30, 45);
         outputs.push({ path: dest, duration });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
       }
@@ -713,14 +860,15 @@ async function main() {
         await pause(page, 700);
       });
       if (session.raw) {
-        const dest = join(VIDEO_DIR, 'balloon-tail-loop.mp4');
-        await encodeMp4(session.raw, dest, [
+        const trimmed = join(RAW_DIR, 'loop-trimmed.mp4');
+        await encodeMp4(session.raw, trimmed, [
           '-ss',
           session.trimStart.toFixed(2),
           '-vf',
           `scale=${VIEW_W}:${VIEW_H}:flags=lanczos`,
         ]);
-        const duration = await probeDuration(dest);
+        const dest = join(VIDEO_DIR, 'balloon-tail-loop.mp4');
+        const duration = await encodeToWindow(trimmed, dest, 6, 10);
         outputs.push({ path: dest, duration });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
       }
@@ -731,11 +879,13 @@ async function main() {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
         const cropW = Math.floor((VIEW_H * 9) / 16);
         const cropX = Math.floor((VIEW_W - cropW) / 2);
-        await encodeMp4(full, dest, [
-          '-vf',
+        const duration = await encodeToWindow(
+          full,
+          dest,
+          15,
+          25,
           `crop=${cropW}:${VIEW_H}:${cropX}:0,scale=${cropW}:${VIEW_H}:flags=lanczos`,
-        ]);
-        const duration = await probeDuration(dest);
+        );
         outputs.push({ path: dest, duration });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
       }
