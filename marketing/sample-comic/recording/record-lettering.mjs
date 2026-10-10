@@ -494,9 +494,9 @@ async function think(page, min = 400, max = 1500) {
 
 async function clickAt(page, x, y) {
   await humanMove(page, x, y);
-  await think(page, 400, 1500);
+  await think(page, 400, 1200);
   await page.mouse.click(x, y);
-  await think(page, 320, 820);
+  await think(page, 280, 560);
 }
 
 async function typeHuman(page, text) {
@@ -610,10 +610,7 @@ async function easeCameraToPanel(page, panelIndex) {
   log(`camera panel ${panelIndex + 1} zoom=${zoom.toFixed(2)}`);
   if (zoom > 3.4) {
     await clickStatusButton(page, /fit all to viewport/i);
-    const retry = await pageScreenMap(page);
-    const again = localToScreen(retry, panelIndex, PANEL_W / 2, PANEL_H / 2);
-    await clickAt(page, again.x, again.y);
-    await clickStatusButton(page, /fit selection to viewport/i);
+    log(`camera panel ${panelIndex + 1} backed out zoom=${(await currentZoom(page)).toFixed(2)}`);
   } else if (zoom < 1.15) {
     const after = await pageScreenMap(page);
     const aim = localToScreen(after, panelIndex, PANEL_W / 2, PANEL_H / 2);
@@ -1295,8 +1292,10 @@ async function placeDialogue(page, placement) {
     await hideSidePanels(page);
     await think(page, 400, 1100);
     await wrapSelectedText(page, placement.query, placement.action);
-    await think(page, 500, 1400);
-    await selectCalloutGroup(page, placement);
+    await think(page, 400, 900);
+    if ((await selectionKind(page)) !== 'group') {
+      await selectCalloutGroup(page, placement);
+    }
     const inspectorReady = await showSettledCalloutInspector(page, placement);
     if (inspectorReady) {
       await clickInspectorButton(page, 'Fit balloon to text');
@@ -1316,7 +1315,7 @@ async function placeDialogue(page, placement) {
       await think(page, 400, 1100);
     }
     await hideSidePanels(page);
-    await think(page, 400, 1000);
+    await think(page, 400, 700);
     return;
   }
   const snippet = placement.text
