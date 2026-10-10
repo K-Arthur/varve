@@ -6,7 +6,9 @@ import {
   compareVersions,
   DEFAULT_UPDATE_PREFERENCES,
   isCheckDue,
+  isStoreManagedAuthority,
   normalizeUpdatePreferences,
+  storeManagedUpdateMessage,
 } from './updatePolicy';
 
 describe('update policy', () => {
@@ -56,5 +58,22 @@ describe('update policy', () => {
       buildLabel: 'x86_64 deb',
     });
     expect(managed).toEqual({ kind: 'externally-managed', authority: 'package-manager-managed' });
+  });
+
+  it('treats Microsoft Store installs as externally managed', () => {
+    const store = authorityState({
+      platform: 'windows',
+      architecture: 'x86_64',
+      packageType: 'msix',
+      currentVersion: '0.5.0',
+      channel: 'stable',
+      updateAuthority: 'store-managed',
+      installLocation: 'unknown',
+      runtimeSupported: false,
+      buildLabel: 'x86_64 Microsoft Store',
+    });
+    expect(store).toEqual({ kind: 'externally-managed', authority: 'store-managed' });
+    expect(isStoreManagedAuthority('store-managed')).toBe(true);
+    expect(storeManagedUpdateMessage()).toMatch(/Microsoft Store delivers updates/);
   });
 });

@@ -13,7 +13,9 @@ export {
   DEFAULT_UPDATE_PREFERENCES,
   isChannelMatch,
   isCheckDue,
+  isStoreManagedAuthority,
   normalizeUpdatePreferences,
+  storeManagedUpdateMessage,
   UPDATE_CHECK_INTERVAL_MS,
   UPDATE_FAILURE_BACKOFF_MS,
 } from './updatePolicy';
