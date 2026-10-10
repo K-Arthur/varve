@@ -1,0 +1,18 @@
+---
+import DownloadRedirect from '../components/DownloadRedirect.astro';
+import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
+
+const dest = `${sitePath('/download')}#platform-windows`;
+---
+
+<Layout
+  title="Windows downloads"
+  description="Varve Windows installers have moved to the download page."
+  noindex
+  canonicalPath="/download"
+>
+  <div class="container-custom">
+    <DownloadRedirect heading="Windows" dest={dest} destLabel="download page Windows tab" />
+  </div>
+</Layout>

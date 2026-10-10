@@ -224,6 +224,7 @@ export interface CollabSettingsStore {
 }
 
 export interface AiSettingsStore {
+  /** Global AI features master switch. When false, all AI features are hidden/disabled and models cannot be downloaded. */
   enabled: boolean;
   model: string;
   shareUsageData: boolean;
@@ -316,7 +317,7 @@ export const DEFAULT_COLLAB_SETTINGS: CollabSettingsStore = {
 };
 
 export const DEFAULT_AI_SETTINGS: AiSettingsStore = {
-  enabled: false,
+  enabled: true, // Default true to not break existing AI feature users
   model: 'gpt-4',
   shareUsageData: false,
 };

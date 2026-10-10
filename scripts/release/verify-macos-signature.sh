@@ -4,7 +4,8 @@
 #
 # Runs, against the DMG and the .app inside it:
 #   codesign --verify --deep --strict   nested code + signature validity
-#   codesign -dv                        Team ID, hardened-runtime flag, authority
+#   codesign -dv                        Team ID, hardened-runtime flag, authority,
+#                                       ad-hoc vs Developer ID, sealed resources
 #   spctl -a -t exec -vv                Gatekeeper assessment (notarization)
 #   xcrun stapler validate              stapled ticket on .app and .dmg
 #
@@ -23,9 +24,10 @@
 #   }
 #
 # Exit codes:
-#   0 — verification passed (signed+notarized+stapled, or honestly unsigned
-#       when --expect-signed is not given)
-#   1 — signature INVALID (present but failing)
+#   0 — verification passed (signed+notarized+stapled, or a verified ad-hoc
+#       bundle signature when --expect-signed is not given)
+#   1 — signature INVALID (present but failing), or ad-hoc/sealed-resources
+#       missing when Developer ID is not expected
 #   2 — signing was expected (--expect-signed) but the artifact is unsigned
 #   3 — verification tooling failure
 #
@@ -94,25 +96,40 @@ SIGNED=0
 NOTARIZED=0
 STAPLED=0
 HARDENED=0
+ADHOC=0
+SEALED=0
+VERIFY_OK=0
 TEAM_ID=""
 PUBLISHER=""
 
 # ── 1. Signature validity + nested code ────────────────────────────────────
+# Ad-hoc bundle signatures also pass --verify. That is NOT Developer ID.
+# Policy `signed` is reserved for Authority=Developer ID Application.
 if run_checked "codesign --verify --deep --strict" codesign --verify --deep --strict --verbose=2 "$APP"; then
-  SIGNED=1
+  VERIFY_OK=1
   DETAILS+=("codesign --verify --deep --strict: PASSED")
 else
   DETAILS+=("codesign --verify --deep --strict: FAILED")
 fi
 
-# ── 2. Signature details: authority, Team ID, hardened runtime ─────────────
+# ── 2. Signature details: authority, Team ID, hardened runtime, ad-hoc ─────
 DV_OUT="$(codesign -dv --verbose=4 "$APP" 2>&1 || true)"
+echo "$DV_OUT" | sed 's/^/    /'
 TEAM_ID="$(echo "$DV_OUT" | sed -n 's/^TeamIdentifier=//p' | head -1)"
 if echo "$DV_OUT" | grep -q 'flags=0x10000(runtime)'; then
   HARDENED=1
 fi
+if echo "$DV_OUT" | grep -q 'Signature=adhoc'; then
+  ADHOC=1
+fi
+if echo "$DV_OUT" | grep -qi 'Sealed Resources'; then
+  SEALED=1
+fi
 PUBLISHER="$(echo "$DV_OUT" | grep '^Authority=' | head -1 | sed 's/^Authority=//' || true)"
-DETAILS+=("codesign -dv: TeamIdentifier=${TEAM_ID:-none} hardened_runtime=$([ "$HARDENED" = 1 ] && echo yes || echo no)")
+if echo "$DV_OUT" | grep -q '^Authority=Developer ID Application' && [[ "$VERIFY_OK" = 1 ]]; then
+  SIGNED=1
+fi
+DETAILS+=("codesign -dv: Signature=$([ "$ADHOC" = 1 ] && echo adhoc || echo "${PUBLISHER:-none}") sealed_resources=$([ "$SEALED" = 1 ] && echo yes || echo no) TeamIdentifier=${TEAM_ID:-none} hardened_runtime=$([ "$HARDENED" = 1 ] && echo yes || echo no)")
 
 # ── 3. Gatekeeper assessment (covers notarization) ─────────────────────────
 if spctl_out="$(spctl -a -t exec -vv "$APP" 2>&1)"; then
@@ -150,17 +167,22 @@ REPORT_JSON="$(jq -n \
   --argjson notarized "$(json_bool "$NOTARIZED")" \
   --argjson stapled "$(json_bool "$STAPLED")" \
   --argjson hardened "$(json_bool "$HARDENED")" \
+  --argjson adhoc "$(json_bool "$ADHOC")" \
+  --argjson sealedResources "$(json_bool "$SEALED")" \
   --arg teamId "${TEAM_ID:-}" \
   --arg publisher "$PUBLISHER" \
   --argjson details "$(printf '%s\0' "${DETAILS[@]}" | jq -R -s -c 'split("\u0000") | map(select(length > 0))')" \
   --arg checkedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   '{platform: "macos", artifact: $artifact, signed: $signed, notarized: $notarized,
-    stapled: $stapled, hardenedRuntime: $hardened, teamId: $teamId, publisher: $publisher,
+    stapled: $stapled, hardenedRuntime: $hardened, adhoc: $adhoc,
+    sealedResources: $sealedResources, teamId: $teamId, publisher: $publisher,
     details: $details, checkedAt: $checkedAt}')"
 
 echo ""
 echo "macOS verification summary:"
 echo "  signed:          $SIGNED"
+echo "  adhoc:           $ADHOC"
+echo "  sealed resources:$SEALED"
 echo "  notarized:       $NOTARIZED"
 echo "  stapled:         $STAPLED"
 echo "  hardened runtime:$HARDENED"
@@ -176,7 +198,11 @@ if [[ "$SIGNED" = 0 ]]; then
     echo "::error::Signing was expected but the artifact is unsigned." >&2
     fail_report 2
   fi
-  echo "::notice::Artifact is unsigned (allowed when signing is not expected)." >&2
+  if [[ "$ADHOC" != 1 || "$SEALED" != 1 || "$VERIFY_OK" != 1 ]]; then
+    echo "::error::macOS build must carry a free ad-hoc bundle signature (Signature=adhoc) with sealed resources. A linker-only per-binary signature makes Gatekeeper report the app as damaged." >&2
+    fail_report 1
+  fi
+  echo "::notice::Artifact is ad-hoc signed (not Developer ID). Allowed when signing is not expected." >&2
   fail_report 0
 fi
 if [[ "$STAPLED" = 0 ]]; then

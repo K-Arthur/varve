@@ -39,6 +39,7 @@ import {
   type ObjectSelectionPreviewMode,
   objectSelectionCandidateReviewKey,
 } from '../../../context/objectSelectionTypes';
+import { getAiFeaturesEnabled } from '../../../features/useAiFeaturesEnabled';
 import { prepareImageMaskMapper } from '../../../tools/imageMaskCoordinates';
 import type {
   Sam2PromptMode,
@@ -465,6 +466,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
   const startObjectSelection = useCallback(() => {
     if (!node) return;
+    if (!getAiFeaturesEnabled()) {
+      announce('Object Selection requires AI features. Enable them in Settings.');
+      return;
+    }
     setTool('sam2Segment');
     announce(
       'Object Selection active. Prompt polarity controls new points; Shift temporarily excludes. Use two taps or a drag for a box hint.',

@@ -275,6 +275,40 @@ test('tablist keyboard navigation works (Arrow keys, Home, End)', async ({ brows
   await context.close();
 });
 
+test('URL hash selects the matching platform tab on load', async ({ browser }) => {
+  const context = await browser.newContext({ userAgent: LINUX_X64_UA });
+  const page = await context.newPage();
+  await page.goto('/download#platform-macos');
+
+  await expect(page.locator('#platform-tab-macos')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#platform-macos')).toHaveClass(/active/);
+  await expect(page.locator('#platform-linux')).not.toHaveClass(/active/);
+
+  await context.close();
+});
+
+test('platform shortcut routes redirect to the download tab', async ({ browser }) => {
+  const context = await browser.newContext({ userAgent: LINUX_X64_UA });
+  const page = await context.newPage();
+
+  await page.goto('/linux');
+  await expect(page).toHaveURL(/\/download#platform-linux/);
+  await expect(page.locator('#platform-tab-linux')).toHaveAttribute('aria-selected', 'true');
+
+  await page.goto('/windows');
+  await expect(page).toHaveURL(/\/download#platform-windows/);
+  await expect(page.locator('#platform-tab-windows')).toHaveAttribute('aria-selected', 'true');
+
+  await page.goto('/mac');
+  await expect(page).toHaveURL(/\/download#platform-macos/);
+  await expect(page.locator('#platform-tab-macos')).toHaveAttribute('aria-selected', 'true');
+
+  await page.goto('/install');
+  await expect(page).toHaveURL(/\/download\/?$/);
+
+  await context.close();
+});
+
 test('checksums-and-requirements jump links activate the matching tab', async ({ browser }) => {
   const context = await browser.newContext({ userAgent: LINUX_X64_UA });
   const page = await context.newPage();
@@ -426,6 +460,34 @@ test('the page works with JavaScript disabled (server-rendered baseline)', async
     return { scrollWidth: doc.scrollWidth, clientWidth: doc.clientWidth };
   });
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
+
+  await context.close();
+});
+
+test('install guidance is honest about Gatekeeper, SmartScreen, and checksums', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ userAgent: MACOS_UA });
+  const page = await context.newPage();
+  await openDownload(page);
+
+  await expect(
+    page.getByText('sha256sum --ignore-missing -c SHA256SUMS.txt').first(),
+  ).toBeVisible();
+  await expect(page.getByText('shasum -a 256 <filename>').first()).toBeVisible();
+  await expect(
+    page.getByText('Get-FileHash .\\<filename> -Algorithm SHA256').first(),
+  ).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('sha256sum -c SHA256SUMS.txt');
+  await expect(
+    page.getByText('xattr -dr com.apple.quarantine /Applications/Varve.app', { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('#troubleshoot-help')).toContainText('Smart App Control');
+  await page.locator('#platform-tab-windows').click();
+  await expect(page.locator('#platform-windows')).toContainText('Smart App Control');
+  await expect(page.locator('body')).not.toContainText('winget install K-Arthur.Varve');
+  await expect(page.locator('body')).not.toContainText('brew install --cask k-arthur/varve/varve');
+  await expect(page.locator('#package-managers')).toHaveCount(0);
 
   await context.close();
 });

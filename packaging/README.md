@@ -1,9 +1,9 @@
 # Linux Packaging
 
 Varve v0.5.0 publishes Linux AppImage, `.deb`, and `.rpm` downloads. This
-directory also contains a prepared, x86_64-only AUR package definition and an
-incomplete Flatpak stub; neither AUR nor Flathub is currently a published
-Varve distribution channel.
+directory also contains a prepared AUR package definition (x86_64 and aarch64
+AppImage sources) and an incomplete Flatpak stub; neither AUR nor Flathub is
+currently a published Varve distribution channel.
 
 ## Directory structure
 
@@ -23,8 +23,9 @@ packaging/
 
 ## AUR — varve-desktop-bin
 
-The local PKGBUILD extracts the upstream x86_64 AppImage. Includes ONNX Runtime
-for native AI features (background removal, image upscaling).
+The local PKGBUILD extracts the upstream AppImage for x86_64 and aarch64.
+Includes ONNX Runtime for native AI features (background removal, image
+upscaling, tracing).
 
 ### Release update procedure
 
@@ -32,8 +33,8 @@ for native AI features (background removal, image upscaling).
 # 1. Update pkgver in PKGBUILD
 # 2. Get the sha256 from the published SHA256SUMS.txt
 sha256=$(curl -sL https://github.com/K-Arthur/varve/releases/download/v$VERSION/SHA256SUMS.txt \
-  | grep 'linux-x86_64.AppImage$' | awk '{print $1}')
-# 3. Update sha256sums in PKGBUILD
+  | grep "linux-${arch}.AppImage$" | awk '{print $1}')
+# 3. Update sha256sums_x86_64 and sha256sums_aarch64 in PKGBUILD
 # 4. Regenerate .SRCINFO
 cd packaging/aur/varve-desktop-bin
 makepkg --printsrcinfo > .SRCINFO
@@ -86,12 +87,12 @@ submission checklist.
 
 | Question | Answer |
 |---|---|
-| Primary Arch package? | **Binary** (`varve-desktop-bin`) from the upstream x86_64 AppImage |
+| Primary Arch package? | **Binary** (`varve-desktop-bin`) from upstream AppImage |
 | Separate source package? | No — single `-bin` package avoids duplicate/maintenance burden |
-| AUR source artifact? | AppImage extraction; local PKGBUILD currently targets v0.5.0 x86_64 |
+| AUR source artifact? | AppImage extraction; local PKGBUILD targets v0.5.0 x86_64 and aarch64 |
 | AUR name | `varve-desktop-bin` (matches executable name, no conflicts) |
 | AppStream metadata outside Flatpak? | Yes — installed by deb/rpm/AppImage and the AUR package |
 | Flatpak offline build? | No — the manifest remains a failing stub; source inventories are not wired in |
 | ONNX in Flatpak? | Unverified — no Flatpak build has completed |
-| aarch64 support? | Upstream ships aarch64 AppImage/deb/rpm; AUR currently x86_64 only |
+| aarch64 support? | Upstream ships aarch64 AppImage/deb/rpm; AUR PKGBUILD covers both arches |
 | Tauri updater in package-manager builds? | Disabled — `package-manager-managed` / `store-managed` authorities |

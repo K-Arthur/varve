@@ -35,6 +35,11 @@ for (const target of [
   assert.match(contracts, new RegExp(`name: ${target}\\n`));
 }
 assert.match(linux, /production\/appimage-extraction\.test\.mjs/);
+assert.match(
+  linux,
+  /verify-appimage-permissions\.mjs --appimage/,
+  'package-smoke must reject a staged AppImage whose SquashFS is not world-readable',
+);
 assert.doesNotMatch(native, /production\/appimage-extraction\.test\.mjs/);
 assert.match(
   verify,

@@ -6,6 +6,7 @@ import {
   detectPlatform,
   isMobileOrTablet,
   orderArchitectures,
+  platformFromDownloadHash,
   primaryFormatFor,
   recommendationCopy,
 } from '../lib/download-detection';
@@ -258,6 +259,17 @@ describe('primaryFormatFor', () => {
     expect(primaryFormatFor('macos', ['dmg'])).toBe('dmg');
     expect(primaryFormatFor('windows', ['nsis'])).toBe('nsis');
     expect(primaryFormatFor('windows', ['msi', 'nsis'])).toBe('msi');
+  });
+});
+
+describe('platformFromDownloadHash', () => {
+  it('selects the matching download tab from a URL hash', () => {
+    expect(platformFromDownloadHash('#platform-linux')).toBe('linux');
+    expect(platformFromDownloadHash('#platform-windows')).toBe('windows');
+    expect(platformFromDownloadHash('#platform-macos')).toBe('macos');
+    expect(platformFromDownloadHash('platform-mac')).toBe('macos');
+    expect(platformFromDownloadHash('#choose-platform')).toBeNull();
+    expect(platformFromDownloadHash('')).toBeNull();
   });
 });
 

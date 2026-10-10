@@ -34,7 +34,7 @@ test.describe('generative editing marketing pages', () => {
       .toEqual([640, 640]);
     await expect(page.locator('.before-after-grid figcaption')).toHaveText([
       'Source photograph · 640px review copy',
-      'Promptless Expand · LaMa, desktop local CPU',
+      'AI-generated sample · Promptless Expand · LaMa, desktop local CPU',
     ]);
     await page.evaluate(
       () =>

@@ -684,6 +684,7 @@ records; check the current code before acting on their findings.
 
 | Doc | Purpose |
 |-----|---------|
+| `how-varve-is-built.md` | Public AI-assistance and on-device model disclosure |
 | `agents/README.md` | Why and how AI tooling is used in this project |
 | `agents/continuation.md` | Historical session-5 continuation context (see file header) |
 | `agents/session-history.md` | Detailed per-session development records |

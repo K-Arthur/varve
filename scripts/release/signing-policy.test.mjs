@@ -596,9 +596,13 @@ fi
 exit 0
 `,
     codesign: `#!/usr/bin/env bash
-if [[ "$1" == "--verify" ]]; then exit 1; fi
+if [[ "$1" == "--verify" ]]; then exit 0; fi
+echo 'Identifier=dev.varve.desktop' >&2
+echo 'Format=app bundle with Mach-O thin (arm64)' >&2
+echo 'Signature=adhoc' >&2
+echo 'Sealed Resources version=2 rules=13 files=42' >&2
 echo 'TeamIdentifier=not set' >&2
-exit 1
+exit 0
 `,
     spctl: '#!/usr/bin/env bash\necho "rejected (test unsigned artifact)" >&2\nexit 1\n',
     xcrun: '#!/usr/bin/env bash\nexit 1\n',
@@ -619,15 +623,76 @@ exit 1
       },
     );
     const emitted = JSON.parse(readFileSync(reportPath, 'utf8'));
-    for (const field of ['signed', 'notarized', 'stapled', 'hardenedRuntime']) {
+    for (const field of [
+      'signed',
+      'notarized',
+      'stapled',
+      'hardenedRuntime',
+      'adhoc',
+      'sealedResources',
+    ]) {
       assert.equal(typeof emitted[field], 'boolean', `macOS report ${field} is a JSON boolean`);
     }
-    assert.equal(emitted.signed, false, 'unsigned DMG stays honestly unsigned');
+    assert.equal(emitted.signed, false, 'ad-hoc is not Developer ID signed');
+    assert.equal(emitted.adhoc, true, 'ad-hoc signature is recorded');
+    assert.equal(emitted.sealedResources, true, 'sealed resources are recorded');
     assert.equal(
       readSigningReports(tmp).macos.signed,
       false,
-      'the release trust parser accepts the actual unsigned macOS report',
+      'the release trust parser accepts the actual ad-hoc macOS report as unsigned',
     );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+{
+  const tmp = mkdtempSync(join(tmpdir(), 'varve-macos-unsigned-'));
+  const bin = join(tmp, 'bin');
+  mkdirSync(bin);
+  const commands = {
+    hdiutil: `#!/usr/bin/env bash
+if [[ "$1" == "attach" ]]; then
+  while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "-mountpoint" ]]; then mkdir -p "$2/Varve.app"; exit 0; fi
+    shift
+  done
+fi
+exit 0
+`,
+    codesign: `#!/usr/bin/env bash
+if [[ "$1" == "--verify" ]]; then exit 1; fi
+echo 'TeamIdentifier=not set' >&2
+exit 1
+`,
+    spctl: '#!/usr/bin/env bash\nexit 1\n',
+    xcrun: '#!/usr/bin/env bash\nexit 1\n',
+  };
+  for (const [name, source] of Object.entries(commands)) {
+    writeFileSync(join(bin, name), source, { mode: 0o755 });
+  }
+  const dmg = join(tmp, 'Varve-0.5.0-macos-aarch64.dmg');
+  const reportPath = join(tmp, 'signing-report-macos.json');
+  writeFileSync(dmg, 'test DMG placeholder');
+  try {
+    let failed = false;
+    try {
+      execFileSync(
+        'bash',
+        ['scripts/release/verify-macos-signature.sh', '--dmg', dmg, '--report', reportPath],
+        {
+          encoding: 'utf-8',
+          env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ''}` },
+        },
+      );
+    } catch {
+      failed = true;
+    }
+    assert.equal(failed, true, 'a linker-only unsigned .app fails the ad-hoc requirement');
+    const emitted = JSON.parse(readFileSync(reportPath, 'utf8'));
+    assert.equal(emitted.signed, false);
+    assert.equal(emitted.adhoc, false);
+    assert.equal(emitted.sealedResources, false);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

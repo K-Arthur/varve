@@ -91,7 +91,8 @@ export type LayersBadgeGroup =
   | 'media'
   | 'email'
   | 'print'
-  | 'trace';
+  | 'trace'
+  | 'ai';
 
 /**
  * One-click filter presets offered by the filter bar. Presets compose with the

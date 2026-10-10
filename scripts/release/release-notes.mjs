@@ -166,14 +166,27 @@ function main() {
     out.push('');
     if (platforms.includes('windows')) {
       out.push(
-        '- **Windows** shows "Windows protected your PC". Choose **More info → Run anyway**.',
+        '- **Windows** shows "Windows protected your PC". Choose **More info → Run anyway**. ' +
+          'Windows 11 Smart App Control can block unsigned apps with no override — use the ' +
+          'browser version at https://varve.studio/try.',
       );
     }
     if (platforms.includes('macos')) {
-      out.push(
-        '- **macOS** refuses to open the app. Use **System Settings → Privacy & Security → ' +
-          'Open Anyway**. Do not disable Gatekeeper system-wide.',
-      );
+      if (version === '0.5.0') {
+        out.push(
+          '- **macOS (0.5.0)** shows "Varve is damaged and can\'t be opened" with no Open Anyway ' +
+            'option. After dragging Varve to Applications, run ' +
+            '`xattr -dr com.apple.quarantine /Applications/Varve.app` — that removes the ' +
+            'download quarantine flag so macOS will open the app. Do not disable Gatekeeper.',
+        );
+      } else {
+        out.push(
+          '- **macOS** may block the first launch of an ad-hoc-signed app. After that attempt, ' +
+            'use **System Settings → Privacy & Security → Open Anyway**. Do not disable ' +
+            'Gatekeeper system-wide. 0.5.0 still needs ' +
+            '`xattr -dr com.apple.quarantine /Applications/Varve.app`.',
+        );
+      }
     }
     if (platforms.includes('linux')) {
       out.push('- **Linux** has no equivalent prompt; verify the checksum instead.');
@@ -202,9 +215,15 @@ function main() {
   out.push('```');
   out.push('');
   out.push(
-    'Or download `SHA256SUMS.txt` and run `sha256sum -c SHA256SUMS.txt` ' +
-      '(`shasum -a 256 -c` on macOS, `Get-FileHash` on Windows).',
+    'Download `SHA256SUMS.txt` and verify **only the file you downloaded** — ' +
+      '`sha256sum -c SHA256SUMS.txt` errors for files that are not present:',
   );
+  out.push('');
+  out.push(
+    '- Linux: `sha256sum --ignore-missing -c SHA256SUMS.txt` or `grep <filename> SHA256SUMS.txt | sha256sum -c`',
+  );
+  out.push('- macOS: `shasum -a 256 <filename>`');
+  out.push('- Windows PowerShell: `Get-FileHash .\\<filename> -Algorithm SHA256`');
   out.push('');
 
   // ── Standing warnings ────────────────────────────────────────────────────
