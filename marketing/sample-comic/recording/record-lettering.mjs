@@ -536,27 +536,55 @@ async function wrapSelectedText(page, query, actionName) {
   await pause(page, 380);
 }
 
+async function selectionKind(page) {
+  return page.evaluate(() => window.__varveIsoTest?.getSelectionGeometry?.()?.[0]?.kind ?? null);
+}
+
+async function fitSelectedFrame(page) {
+  const kind = await selectionKind(page);
+  if (kind !== 'frame') return false;
+  const fit = page.getByRole('button', { name: /fit selection to viewport/i });
+  if (await fit.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await fit.click();
+    await pause(page, 280);
+    return true;
+  }
+  await blurChrome(page);
+  await page.keyboard.press('Shift+Digit2');
+  await pause(page, 280);
+  return true;
+}
+
+async function resetView(page) {
+  await blurChrome(page);
+  await page.keyboard.press('Shift+Digit1');
+  await pause(page, 400);
+}
+
 async function followPanel(page, panelIndex) {
   const label = `Panel ${panelIndex + 1}`;
+  const pattern = new RegExp(`${label}(?:,|$)`, 'i');
   await filterLayers(page, label);
-  await selectLayer(page, new RegExp(`${label}(?:,|$)`, 'i'));
-  const fit = page.getByRole('button', { name: /fit selection to viewport/i });
-  if (await fit.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await fit.click();
-  } else {
-    await blurChrome(page);
-    await page.keyboard.press('Shift+Digit2');
+  await selectLayer(page, pattern);
+  if ((await selectionKind(page)) !== 'frame') {
+    await selectLayer(page, pattern);
   }
-  await pause(page, 320);
+  if ((await selectionKind(page)) !== 'frame') {
+    await resetView(page);
+    await filterLayers(page, label);
+    await selectLayer(page, pattern);
+  }
+  await fitSelectedFrame(page);
   await filterLayers(page, '');
   const map = await pageScreenMap(page);
   const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
   const view = page.viewportSize() ?? { width: 1920, height: 1080 };
-  if (mid.x < 40 || mid.y < 40 || mid.x > view.width - 40 || mid.y > view.height - 40) {
+  const insane = map.h > 6000 || map.h < 80 || mid.y < 0 || mid.y > view.height;
+  if (insane) {
+    await resetView(page);
     await filterLayers(page, label);
-    await selectLayer(page, new RegExp(`${label}(?:,|$)`, 'i'));
-    if (await fit.isVisible({ timeout: 1500 }).catch(() => false)) await fit.click();
-    await pause(page, 280);
+    await selectLayer(page, pattern);
+    await fitSelectedFrame(page);
     await filterLayers(page, '');
   }
 }
@@ -757,30 +785,27 @@ async function placeDialogue(page, placement) {
   if (PROBE) await dumpBalloon(page, `fit-${placement.action.replace(/\s+/g, '-').toLowerCase()}`);
 }
 
-async function removeCaptionTail(page) {
-  await revealBalloon(page, /caption balloon/i);
-  let removed = await clickInspectorButton(page, 'Remove tail');
-  if (!removed) {
-    await revealBalloon(page, /caption balloon/i);
-    removed = await clickInspectorButton(page, 'Remove tail');
-  }
-  await filterLayers(page, 'caption');
-  const tail = page.getByRole('treeitem', { name: /balloon tail/i }).first();
-  const stillThere = await tail.isVisible({ timeout: 600 }).catch(() => false);
-  if (stillThere) {
-    await revealBalloon(page, /caption balloon/i);
-    await clickInspectorButton(page, 'Remove tail');
-  }
-  await filterLayers(page, 'caption');
+async function captionHasTail(page) {
+  await filterLayers(page, 'tail');
   const leftover = await page
     .getByRole('treeitem', { name: /balloon tail/i })
     .first()
-    .isVisible({ timeout: 500 })
+    .isVisible({ timeout: 600 })
     .catch(() => false);
-  if (leftover) {
-    throw new Error('caption still has a Balloon tail after Remove tail');
-  }
   await filterLayers(page, '');
+  return leftover;
+}
+
+async function removeCaptionTail(page) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await revealBalloon(page, /caption balloon/i);
+    await clickInspectorButton(page, 'Remove tail');
+    if (!(await captionHasTail(page))) {
+      await filterLayers(page, '');
+      return;
+    }
+  }
+  throw new Error('caption still has a Balloon tail after Remove tail');
 }
 
 async function selectedTailGeometry(page) {
