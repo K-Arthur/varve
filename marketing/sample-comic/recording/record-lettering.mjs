@@ -41,6 +41,32 @@ const WANT_LOOP = args.has('--loop') || (!args.has('--full') && !args.has('--ver
 const WANT_VERTICAL =
   args.has('--vertical') || (!args.has('--full') && !args.has('--loop') && !PROBE);
 const pointerByPage = new WeakMap();
+const compactByPage = new WeakMap();
+
+const ART_LOCK_NAMES = [
+  'Wall',
+  'Window',
+  'Window muntin',
+  'Shelf',
+  'Jar',
+  'Bowl',
+  'Counter',
+  'Counter shade',
+  'Counter matte',
+  'Counter close-up',
+  'Baker',
+  'Ghost cookie',
+  'Pumpkin cookie',
+  'Ghost cutter',
+  'Pumpkin cutter',
+  'Left hand',
+  'Right hand',
+  'Piping bag',
+  'Door',
+  'Moon',
+  'Glow A',
+  'Glow B',
+];
 
 function panelOrigin(index) {
   const col = index % 2;
@@ -342,6 +368,55 @@ async function blurChrome(page) {
   });
 }
 
+async function sidePanelCollapsed(page, which) {
+  return page.evaluate((panel) => {
+    const sel = panel === 'layers' ? '.editor__layers-panel' : '.editor__inspector-panel';
+    const el = document.querySelector(sel);
+    if (!el) return true;
+    return el.hasAttribute('inert') || el.hasAttribute('data-collapsed');
+  }, which);
+}
+
+async function setSidePanel(page, which, visible) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if ((await sidePanelCollapsed(page, which)) !== visible) break;
+    await blurChrome(page);
+    await page.keyboard.press(which === 'layers' ? 'Control+b' : 'Control+Shift+b');
+    await pause(page, 180);
+  }
+  if ((await sidePanelCollapsed(page, which)) === visible) {
+    const name = visible
+      ? which === 'layers'
+        ? /show layers panel/i
+        : /show inspector panel/i
+      : which === 'layers'
+        ? /hide layers panel/i
+        : /hide inspector panel/i;
+    const fab = page.getByRole('button', { name }).first();
+    if (await fab.isVisible({ timeout: 400 }).catch(() => false)) {
+      await fab.click();
+      await pause(page, 180);
+    }
+  }
+}
+
+async function hideSidePanels(page) {
+  await setSidePanel(page, 'layers', false);
+  await setSidePanel(page, 'inspector', false);
+}
+
+async function ensureLayers(page) {
+  if (!compactByPage.get(page)) return;
+  await setSidePanel(page, 'inspector', false);
+  await setSidePanel(page, 'layers', true);
+}
+
+async function ensureInspector(page) {
+  if (!compactByPage.get(page)) return;
+  await setSidePanel(page, 'layers', false);
+  await setSidePanel(page, 'inspector', true);
+}
+
 async function openUnlettered(page, filePath) {
   await page.addInitScript(STORAGE_BOOT);
   await page.addInitScript(CURSOR_BOOT);
@@ -440,6 +515,7 @@ function localToScreen(map, panelIndex, localX, localY) {
 }
 
 async function selectLayer(page, pattern, which = 'first') {
+  await ensureLayers(page);
   const items = page.getByRole('treeitem', { name: pattern });
   const count = await items.count();
   if (count === 0) {
@@ -464,6 +540,7 @@ async function selectLayer(page, pattern, which = 'first') {
 }
 
 async function filterLayers(page, query) {
+  await ensureLayers(page);
   const filter = page
     .locator('.layers-panel')
     .getByRole('searchbox')
@@ -502,6 +579,7 @@ async function chooseTextTool(page) {
 }
 
 async function setSpin(page, name, value) {
+  await ensureInspector(page);
   const field = page
     .locator('.inspector-panel')
     .getByRole('spinbutton', { name: new RegExp(`^${name}$`, 'i') })
@@ -610,7 +688,40 @@ async function zoomToLayer(page, pattern) {
   return fitSelectedFrame(page, pattern);
 }
 
+async function followPanelCanvas(page, panelIndex) {
+  await hideSidePanels(page);
+  await resetView(page);
+  const map = await pageScreenMap(page);
+  const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
+  await clickAt(page, mid.x, mid.y, 240);
+  await blurChrome(page);
+  const kind = await selectionKind(page);
+  if (kind !== 'frame') return false;
+  await page.keyboard.press('Shift+Digit2');
+  await pause(page, 280);
+  const after = await pageScreenMap(page);
+  const zoom = after.h / PAGE_H;
+  if (zoom > 2.4 || zoom < 1.3) {
+    await page.keyboard.press('Digit5');
+    await pause(page, 240);
+  }
+  const fitted = await pageScreenMap(page);
+  const view = page.viewportSize() ?? { width: 1080, height: 1920 };
+  const center = localToScreen(fitted, panelIndex, PANEL_W / 2, PANEL_H / 2);
+  return (
+    fitted.h > 80 &&
+    center.y > 40 &&
+    center.y < view.height - 40 &&
+    center.x > 20 &&
+    center.x < view.width - 20
+  );
+}
+
 async function followPanel(page, panelIndex) {
+  if (compactByPage.get(page)) {
+    const viaCanvas = await followPanelCanvas(page, panelIndex);
+    if (viaCanvas) return;
+  }
   const label = `Panel ${panelIndex + 1}`;
   const pattern = new RegExp(`${label}(?:,|$)`, 'i');
   await filterLayers(page, label);
@@ -628,9 +739,11 @@ async function followPanel(page, panelIndex) {
     await zoomToLayer(page, pattern);
     await filterLayers(page, '');
   }
+  if (compactByPage.get(page)) await hideSidePanels(page);
 }
 
 async function lockNamedLayers(page, name) {
+  await ensureLayers(page);
   await filterLayers(page, name);
   const locks = page.getByRole('button', { name: new RegExp(`^Lock ${name}$`, 'i') });
   const count = await locks.count();
@@ -645,10 +758,18 @@ async function lockNamedLayers(page, name) {
 }
 
 async function lockAllWalls(page) {
-  await lockNamedLayers(page, 'Wall');
+  for (const name of ART_LOCK_NAMES) {
+    await lockNamedLayers(page, name);
+  }
+}
+
+async function lockPanelBackdrop(page, panelIndex) {
+  await lockNamedLayers(page, `Panel ${panelIndex + 1}`);
+  await lockNamedLayers(page, 'Page');
 }
 
 async function openComicSection(page) {
+  await ensureInspector(page);
   const section = page.getByRole('button', { name: /comic balloon/i }).first();
   if (!(await section.isVisible({ timeout: 2000 }).catch(() => false))) return false;
   if ((await section.getAttribute('aria-expanded')) === 'false') {
@@ -661,6 +782,7 @@ async function openComicSection(page) {
 }
 
 async function clickInspectorButton(page, name) {
+  await ensureInspector(page);
   const button = page.getByRole('button', { name, exact: true }).first();
   if (!(await button.isVisible({ timeout: 1800 }).catch(() => false))) return false;
   await button.scrollIntoViewIfNeeded().catch(() => undefined);
@@ -712,7 +834,31 @@ async function dumpBalloon(page, label) {
   return info;
 }
 
+async function selectionScreenCenter(page) {
+  return page.evaluate(() => {
+    const hooks = window.__varveIsoTest;
+    const canvas = document.querySelector('.editor-canvas');
+    const geometry = hooks?.getSelectionGeometry?.()?.[0];
+    if (!hooks || !canvas || !geometry) return null;
+    const rect = canvas.getBoundingClientRect();
+    const matrix = geometry.worldTransform;
+    const wx = matrix[4];
+    const wy = matrix[5];
+    const screen = hooks.worldToScreen(wx, wy);
+    return { x: rect.left + screen.x, y: rect.top + screen.y };
+  });
+}
+
 async function editBalloonText(page, text) {
+  if (compactByPage.get(page)) {
+    await hideSidePanels(page);
+    const center = await selectionScreenCenter(page);
+    if (center) {
+      await humanMove(page, center.x, center.y, 240);
+      await page.mouse.dblclick(center.x, center.y);
+      await pause(page, 200);
+    }
+  }
   const edit = page.getByRole('button', { name: 'Edit text', exact: true });
   if (await edit.isVisible({ timeout: 1200 }).catch(() => false)) {
     const box = await edit.boundingBox();
@@ -746,6 +892,7 @@ async function editBalloonText(page, text) {
 }
 
 async function seatTextInBalloon(page) {
+  if (compactByPage.get(page)) return;
   const textLayer = page.getByRole('treeitem', { name: /balloon text|text:/i }).last();
   if (!(await textLayer.isVisible({ timeout: 800 }).catch(() => false))) return;
   await selectLayer(page, /balloon text|text:/i, 'last');
@@ -827,6 +974,7 @@ async function placeDialogue(page, placement) {
   await clickInspectorButton(page, 'Fit balloon to text');
   await pause(page, 360);
   if (PROBE) await dumpBalloon(page, `fit-${placement.action.replace(/\s+/g, '-').toLowerCase()}`);
+  if (compactByPage.get(page)) await hideSidePanels(page);
 }
 
 async function captionHasTail(page) {
@@ -936,19 +1084,25 @@ async function selectedTailGeometry(page) {
   });
 }
 
-async function dragSelectedTail(page, placement) {
-  if (!placement.tailToward) return;
+async function applyInspectorTail(page, placement) {
   await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
   const tailX = Math.round(placement.tailToward.localX - placement.localX);
   const tailY = Math.round(placement.tailToward.localY - placement.localY);
   await setSpin(page, 'tail x', tailX);
   await setSpin(page, 'tail y', tailY);
   await pause(page, 200);
+}
+
+async function dragSelectedTail(page, placement) {
+  if (!placement.tailToward) return;
+  await lockPanelBackdrop(page, placement.panel);
+  await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
 
   const tailPattern = placement.layer?.source.includes('thought')
     ? /thought bubble/i
     : /balloon tail/i;
   const tails = page.getByRole('treeitem', { name: tailPattern });
+  let dragged = false;
   if (
     await tails
       .first()
@@ -965,21 +1119,39 @@ async function dragSelectedTail(page, placement) {
         placement.tailToward.localX,
         placement.tailToward.localY,
       );
+      if (compactByPage.get(page)) await hideSidePanels(page);
       await humanMove(page, start.x, start.y, 300);
       await page.mouse.down();
-      await pause(page, 70);
-      await humanMove(page, end.x, end.y, 560);
-      await pause(page, 70);
-      await page.mouse.up();
-      await pause(page, 240);
-      const after = await selectedTailGeometry(page);
-      if (!after) {
-        log('tail canvas drag lost the tail node; inspector move already applied');
+      await pause(page, 50);
+      await humanMove(page, start.x + 5, start.y + 5, 80);
+      const held = await selectedTailGeometry(page);
+      if (!held) {
+        await page.mouse.up();
+        await blurChrome(page);
+        await page.keyboard.press('Control+z');
+        await pause(page, 200);
+        log('tail mousedown missed the tail node; inspector Tail X/Y fallback');
+      } else {
+        await humanMove(page, end.x, end.y, 700);
+        await pause(page, 80);
+        await page.mouse.up();
+        await pause(page, 240);
+        const after = await selectedTailGeometry(page);
+        if (!after) {
+          await blurChrome(page);
+          await page.keyboard.press('Control+z');
+          await pause(page, 200);
+          log('tail canvas drag moved a non-tail node; undone');
+        } else {
+          dragged = true;
+        }
       }
     }
   }
+  if (!dragged) await applyInspectorTail(page, placement);
   await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
   await filterLayers(page, '');
+  if (compactByPage.get(page)) await hideSidePanels(page);
 }
 
 async function demonstrateFit(page) {
@@ -993,13 +1165,14 @@ async function demonstrateFit(page) {
 }
 
 async function finishOnPage(page) {
-  await filterLayers(page, '');
+  if (compactByPage.get(page)) await hideSidePanels(page);
+  else await filterLayers(page, '');
   await page.keyboard.press('Escape');
   await blurChrome(page);
   await page.keyboard.press('v');
   await pause(page, 120);
   const fitAll = page.getByRole('button', { name: /fit all to viewport/i }).first();
-  if (await fitAll.isVisible({ timeout: 800 }).catch(() => false)) {
+  if (!compactByPage.get(page) && (await fitAll.isVisible({ timeout: 800 }).catch(() => false))) {
     await fitAll.click();
   } else {
     await page.keyboard.press('Shift+Digit1');
@@ -1014,6 +1187,7 @@ async function letterPage(page, options = {}) {
     await placeDialogue(page, placement);
     if (key === 'caption') await removeCaptionTail(page);
     if (placement.tailToward) await dragSelectedTail(page, placement);
+    if (compactByPage.get(page)) await hideSidePanels(page);
     await pause(page, 360);
     if (PROBE) {
       await page.screenshot({ path: join(RAW_DIR, `probe-${key}.png`) });
@@ -1218,6 +1392,8 @@ async function main() {
         unlettered.path,
         'vertical',
         async (page) => {
+          compactByPage.set(page, true);
+          await hideSidePanels(page);
           await letterPage(page);
         },
         { width: 1080, height: 1920 },
