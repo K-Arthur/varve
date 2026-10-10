@@ -482,7 +482,9 @@ test('install guidance is honest about Gatekeeper, SmartScreen, and checksums', 
   await expect(
     page.getByText('xattr -dr com.apple.quarantine /Applications/Varve.app', { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText(/Smart App Control/).first()).toBeVisible();
+  await expect(page.locator('#troubleshoot-help')).toContainText('Smart App Control');
+  await page.locator('#platform-tab-windows').click();
+  await expect(page.locator('#platform-windows')).toContainText('Smart App Control');
   await expect(page.locator('body')).not.toContainText('winget install K-Arthur.Varve');
   await expect(page.locator('body')).not.toContainText('brew install --cask k-arthur/varve/varve');
   await expect(page.locator('#package-managers')).toHaveCount(0);
