@@ -5,6 +5,10 @@ fn main() {
     if let Ok(mode) = std::env::var("VARVE_UPDATER_MODE") {
         println!("cargo:rustc-env=VARVE_UPDATER_MODE={mode}");
     }
+    if let Ok(distribution) = std::env::var("VARVE_DISTRIBUTION") {
+        println!("cargo:rerun-if-env-changed=VARVE_DISTRIBUTION");
+        println!("cargo:rustc-env=VARVE_DISTRIBUTION={distribution}");
+    }
     let manifest_dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let dst = manifest_dir.join("capabilities/wdio.json");
 

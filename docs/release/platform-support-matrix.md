@@ -37,7 +37,10 @@ WebKitGTK libraries and may require FUSE2; see
 [download page](https://varve.studio/download) for per-package requirements.
 Windows and macOS installers are unsigned; the macOS DMG is also not
 notarized. Checksums, SBOMs, and build provenance do not mean an installer is
-platform-signed.
+platform-signed. A Microsoft Store MSIX can be built from any release tag as a
+workflow artifact without changing those GitHub installers; only a
+Store-installed copy is re-signed by Microsoft. See
+[microsoft-store.md](../distribution/microsoft-store.md).
 
 The published v0.5.0 update feed contains signed metadata for Linux AppImage
 (x86_64 and ARM64), Windows NSIS (x86_64 and ARM64), and macOS Apple Silicon.

@@ -73,6 +73,16 @@ export function isChannelMatch(current: UpdateChannel, candidate: UpdateChannel)
   return current === candidate;
 }
 
+export function isStoreManagedAuthority(
+  authority: PackagingContext['updateAuthority'] | undefined,
+): boolean {
+  return authority === 'store-managed';
+}
+
+export function storeManagedUpdateMessage(): string {
+  return 'This copy was installed from the Microsoft Store. Microsoft Store delivers updates. Varve does not check GitHub or replace the installed files.';
+}
+
 export function authorityState(
   context: PackagingContext,
 ):

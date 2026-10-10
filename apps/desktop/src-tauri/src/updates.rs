@@ -29,7 +29,9 @@ pub fn update_packaging_context(app: AppHandle) -> UpdatePackagingContext {
     let channel = channel();
     let (platform, package_type, detected_authority, location, detected_supported) =
         detect_runtime();
-    let (authority, supported) = if updater_enabled() {
+    let (authority, supported) = if store_managed(detected_authority) {
+        ("store-managed", false)
+    } else if updater_enabled() {
         (detected_authority, detected_supported)
     } else {
         // Unsigned/manual releases deliberately omit the updater public key.
@@ -56,7 +58,16 @@ fn updater_enabled() -> bool {
 }
 
 fn updater_enabled_for_mode(mode: Option<&str>) -> bool {
-    !matches!(mode, Some("manual-only"))
+    !matches!(mode, Some("manual-only") | Some("store"))
+}
+
+fn store_distribution() -> bool {
+    matches!(option_env!("VARVE_DISTRIBUTION"), Some("msix") | Some("store"))
+        || matches!(option_env!("VARVE_UPDATER_MODE"), Some("store"))
+}
+
+fn store_managed(detected_authority: &str) -> bool {
+    detected_authority == "store-managed" || store_distribution()
 }
 
 fn architecture() -> &'static str {
@@ -117,7 +128,20 @@ fn detect_runtime() -> (&'static str, &'static str, &'static str, &'static str, 
     if cfg!(debug_assertions) {
         return ("windows", "unknown", "development-build", "unknown", false);
     }
+    if windows_msix_install() || store_distribution() {
+        return ("windows", "msix", "store-managed", "unknown", false);
+    }
     ("windows", "nsis", "self-managed", "unknown", true)
+}
+
+#[cfg(target_os = "windows")]
+fn windows_msix_install() -> bool {
+    if std::env::var_os("PACKAGE_FAMILY_NAME").is_some() {
+        return true;
+    }
+    std::env::current_exe()
+        .ok()
+        .is_some_and(|path| path.to_string_lossy().contains(r"\WindowsApps\"))
 }
 
 #[cfg(target_os = "macos")]
@@ -176,6 +200,7 @@ fn package_label(package_type: &str) -> &'static str {
         "deb" => "DEB",
         "rpm" => "RPM",
         "nsis" => "NSIS",
+        "msix" => "Microsoft Store",
         "dmg-app" => "macOS app",
         _ => "build",
     }
@@ -217,20 +242,29 @@ fn directory_writable(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{appimage_capability, package_label, updater_enabled_for_mode};
+    use super::{
+        appimage_capability, package_label, store_managed, updater_enabled_for_mode,
+    };
     use std::fs;
 
     #[test]
     fn package_labels_are_not_os_labels() {
         assert_eq!(package_label("appimage"), "AppImage");
+        assert_eq!(package_label("msix"), "Microsoft Store");
         assert_eq!(package_label("unknown"), "build");
     }
 
     #[test]
     fn manual_only_mode_disables_update_capability() {
         assert!(!updater_enabled_for_mode(Some("manual-only")));
+        assert!(!updater_enabled_for_mode(Some("store")));
         assert!(updater_enabled_for_mode(Some("signed")));
         assert!(updater_enabled_for_mode(None));
+    }
+
+    #[test]
+    fn detected_store_authority_is_store_managed() {
+        assert!(store_managed("store-managed"));
     }
 
     #[test]

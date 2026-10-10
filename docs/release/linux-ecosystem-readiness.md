@@ -110,7 +110,7 @@ git push
 | **License constraint** | No license restrictions — accepts any license. |
 | **Technical prerequisites** | NSIS installer (already built by CI). winget manifest is a YAML file referencing the GitHub release URL + SHA-256 + installer switches. |
 | **AI can prepare** | The manifest YAML (winget-pkgs format). This is packaging content, not application code — technically preparable. |
-| **Human must do** | Fork `microsoft/winget-pkgs`, add manifest under `manifests/k/K-Arthur/Varve/`, submit PR. Requires Windows machine or CI for validation. |
+| **Human must do** | Fork `microsoft/winget-pkgs`, add manifest under `manifests/v/VarveStudio/Varve/` with package ID `VarveStudio.Varve` (not `K-Arthur.Varve`), submit PR. Requires Windows machine or CI for validation. |
 | **Maintenance cost** | Low — bump version per release. |
 | **Recommend** | **Later** — defer until Windows NSIS build is verified and code-signed. winget gives the best Windows discovery path. |
 

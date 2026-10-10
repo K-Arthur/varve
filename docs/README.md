@@ -472,7 +472,8 @@ The following dated files were moved from `docs/architecture/` to
 | `release/website.md` | Website architecture and launch plan |
 | `release/budget-plan.md` | Launch budget (CAD $200) and purchase triggers |
 | `release/distribution-decision-matrix.md` | Distribution channel decisions |
-| `release/linux-ecosystem-readiness.md` | Per-channel Linux package ecosystem readiness assessment (AUR, Flatpak, DEB/RPM) |
+| `distribution/microsoft-store.md` | Microsoft Store MSIX packaging, Partner Center identity, and listing copy |
+| `release/linux-ecosystem-readiness.md` | Per-channel Linux package ecosystem readiness assessment (AUR, Flatpak, DEB/RPM, winget) |
 | `release/directory-listing-packet.md` | Canonical listing data for AlternativeTo / repology / software directories |
 | `release/signing-decision-record.md` | Code-signing strategy decision record (systems A–D; updater row updated 2026-08-22) |
 | `release/code-signing-setup.md` | Human checklist for acquiring certificates (not yet owned) |

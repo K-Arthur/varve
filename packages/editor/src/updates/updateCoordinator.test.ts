@@ -90,6 +90,28 @@ class FakeProvider implements UpdateProvider {
 }
 
 describe('UpdateCoordinator', () => {
+  it('reports store-managed installs as externally managed and never checks', async () => {
+    const provider = new FakeProvider();
+    provider.getPackagingContext = async () => ({
+      ...context,
+      platform: 'windows',
+      packageType: 'msix',
+      updateAuthority: 'store-managed',
+      runtimeSupported: false,
+      buildLabel: 'x86_64 Microsoft Store',
+    });
+    const coordinator = new UpdateCoordinator(provider, new MemoryPreferences(), {
+      now: () => 1000,
+    });
+    await coordinator.initialize();
+    expect(coordinator.getState()).toEqual({
+      kind: 'externally-managed',
+      authority: 'store-managed',
+    });
+    await coordinator.check('manual');
+    expect(provider.checks).toBe(0);
+  });
+
   it('does not perform a background request without consent, while manual check remains available', async () => {
     const provider = new FakeProvider();
     const coordinator = new UpdateCoordinator(provider, new MemoryPreferences(), {

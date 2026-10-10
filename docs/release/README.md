@@ -20,6 +20,7 @@ publication. Older checkpoint entries remain historical evidence.
 | [native-acceleration-support.md](native-acceleration-support.md) | Which GPU/NPU workload routes are implemented, verified, experimental, or unavailable |
 | [chromeos-linux.md](chromeos-linux.md) | ChromeOS Linux (Crostini) ARM64/x86_64 install, update, uninstall, and hardware-check contract, with the Stage 5 artifact evidence |
 | [distribution-decision-matrix.md](distribution-decision-matrix.md) | Which channels to use now, later, and never — scored, with reasons |
+| [../distribution/microsoft-store.md](../distribution/microsoft-store.md) | Microsoft Store MSIX build, Partner Center identity placeholders, and listing copy |
 | [signing-decision-record.md](signing-decision-record.md) | The current code-signing strategy per platform, with sources and prices (2026-08-08) |
 | [code-signing-setup.md](code-signing-setup.md) | Human-only acquisition checklist: Apple, Azure, GitHub — tick off every step |
 | [signing-rotation-runbook.md](signing-rotation-runbook.md) | Certificate/membership/secret expiry calendar: 90/60/30/7-day drill |

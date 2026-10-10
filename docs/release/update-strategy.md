@@ -118,6 +118,10 @@ The first implementation increment is deliberately conservative:
   manual-only.
 - Windows NSIS and an installed writable macOS `.app` use Tauri's updater
   artifacts. A mounted/read-only DMG is not an update target.
+- Microsoft Store / MSIX installs are `store-managed`: the in-app updater is
+  disabled and Settings hides Check for Updates. Microsoft Store delivers
+  those updates. Direct GitHub `.exe` installs stay on the NSIS updater path
+  and remain unsigned. See [microsoft-store.md](../distribution/microsoft-store.md).
 - Manual checking remains available without background consent. Download and
   install are separate state-machine operations; signature verification occurs
   inside Tauri's updater download boundary before the coordinator can expose
