@@ -1167,7 +1167,7 @@ async function placeDialogue(page, placement) {
     await ensureInspector(page);
     await wrapSelectedText(page, placement.query, placement.action);
     await beat(page, 420, 700);
-    await openComicSection(page);
+    await revealBalloon(page, placement.layer ?? /balloon/i);
     if (placement.action.includes('Caption')) {
       await clickInspectorButton(page, 'Remove tail');
       await beat(page, 320, 560);
@@ -1690,7 +1690,10 @@ async function main() {
       );
       if (session.raw) {
         const dest = join(VIDEO_DIR, 'balloon-tail-loop.mp4');
-        const duration = await writeWindowed(session, dest, 10, 12, { realtime: true });
+        const duration = await writeWindowed(session, dest, 10, 12, {
+          realtime: true,
+          maxRate: 1.42,
+        });
         await extractStills(dest, join(RAW_DIR, 'stills-loop'));
         outputs.push({ path: dest, duration, width: 1920, height: 1080 });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
