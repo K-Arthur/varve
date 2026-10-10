@@ -7074,6 +7074,17 @@ export function EditorProvider({
       },
 
       openCafDialog: (nodeId) => {
+        // Check if AI features are enabled
+        const settings = loadSettings();
+        if (!settings.ai.enabled) {
+          toastHandler?.({
+            message: 'AI features are disabled',
+            description: 'Enable AI features in Settings to use Generative Edit.',
+            type: 'info',
+            duration: 4000,
+          });
+          return;
+        }
         patch({ cafDialogNodeId: nodeId });
       },
 
@@ -9525,12 +9536,14 @@ export function EditorProvider({
       closeEffectStudioDialog: dialogState.closeEffectStudioDialog,
 
       upscaleDialogOpen: state.upscaleDialogOpen,
-      openUpscaleDialog: () => {
+      openUpscaleDialog: async () => {
         // Choke point. Upscaling is reachable from the layers context menu, two
         // inspector sections, the selection quick bar, the command palette and
         // an action handler — gating the affordances one by one leaves whichever
         // route was missed wide open, so refuse here instead.
         if (sessionGlobals.isCapabilityRestricted('inference')) return;
+        const { checkAiFeaturesEnabled } = await import('./features/useAiFeaturesEnabled');
+        if (!checkAiFeaturesEnabled(toastHandler, 'Image upscaling')) return;
         patch({ upscaleDialogOpen: true });
       },
       closeUpscaleDialog: () => {

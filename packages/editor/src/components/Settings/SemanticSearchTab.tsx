@@ -176,6 +176,11 @@ export function SemanticSearchTab() {
   }, [refreshIndex]);
 
   const handleRebuildIndex = useCallback(async () => {
+    const { getAiFeaturesEnabled } = await import('../../features/useAiFeaturesEnabled');
+    if (!getAiFeaturesEnabled()) {
+      alert('Semantic search requires AI features. Enable them in Settings.');
+      return;
+    }
     setRebuildBusy(true);
     try {
       await new IndexedDbSemanticEmbeddingStore().clear();

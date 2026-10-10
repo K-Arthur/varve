@@ -24,7 +24,15 @@ import {
   materializePreset,
   type PlatformKind,
 } from '@varve/scene/export';
-import { CopyButton, Icon, type IconName, SegmentedControl, Select, Tooltip } from '@varve/ui';
+import {
+  CopyButton,
+  Icon,
+  type IconName,
+  SegmentedControl,
+  Select,
+  SwitchField,
+  Tooltip,
+} from '@varve/ui';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { runBatchPreflight } from '../../exportService';
@@ -333,6 +341,7 @@ export function AssetExportControls({
   // composite gradients natively — those become raster fallbacks.
   const [svgMarkup, setSvgMarkup] = useState<string | null>(null);
   const [svgPreparing, setSvgPreparing] = useState(false);
+  const [includeAiDisclosure, setIncludeAiDisclosure] = useState(true);
   const liveRef = useRef<HTMLDivElement>(null);
   const suggestedForNodeRef = useRef(node.id);
   const scaleInputId = useId();
@@ -452,7 +461,7 @@ export function AssetExportControls({
     }
     let cancelled = false;
     setSvgPreparing(true);
-    exportNodeToSvgMarkup(node, doc, engine ?? undefined)
+    exportNodeToSvgMarkup(node, doc, engine ?? undefined, { includeAiDisclosure })
       .then((markup) => {
         if (cancelled) return;
         setSvgMarkup(markup);
@@ -469,7 +478,7 @@ export function AssetExportControls({
     return () => {
       cancelled = true;
     };
-  }, [format, node, doc, engine]);
+  }, [format, node, doc, engine, includeAiDisclosure]);
 
   const handleExport = useCallback(async () => {
     const eng = engine;
@@ -488,7 +497,15 @@ export function AssetExportControls({
     setMessage('');
     try {
       if (format === 'pdf') {
-        const { bytes, filename } = await exportNodeAsPdf(node, doc, exportScale, eng ?? undefined);
+        const { bytes, filename } = await exportNodeAsPdf(
+          node,
+          doc,
+          exportScale,
+          eng ?? undefined,
+          {
+            includeAiDisclosure,
+          },
+        );
         if (isTauri && platform) {
           const saved = await platform.saveBinaryFile(filename, bytes, 'application/pdf', '.pdf');
           setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
@@ -499,7 +516,9 @@ export function AssetExportControls({
           setMessage(`Downloaded ${node.name} as PDF`);
         }
       } else if (format === 'svg') {
-        const svg = svgMarkup ?? (await exportNodeToSvgMarkup(node, doc, eng ?? undefined));
+        const svg =
+          svgMarkup ??
+          (await exportNodeToSvgMarkup(node, doc, eng ?? undefined, { includeAiDisclosure }));
         const filename = buildFilename(node.name, 'svg');
         if (isTauri && platform) {
           const bytes = new TextEncoder().encode(svg);
@@ -520,6 +539,7 @@ export function AssetExportControls({
           format: mime,
           scale: exportScale,
           quality: format === 'jpeg' ? 0.92 : undefined,
+          includeAiDisclosure,
         });
         const ext = format === 'png' ? 'png' : format === 'jpeg' ? 'jpg' : 'webp';
         // Encode the scale in the filename (1x stays bare) so exporting the
@@ -556,6 +576,7 @@ export function AssetExportControls({
     scaleUnsupported,
     customScaleValidation.error,
     svgMarkup,
+    includeAiDisclosure,
     isTauri,
     platform,
   ]);
@@ -787,6 +808,15 @@ export function AssetExportControls({
           {customScaleValidation.error} Nothing will be exported until the scale is valid.
         </p>
       )}
+
+      <div className="spec-export__disclosure">
+        <SwitchField
+          label="Include AI disclosure"
+          description="Embed IPTC DigitalSourceType metadata when this document contains AI edits."
+          checked={includeAiDisclosure}
+          onChange={(e) => setIncludeAiDisclosure(e.target.checked)}
+        />
+      </div>
 
       <div className="spec-export__actions">
         <button

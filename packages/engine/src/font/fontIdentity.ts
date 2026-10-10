@@ -338,7 +338,10 @@ export async function computeFontHash(data: ArrayBuffer): Promise<{
   hashAlgorithm: 'sha256' | 'fnv1a';
 }> {
   if (typeof crypto !== 'undefined' && crypto.subtle) {
-    const digest = await crypto.subtle.digest('SHA-256', data);
+    // Node's SubtleCrypto.digest is stricter than the spec and may reject
+    // ArrayBuffers that don't come from its own allocation. Wrap in Uint8Array
+    // which is always accepted as a BufferSource.
+    const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(data));
     const bytes = new Uint8Array(digest);
     const contentHash = Array.from(bytes)
       .map((b) => b.toString(16).padStart(2, '0'))
