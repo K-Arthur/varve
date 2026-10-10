@@ -830,13 +830,17 @@ async function placeDialogue(page, placement) {
 }
 
 async function captionHasTail(page) {
-  await filterLayers(page, 'tail');
+  await filterLayers(page, 'balloon');
+  await page
+    .getByRole('treeitem', { name: /caption balloon,\s*group/i })
+    .first()
+    .press('ArrowRight')
+    .catch(() => undefined);
   const leftover = await page
     .getByRole('treeitem', { name: /balloon tail/i })
     .first()
-    .isVisible({ timeout: 600 })
+    .isVisible({ timeout: 800 })
     .catch(() => false);
-  await filterLayers(page, '');
   return leftover;
 }
 
@@ -864,12 +868,30 @@ async function removeCaptionTail(page) {
       return;
     }
   }
-  await filterLayers(page, 'tail');
+  await filterLayers(page, 'balloon');
   const tail = page.getByRole('treeitem', { name: /balloon tail/i }).first();
   if (await tail.isVisible({ timeout: 800 }).catch(() => false)) {
     await selectLayer(page, /balloon tail/i);
+    await blurChrome(page);
     await page.keyboard.press('Delete');
+    await pause(page, 200);
+    await page.keyboard.press('Backspace');
     await pause(page, 280);
+  }
+  if (!(await captionHasTail(page))) {
+    await filterLayers(page, '');
+    return;
+  }
+  const leftover = page.getByRole('treeitem', { name: /balloon tail/i }).first();
+  if (await leftover.isVisible().catch(() => false)) {
+    await leftover.click({ button: 'right' });
+    const del = page.getByRole('menuitem', { name: /^delete$/i }).first();
+    if (await del.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await del.click();
+      await pause(page, 280);
+    } else {
+      await page.keyboard.press('Escape').catch(() => undefined);
+    }
   }
   if (!(await captionHasTail(page))) {
     await filterLayers(page, '');
