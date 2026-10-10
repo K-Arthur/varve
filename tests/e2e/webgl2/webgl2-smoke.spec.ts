@@ -61,12 +61,31 @@ async function forceAuthoritativeFrame(page: Page): Promise<void> {
 async function expectWebGl2RecoverySettled(status: Locator): Promise<void> {
   // Recovery immediately schedules an authoritative redraw. Depending on
   // frame timing, the diagnostic can be sampled before or after that draw.
-  await expect(status).toHaveText(/^WebGL2 (?:ready )?· experimental$/, { timeout: 30000 });
-  if ((await status.textContent()) === 'WebGL2 ready · experimental') {
-    await expect(status).toHaveAttribute('title', /last frame did not report eligible drawing/);
-  } else {
-    await expect(status).toHaveAttribute('title', /[1-9]\d* eligible item\(s\) were submitted/);
-  }
+  // Read the label and title from one element snapshot so a mid-assertion
+  // frame cannot pair "ready" copy with an eligible-item title.
+  await expect
+    .poll(
+      async () =>
+        status.evaluate((element) => {
+          const text = element.textContent?.trim() ?? '';
+          const title = element.getAttribute('title') ?? '';
+          if (
+            text === 'WebGL2 ready · experimental' &&
+            /last frame did not report eligible drawing/.test(title)
+          ) {
+            return 'ready-empty';
+          }
+          if (
+            text === 'WebGL2 · experimental' &&
+            /[1-9]\d* eligible item\(s\) were submitted/.test(title)
+          ) {
+            return 'submitted';
+          }
+          return `${text} :: ${title}`;
+        }),
+      { timeout: 30000 },
+    )
+    .toMatch(/^(ready-empty|submitted)$/);
 }
 
 type FixturePosition = { x: number; y: number };
