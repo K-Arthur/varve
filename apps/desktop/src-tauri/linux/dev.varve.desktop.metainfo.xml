@@ -8,15 +8,17 @@
   version here must match the committed release version (enforced by
   scripts/release/linux-package-metadata.test.mjs).
 
-  License note: Varve is source-available under FSL-1.1-MIT, which is a valid
-  SPDX identifier as of SPDX License List 3.29 (2026-09-16). It is not
-  OSI-approved. The SPDX identifier used by the AUR package and distro
-  candidates must stay consistent with this declaration.
+  License note: Varve is source-available under FSL-1.1-MIT. AppStream
+  validators (appstreamcli) still reject the bare SPDX id as an unknown
+  expression, so this file uses the custom SPDX reference
+  LicenseRef-FSL-1.1-MIT. That is the form the validator accepts for
+  licences outside its SPDX snapshot. Do not replace it with MIT or any
+  other OSI-approved stand-in.
 -->
 <component type="desktop-application">
   <id>dev.varve.desktop</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>FSL-1.1-MIT</project_license>
+  <project_license>LicenseRef-FSL-1.1-MIT</project_license>
   <name>Varve</name>
   <summary>Design, illustrate and print</summary>
   <description>

@@ -7,8 +7,8 @@
  *     elements, and declares the committed release version (drift would make
  *     GNOME Software / KDE Discover / AppImageHub show stale or no data).
  *   - project_license must stay an honest source-available declaration
- *     (FSL-1.1-MIT, valid SPDX as of 3.29, or LicenseRef-FSL-1.1-MIT),
- *     never an OSI-approved stand-in such as MIT or Apache-2.0.
+ *     (LicenseRef-FSL-1.1-MIT). The bare SPDX id FSL-1.1-MIT is rejected
+ *     by appstreamcli; never use an OSI-approved stand-in.
  *   - the desktop entry declares BOTH document MIME types (.varve and legacy
  *     .strata) and opens files via %F.
  *   - tauri.conf.json actually ships the metainfo in every Linux format.
@@ -58,14 +58,10 @@ assert.ok(
 // ── 2. License honesty (source-available, never "open source") ────────────
 const licenseMatch = metainfo.match(/<project_license>([^<]+)<\/project_license>/);
 assert.ok(licenseMatch, 'project_license must be present');
-const projectLicense = licenseMatch[1];
-assert.ok(
-  projectLicense === 'FSL-1.1-MIT' || projectLicense === 'LicenseRef-FSL-1.1-MIT',
-  `project_license must declare FSL-1.1-MIT (or LicenseRef-FSL-1.1-MIT), got: ${projectLicense}`,
-);
-assert.ok(
-  !/^(MIT|Apache-2\.0|BSD-3-Clause|GPL-3\.0-only|GPL-3\.0-or-later)$/.test(projectLicense),
-  `project_license must not be an OSI-approved stand-in, got: ${projectLicense}`,
+assert.equal(
+  licenseMatch[1],
+  'LicenseRef-FSL-1.1-MIT',
+  `project_license must be LicenseRef-FSL-1.1-MIT so appstreamcli accepts it, got: ${licenseMatch[1]}`,
 );
 assert.ok(
   !/open.?source|free software/i.test(metainfo.replace(/Source-available/, '')),
