@@ -119,8 +119,8 @@ const PLACEMENTS = {
     panel: 2,
     localX: 188,
     localY: 52,
-    boxW: 150,
-    boxH: 58,
+    boxW: 128,
+    boxH: 36,
     text: 'Perfect!',
     action: 'Add Speech Balloon',
     query: 'speech balloon',
@@ -423,57 +423,64 @@ async function ensureMarketingCursor(page) {
   if (last) await syncCursor(page, last.x, last.y);
 }
 
+async function stepCursor(page, x, y) {
+  await page.mouse.move(x, y);
+  await syncCursor(page, x, y);
+}
+
 async function humanMove(page, x, y) {
   const last = pointerByPage.get(page) ?? { x: 480, y: 420 };
   const dx = x - last.x;
   const dy = y - last.y;
   const dist = Math.hypot(dx, dy);
-  if (dist < 2) {
-    await page.mouse.move(x, y);
-    await syncCursor(page, x, y);
+  if (dist < 3) {
+    await stepCursor(page, x, y);
     pointerByPage.set(page, { x, y });
     return;
   }
-  const speed = randBetween(420, 860);
-  const duration = Math.max(220, (dist / speed) * 1000);
   const nx = -dy / dist;
   const ny = dx / dist;
-  const bulge = dist * randBetween(0.14, 0.34) * (rand() < 0.5 ? -1 : 1);
+  const o1 = dist * randBetween(0.22, 0.58) * (rand() < 0.5 ? -1 : 1);
+  const o2 = dist * randBetween(0.16, 0.52) * (rand() < 0.5 ? -1 : 1);
   const p0 = last;
-  const p3 = { x, y };
   const p1 = {
-    x: last.x + dx * 0.3 + nx * bulge,
-    y: last.y + dy * 0.3 + ny * bulge,
+    x: last.x + dx * randBetween(0.16, 0.4) + nx * o1 + randBetween(-16, 16),
+    y: last.y + dy * randBetween(0.16, 0.4) + ny * o1 + randBetween(-16, 16),
   };
   const p2 = {
-    x: last.x + dx * 0.68 + nx * bulge * randBetween(0.25, 0.55),
-    y: last.y + dy * 0.68 + ny * bulge * randBetween(0.25, 0.55),
+    x: last.x + dx * randBetween(0.58, 0.86) + nx * o2 + randBetween(-18, 18),
+    y: last.y + dy * randBetween(0.58, 0.86) + ny * o2 + randBetween(-18, 18),
   };
-  const overshoot = dist > 90 && rand() < 0.5;
-  const ox = overshoot ? x + (dx / dist) * randBetween(7, 16) : x;
-  const oy = overshoot ? y + (dy / dist) * randBetween(7, 16) : y;
-  const end = overshoot ? { x: ox, y: oy } : p3;
-  const steps = Math.max(12, Math.round(duration / 16));
+  const longMove = dist > 70;
+  const overshoot = longMove && rand() < 0.78;
+  const ox = overshoot ? x + (dx / dist) * randBetween(12, 30) + nx * randBetween(-10, 10) : x;
+  const oy = overshoot ? y + (dy / dist) * randBetween(12, 30) + ny * randBetween(-10, 10) : y;
+  const speed = randBetween(360, 780);
+  const duration = Math.max(300, (dist / speed) * 1000);
+  const steps = Math.max(18, Math.round(duration / 18));
   for (let i = 1; i <= steps; i++) {
-    const t = easeInOutCubic(i / steps);
-    const pt = cubicBezier(p0, p1, p2, end, t);
-    await page.mouse.move(pt.x, pt.y);
-    await syncCursor(page, pt.x, pt.y);
-    await page.waitForTimeout(16);
+    const u = i / steps;
+    const wobble = Math.sin(u * Math.PI) * randBetween(-0.05, 0.05);
+    const t = Math.min(1, Math.max(0, easeInOutCubic(u) + wobble));
+    const pt = cubicBezier(p0, p1, p2, { x: ox, y: oy }, t);
+    await stepCursor(page, pt.x + randBetween(-2.2, 2.2), pt.y + randBetween(-2.2, 2.2));
+    const edge = Math.min(u, 1 - u);
+    await page.waitForTimeout(edge < 0.2 ? randBetween(18, 34) : randBetween(9, 22));
   }
   if (overshoot) {
-    const settle = Math.max(5, Math.round(randBetween(90, 160) / 16));
+    const mid = {
+      x: ox + (x - ox) * 0.55 + nx * randBetween(-7, 7),
+      y: oy + (y - oy) * 0.55 + ny * randBetween(-7, 7),
+    };
+    const settle = Math.max(6, Math.round(randBetween(110, 200) / 16));
     for (let i = 1; i <= settle; i++) {
       const t = easeInOutCubic(i / settle);
-      const sx = ox + (x - ox) * t;
-      const sy = oy + (y - oy) * t;
-      await page.mouse.move(sx, sy);
-      await syncCursor(page, sx, sy);
-      await page.waitForTimeout(16);
+      const sx = cubicBezier({ x: ox, y: oy }, mid, mid, { x, y }, t);
+      await stepCursor(page, sx.x + randBetween(-1.2, 1.2), sx.y + randBetween(-1.2, 1.2));
+      await page.waitForTimeout(randBetween(14, 26));
     }
   }
-  await page.mouse.move(x, y);
-  await syncCursor(page, x, y);
+  await stepCursor(page, x, y);
   pointerByPage.set(page, { x, y });
 }
 
@@ -481,33 +488,34 @@ async function pause(page, ms) {
   await page.waitForTimeout(ms);
 }
 
-async function think(page, min = 250, max = 700) {
-  if (compactByPage.get(page)) {
-    min = Math.max(180, Math.min(min, 280));
-    max = Math.max(min + 40, Math.min(max, 480));
-  }
+async function think(page, min = 400, max = 1500) {
   await pause(page, randBetween(min, max));
 }
 
 async function clickAt(page, x, y) {
   await humanMove(page, x, y);
-  await think(page, 250, 700);
+  await think(page, 400, 1500);
   await page.mouse.click(x, y);
-  await think(page, 200, 480);
+  await think(page, 320, 820);
 }
 
 async function typeHuman(page, text) {
   const lines = String(text).split('\n');
   for (let index = 0; index < lines.length; index++) {
-    for (const ch of lines[index]) {
+    const line = lines[index];
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
       await page.keyboard.type(ch, { delay: 0 });
-      await pause(page, 1000 / randBetween(8, 12) + randBetween(-18, 36));
-      if (rand() < 0.09) await pause(page, randBetween(110, 260));
+      await pause(page, randBetween(60, 220));
+      const atWord = ch === ' ' || /[.,!?…;:]/.test(ch);
+      const nextIsWord = i + 1 < line.length && line[i + 1] === ' ';
+      if (atWord || nextIsWord) await pause(page, randBetween(140, 420));
+      else if (rand() < 0.12) await pause(page, randBetween(160, 360));
     }
     if (index < lines.length - 1) {
-      await think(page, 180, 360);
+      await think(page, 400, 900);
       await page.keyboard.press('Enter');
-      await think(page, 140, 280);
+      await think(page, 280, 640);
     }
   }
 }
@@ -962,7 +970,10 @@ async function scrubSpin(page, name, deltaPx) {
 async function wrapSelectedText(page, query, actionName) {
   await blurChrome(page);
   const inspectorAdd = page.getByRole('button', { name: actionName, exact: true }).first();
-  if (await inspectorAdd.isVisible({ timeout: 800 }).catch(() => false)) {
+  if (
+    !compactByPage.get(page) &&
+    (await inspectorAdd.isVisible({ timeout: 800 }).catch(() => false))
+  ) {
     const box = await inspectorAdd.boundingBox();
     if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2, 240);
     else await inspectorAdd.click();
@@ -1061,6 +1072,29 @@ async function openComicSection(page) {
     await tailX.scrollIntoViewIfNeeded().catch(() => undefined);
   }
   return true;
+}
+
+async function selectionKind(page) {
+  return page.evaluate(() => window.__varveIsoTest?.getSelectionGeometry?.()?.[0]?.kind ?? null);
+}
+
+async function showSettledCalloutInspector(page) {
+  const kind = await selectionKind(page);
+  if (kind !== 'group') {
+    const center = await selectionScreenCenter(page);
+    if (center) await clickAt(page, center.x, center.y);
+  }
+  await ensureInspector(page);
+  const comic = page.getByRole('button', { name: /comic balloon/i }).first();
+  if (!(await comic.isVisible({ timeout: 1500 }).catch(() => false))) {
+    await setSidePanel(page, 'inspector', false);
+    await think(page, 400, 900);
+    const center = await selectionScreenCenter(page);
+    if (center) await clickAt(page, center.x, center.y);
+    await ensureInspector(page);
+  }
+  await openComicSection(page);
+  await think(page, 400, 1500);
 }
 
 async function clickInspectorButton(page, name) {
@@ -1239,13 +1273,16 @@ async function placeDialogue(page, placement) {
   await page.keyboard.press('v');
   await beat(page, 260, 480);
   if (compactByPage.get(page)) {
-    await ensureInspector(page);
+    await hideSidePanels(page);
+    await think(page, 400, 1100);
     await wrapSelectedText(page, placement.query, placement.action);
-    await beat(page, 420, 700);
-    await revealBalloon(page, placement.layer ?? /balloon/i);
+    await think(page, 500, 1400);
+    await showSettledCalloutInspector(page);
+    await clickInspectorButton(page, 'Fit balloon to text');
+    await think(page, 400, 1200);
     if (placement.action.includes('Caption')) {
       await clickInspectorButton(page, 'Remove tail');
-      await beat(page, 320, 560);
+      await think(page, 400, 1100);
     } else if (placement.tailToward) {
       const startX = (await readSpin(page, 'tail x')) ?? 40;
       const startY = (await readSpin(page, 'tail y')) ?? 80;
@@ -1254,9 +1291,10 @@ async function placeDialogue(page, placement) {
       log(`tail aim ${startX},${startY} -> ${tailX},${tailY}`);
       await scrubSpin(page, 'tail x', tailX - startX);
       if (Math.abs(tailY - startY) > 8) await scrubSpin(page, 'tail y', tailY - startY);
-      await beat(page, 320, 560);
+      await think(page, 400, 1100);
     }
     await hideSidePanels(page);
+    await think(page, 400, 1000);
     return;
   }
   const snippet = placement.text
@@ -1396,26 +1434,45 @@ async function readSpin(page, name) {
   return Number.isFinite(value) ? value : null;
 }
 
+async function tailXParkPoint(page) {
+  await ensureInspector(page);
+  await openComicSection(page);
+  const field = (await inspectorRoot(page)).getByRole('spinbutton', { name: /^tail x/i }).first();
+  if (!(await field.isVisible({ timeout: 2000 }).catch(() => false))) return null;
+  const fieldId = await field.getAttribute('id');
+  const label = fieldId ? page.locator(`label[for="${fieldId}"]`).first() : null;
+  const box =
+    (label ? await label.boundingBox().catch(() => null) : null) ?? (await field.boundingBox());
+  if (!box) return null;
+  return { x: box.x + Math.min(18, box.width * 0.4), y: box.y + box.height / 2 };
+}
+
+async function holdLoopRest(page, park) {
+  if (park) await humanMove(page, park.x, park.y);
+  await think(page, 1100, 1700);
+}
+
 async function loopTailCycle(page) {
-  await revealBalloon(page, /speech balloon/i);
   const startX = (await readSpin(page, 'tail x')) ?? 80;
   const startY = (await readSpin(page, 'tail y')) ?? 140;
+  const park = await tailXParkPoint(page);
   const endX = Math.round(PLACEMENTS.speech.tailToward.localX - PLACEMENTS.speech.localX);
   const endY = Math.round(PLACEMENTS.speech.tailToward.localY - PLACEMENTS.speech.localY);
   log(`loop tail ${startX},${startY} -> ${endX},${endY} -> ${startX},${startY}`);
-  await beat(page, 520, 860);
+  await holdLoopRest(page, park);
   await scrubSpin(page, 'tail x', endX - startX);
-  await think(page, 280, 520);
+  await think(page, 400, 900);
   if (Math.abs(endY - startY) > 6) await scrubSpin(page, 'tail y', endY - startY);
-  await beat(page, 640, 980);
+  await think(page, 500, 1100);
   if (Math.abs(endY - startY) > 6) await scrubSpin(page, 'tail y', startY - endY);
-  await think(page, 220, 420);
+  await think(page, 400, 800);
   await scrubSpin(page, 'tail x', startX - endX);
   const backX = await readSpin(page, 'tail x');
   const backY = await readSpin(page, 'tail y');
-  if (backX != null && Math.abs(backX - startX) > 3) await setSpin(page, 'tail x', startX);
-  if (backY != null && Math.abs(backY - startY) > 3) await setSpin(page, 'tail y', startY);
-  await beat(page, 900, 1300);
+  if (backX == null || Math.abs(backX - startX) > 0.4) await setSpin(page, 'tail x', startX);
+  if (backY == null || Math.abs(backY - startY) > 0.4) await setSpin(page, 'tail y', startY);
+  const parkEnd = (await tailXParkPoint(page)) ?? park;
+  await holdLoopRest(page, parkEnd);
 }
 
 async function dragSelectedTail(page, placement) {
@@ -1769,7 +1826,7 @@ async function main() {
         const dest = join(VIDEO_DIR, 'balloon-tail-loop.mp4');
         const duration = await writeWindowed(session, dest, 10, 12, {
           realtime: true,
-          maxRate: 1.58,
+          maxRate: 1.45,
         });
         await extractStills(dest, join(RAW_DIR, 'stills-loop'));
         outputs.push({ path: dest, duration, width: 1920, height: 1080 });
@@ -1795,7 +1852,7 @@ async function main() {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
         const duration = await writeWindowed(session, dest, 35, 45, {
           realtime: true,
-          maxRate: 2.75,
+          maxRate: 2.15,
         });
         await extractStills(dest, join(RAW_DIR, 'stills-vertical'));
         outputs.push({ path: dest, duration, width: 1080, height: 1920 });
