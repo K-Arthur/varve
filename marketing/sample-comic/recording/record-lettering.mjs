@@ -1769,7 +1769,7 @@ async function main() {
         const dest = join(VIDEO_DIR, 'balloon-tail-loop.mp4');
         const duration = await writeWindowed(session, dest, 10, 12, {
           realtime: true,
-          maxRate: 1.42,
+          maxRate: 1.58,
         });
         await extractStills(dest, join(RAW_DIR, 'stills-loop'));
         outputs.push({ path: dest, duration, width: 1920, height: 1080 });
@@ -1795,7 +1795,7 @@ async function main() {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
         const duration = await writeWindowed(session, dest, 35, 45, {
           realtime: true,
-          maxRate: 2.4,
+          maxRate: 2.75,
         });
         await extractStills(dest, join(RAW_DIR, 'stills-vertical'));
         outputs.push({ path: dest, duration, width: 1080, height: 1920 });
