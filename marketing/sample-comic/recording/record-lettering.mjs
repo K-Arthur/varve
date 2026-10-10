@@ -493,7 +493,7 @@ async function humanMove(page, x, y, opts = {}) {
   const ox = overshoot ? x + (dx / dist) * randBetween(14, 34) + nx * randBetween(-12, 12) : x;
   const oy = overshoot ? y + (dy / dist) * randBetween(14, 34) + ny * randBetween(-12, 12) : y;
   const speed = drag ? randBetween(480, 920) : randBetween(320, 820);
-  const duration = Math.max(drag ? 180 : 320, (dist / speed) * 1000);
+  const duration = Math.max(drag ? 160 : 240, (dist / speed) * 1000);
   const steps = Math.max(drag ? 12 : 20, Math.round(duration / (drag ? 16 : 17)));
   const progress = drag ? easeInOutCubic : humanEase();
   const pauseAt = !drag && rand() < 0.22 ? randBetween(0.28, 0.72) : -1;
@@ -537,11 +537,15 @@ async function think(page, min = 400, max = 1500) {
   await pause(page, randBetween(min, max));
 }
 
+async function taskThink(page) {
+  await think(page, compactByPage.get(page) ? 400 : 500, compactByPage.get(page) ? 750 : 1500);
+}
+
 async function clickAt(page, x, y) {
   await humanMove(page, x, y);
-  await think(page, 400, 1100);
+  await think(page, 400, compactByPage.get(page) ? 750 : 1100);
   await page.mouse.click(x, y);
-  await pause(page, randBetween(140, 280));
+  await pause(page, randBetween(120, 240));
 }
 
 async function typeHuman(page, text) {
@@ -931,15 +935,8 @@ async function focusCanvas(page) {
 
 async function chooseTextTool(page) {
   await focusCanvas(page);
-  const tool = page.getByRole('button', { name: /^text\b/i }).first();
-  if (await tool.isVisible({ timeout: 800 }).catch(() => false)) {
-    const box = await tool.boundingBox();
-    if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2, 240);
-    else await tool.click();
-  } else {
-    await page.keyboard.press('t');
-  }
-  await pause(page, 120);
+  await page.keyboard.press('t');
+  await pause(page, 140);
 }
 
 async function setTextResizingFixed(page) {
@@ -1065,13 +1062,17 @@ async function wrapSelectedText(page, query, actionName) {
   }
   if (!opened) throw new Error(`quick actions did not open for ${actionName}`);
   await pause(page, 160);
-  await typeHuman(page, query, 40);
+  await typeHuman(page, query);
   const option = page.getByRole('option', { name: new RegExp(actionName, 'i') }).first();
   await option.waitFor({ state: 'visible', timeout: 5000 });
-  await pause(page, 200);
-  const box = await option.boundingBox();
-  if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2, 240);
-  else await option.click();
+  await think(page, 400, compactByPage.get(page) ? 700 : 900);
+  if (compactByPage.get(page)) {
+    await page.keyboard.press('Enter');
+  } else {
+    const box = await option.boundingBox();
+    if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2);
+    else await option.click();
+  }
   await page
     .getByRole('dialog', { name: /quick actions/i })
     .waitFor({ state: 'hidden', timeout: 4000 })
@@ -1196,7 +1197,7 @@ async function showSettledCalloutInspector(page, placement) {
     log('callout group not selected; inspector stays hidden');
     return false;
   }
-  await think(page, 400, 1100);
+  await taskThink(page);
   if (!(await ensureInspector(page))) return false;
   const comic = page.getByRole('button', { name: /comic balloon/i }).first();
   if (!(await comic.isVisible({ timeout: 2000 }).catch(() => false))) {
@@ -1206,7 +1207,7 @@ async function showSettledCalloutInspector(page, placement) {
     if (!(await ensureInspector(page))) return false;
   }
   await openComicSection(page);
-  await think(page, 400, 1500);
+  await taskThink(page);
   log('callout inspector ready');
   return true;
 }
@@ -1393,22 +1394,19 @@ async function placeDialogue(page, placement) {
   await beat(page, 260, 480);
   if (compactByPage.get(page)) {
     await hideSidePanels(page);
-    await think(page, 400, 1100);
+    await taskThink(page);
     await wrapSelectedText(page, placement.query, placement.action);
     await hideSidePanels(page);
     await climbToCalloutGroup(page);
-    await think(page, 400, 900);
+    await taskThink(page);
     const inspectorReady = await showSettledCalloutInspector(page, placement);
     if (inspectorReady) {
       await clickInspectorButton(page, 'Fit balloon to text');
-      await think(page, 400, 1200);
-      if (placement.action.includes('Speech')) {
-        await growBalloonLikeAPerson(page);
-      }
+      await taskThink(page);
     }
     if (inspectorReady && placement.action.includes('Caption')) {
       await clickInspectorButton(page, 'Remove tail');
-      await think(page, 400, 1100);
+      await taskThink(page);
     } else if (inspectorReady && placement.tailToward) {
       const startX = (await readSpin(page, 'tail x')) ?? 40;
       const startY = (await readSpin(page, 'tail y')) ?? 80;
@@ -1416,11 +1414,11 @@ async function placeDialogue(page, placement) {
       const tailY = Math.round(placement.tailToward.localY - placement.localY);
       log(`tail aim ${startX},${startY} -> ${tailX},${tailY}`);
       await scrubSpin(page, 'tail x', tailX - startX);
-      if (Math.abs(tailY - startY) > 8) await scrubSpin(page, 'tail y', tailY - startY);
-      await think(page, 400, 1100);
+      if (Math.abs(tailY - startY) > 24) await scrubSpin(page, 'tail y', tailY - startY);
+      await taskThink(page);
     }
     await hideSidePanels(page);
-    await think(page, 400, 900);
+    await taskThink(page);
     return;
   }
   const snippet = placement.text
@@ -1697,7 +1695,7 @@ async function finishOnPage(page) {
   await page.keyboard.press('v');
   await think(page, 180, 320);
   await easeCameraToPage(page);
-  await beat(page, compactByPage.get(page) ? 900 : 1600, compactByPage.get(page) ? 1400 : 2400);
+  await beat(page, compactByPage.get(page) ? 500 : 1600, compactByPage.get(page) ? 800 : 2400);
 }
 
 async function letterPage(page, options = {}) {
