@@ -1,4 +1,5 @@
 import { fireEvent, render } from '@testing-library/react';
+import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ErrorBoundary } from './ErrorBoundary';
 
@@ -77,5 +78,46 @@ describe('ErrorBoundary', () => {
     );
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
+  });
+
+  it('clears a captured error when resetKey changes', () => {
+    const { container, rerender } = render(
+      <ErrorBoundary resetKey="doc-a">
+        <Bomb shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+    expect(container.textContent).toContain('Something went wrong');
+
+    rerender(
+      <ErrorBoundary resetKey="doc-b">
+        <Bomb shouldThrow={false} />
+      </ErrorBoundary>,
+    );
+    expect(container.textContent).toContain('OK');
+    expect(container.textContent).not.toContain('Something went wrong');
+  });
+
+  it('does not remount healthy children when resetKey changes', () => {
+    let mounts = 0;
+    function Marker() {
+      useEffect(() => {
+        mounts += 1;
+      }, []);
+      return <div>stable</div>;
+    }
+
+    const { rerender } = render(
+      <ErrorBoundary resetKey="doc-a">
+        <Marker />
+      </ErrorBoundary>,
+    );
+    expect(mounts).toBe(1);
+
+    rerender(
+      <ErrorBoundary resetKey="doc-b">
+        <Marker />
+      </ErrorBoundary>,
+    );
+    expect(mounts).toBe(1);
   });
 });
