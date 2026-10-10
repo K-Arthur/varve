@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expectReservedScreenshot } from './helpers';
 
 for (const variant of [
   { name: 'desktop-light', width: 1440, height: 1000, theme: 'light' },
@@ -38,9 +39,11 @@ for (const variant of [
       name: /blue rectangle whose fill is linked to the semantic\.brand\.curlyAlias token/,
     });
     await expect(artwork).toBeVisible();
-    await expect
-      .poll(() => artwork.evaluate((image: HTMLImageElement) => image.naturalWidth))
-      .toBe(1600);
+    await expectReservedScreenshot(artwork, {
+      width: 1600,
+      height: 1000,
+      fileStem: 'design-tokens-alias-bound-light',
+    });
     const geometry = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
       scroll: document.documentElement.scrollWidth,

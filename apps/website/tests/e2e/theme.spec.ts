@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { contrastRatio, effectiveBackground, NORMAL_TEXT, parseColor } from './helpers';
+import {
+  contrastRatio,
+  effectiveBackground,
+  expectReservedScreenshot,
+  NORMAL_TEXT,
+  parseColor,
+} from './helpers';
 
 /**
  * Theme resolution, persistence, migration and switcher behaviour.
@@ -459,23 +465,14 @@ test.describe('hero visibility', () => {
       const alt = await img.getAttribute('alt');
       expect(alt, `image ${i} alt`).toBeTruthy();
       expect(alt!.length).toBeGreaterThan(10);
-      // The showcase mixes a full 1440x900 application frame with narrower
-      // cropped details, so a fixed pixel floor is the wrong check. Assert
-      // instead that the file decoded *and* that its intrinsic size matches
-      // the width/height the markup reserved from the manifest — which
-      // catches a failed decode and a layout-shifting mismatch alike.
-      const size = await img.evaluate((el) => {
-        const image = el as HTMLImageElement;
-        return {
-          naturalWidth: image.naturalWidth,
-          naturalHeight: image.naturalHeight,
-          attrWidth: Number(image.getAttribute('width')),
-          attrHeight: Number(image.getAttribute('height')),
-        };
-      });
-      expect(size.naturalWidth, `image ${i} must decode`).toBeGreaterThan(0);
-      expect(size.naturalWidth, `image ${i} intrinsic width`).toBe(size.attrWidth);
-      expect(size.naturalHeight, `image ${i} intrinsic height`).toBe(size.attrHeight);
+      // Reserved width/height stay the PNG source. `naturalWidth` is the
+      // density-corrected slot after `<picture>` + `srcset`, so compare
+      // aspect ratio and a real screenshot URL, not file pixels to attributes.
+      const reserved = await img.evaluate((el) => ({
+        width: Number((el as HTMLImageElement).getAttribute('width')),
+        height: Number((el as HTMLImageElement).getAttribute('height')),
+      }));
+      await expectReservedScreenshot(img, reserved);
     }
     const placeholders = await page.locator('.showcase-placeholder').count();
     expect(placeholders).toBe(0);

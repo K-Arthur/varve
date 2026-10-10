@@ -4,7 +4,7 @@
  * Contrast math mirrors the unit tests in src/test/tokens.test.ts (exact
  * oklch -> sRGB -> WCAG relative luminance) so CI tools agree with each other.
  */
-import type { Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 export function oklchToSrgb(l: number, c: number, h: number): [number, number, number] {
   const hRad = (h * Math.PI) / 180;
@@ -93,3 +93,40 @@ export function effectiveBackground(page: Page, selector: string) {
 export const LARGE_TEXT = 3.0;
 export const NORMAL_TEXT = 4.5;
 export const GRAPHICS = 3.0;
+
+/**
+ * Manifest screenshots now travel through `<picture>` + `srcset`. HTML
+ * `width`/`height` stay the PNG source (CLS reservation). `naturalWidth` is
+ * the density-corrected slot size, so it tracks the layout box, not the
+ * file's pixel width.
+ */
+export async function expectReservedScreenshot(
+  image: Locator,
+  {
+    width,
+    height,
+    fileStem,
+  }: {
+    width: number;
+    height: number;
+    fileStem?: string;
+  },
+) {
+  await expect(image).toHaveAttribute('width', String(width));
+  await expect(image).toHaveAttribute('height', String(height));
+  await expect
+    .poll(() =>
+      image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0),
+    )
+    .toBe(true);
+  const state = await image.evaluate((element: HTMLImageElement) => ({
+    naturalWidth: element.naturalWidth,
+    naturalHeight: element.naturalHeight,
+    currentSrc: element.currentSrc,
+  }));
+  expect(state.naturalWidth, 'image decoded').toBeGreaterThan(0);
+  expect(state.naturalWidth / state.naturalHeight).toBeCloseTo(width / height, 2);
+  if (fileStem) {
+    expect(state.currentSrc, 'currentSrc is the capture or a declared variant').toContain(fileStem);
+  }
+}

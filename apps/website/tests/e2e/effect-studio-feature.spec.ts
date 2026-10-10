@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expectReservedScreenshot } from './helpers';
 
 test.describe('Effect Studio marketing surface', () => {
   test('feature page communicates the editable preview workflow and reflows on mobile', async ({
@@ -25,8 +26,16 @@ test.describe('Effect Studio marketing surface', () => {
     );
     const screenshots = page.locator('.feature-preview__screenshots img');
     await expect(screenshots).toHaveCount(2);
-    await expect(screenshots.nth(0)).toHaveJSProperty('naturalWidth', 1440);
-    await expect(screenshots.nth(1)).toHaveJSProperty('naturalWidth', 390);
+    await expectReservedScreenshot(screenshots.nth(0), {
+      width: 1440,
+      height: 900,
+      fileStem: 'effect-studio-desktop-light',
+    });
+    await expectReservedScreenshot(screenshots.nth(1), {
+      width: 390,
+      height: 844,
+      fileStem: 'effect-studio-mobile-light',
+    });
 
     const desktopLayout = await page.evaluate(() => ({
       documentWidth: document.documentElement.scrollWidth,
