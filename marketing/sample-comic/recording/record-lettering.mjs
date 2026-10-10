@@ -1474,6 +1474,7 @@ async function assertVideo(file, width, height) {
 }
 
 async function extractStills(file, destDir) {
+  rmSync(destDir, { recursive: true, force: true });
   mkdirSync(destDir, { recursive: true });
   const info = await probeVideo(file);
   writeFileSync(join(destDir, 'probe.json'), `${JSON.stringify(info, null, 2)}\n`);
@@ -1718,7 +1719,7 @@ async function main() {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
         const duration = await writeWindowed(session, dest, 35, 45, {
           realtime: true,
-          maxRate: 1.35,
+          maxRate: 2.4,
         });
         await extractStills(dest, join(RAW_DIR, 'stills-vertical'));
         outputs.push({ path: dest, duration, width: 1080, height: 1920 });
