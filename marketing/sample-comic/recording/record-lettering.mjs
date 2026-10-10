@@ -443,13 +443,20 @@ async function beat(page, min = 380, max = 720) {
 async function currentZoom(page) {
   const zoomField = page.locator('.editor-status__zoom-value');
   const label = await zoomField.getAttribute('aria-label').catch(() => null);
-  const fromLabel = /([\d.]+)\s*%/.exec(label ?? '');
+  const fromLabel = /Zoom\s+([\d.]+)\s*%/i.exec(label ?? '');
   if (fromLabel) return Number(fromLabel[1]) / 100;
-  const raw = await zoomField.inputValue().catch(() => '');
-  const parsed = Number.parseFloat(raw);
-  if (Number.isFinite(parsed) && parsed > 0) return parsed / 100;
   const map = await pageScreenMap(page);
   return map.h / PAGE_H;
+}
+
+async function clickStatusButton(page, name) {
+  const button = page.getByRole('button', { name }).first();
+  if (!(await button.isVisible({ timeout: 800 }).catch(() => false))) return false;
+  const box = await button.boundingBox();
+  if (box) await clickAt(page, box.x + box.width / 2, box.y + box.height / 2);
+  else await button.click();
+  await beat(page, 700, 1100);
+  return true;
 }
 
 async function dispatchCanvasWheel(page, x, y, deltaY) {
@@ -504,75 +511,50 @@ async function wheelZoomToward(page, x, y, targetZoom) {
   }
 }
 
-async function humanPanBy(page, dx, dy) {
-  if (Math.hypot(dx, dy) < 10) return;
-  const view = page.viewportSize() ?? { width: 1920, height: 1080 };
-  const last = pointerByPage.get(page) ?? { x: view.width * 0.45, y: view.height * 0.45 };
-  let start = { x: last.x, y: last.y };
-  let end = { x: start.x + dx, y: start.y + dy };
-  const padX = 28;
-  const padY = 88;
-  if (end.x < padX || end.x > view.width - padX || end.y < padY || end.y > view.height - 36) {
-    start = {
-      x: Math.min(view.width - padX, Math.max(padX, start.x - dx * 0.35)),
-      y: Math.min(view.height - 36, Math.max(padY, start.y - dy * 0.35)),
-    };
-    end = {
-      x: Math.min(view.width - padX, Math.max(padX, start.x + dx)),
-      y: Math.min(view.height - 36, Math.max(padY, start.y + dy)),
-    };
-    await humanMove(page, start.x, start.y);
-  }
-  await blurChrome(page);
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down({ button: 'middle' });
-  await pause(page, 40);
-  await humanMove(page, end.x, end.y);
-  await pause(page, 80);
-  await page.mouse.up({ button: 'middle' });
-  await pause(page, 160);
-}
-
-async function humanPanTo(page, fromX, fromY, toX, toY) {
-  await humanMove(page, fromX, fromY);
-  await think(page, 200, 420);
-  await humanPanBy(page, toX - fromX, toY - fromY);
-}
-
 async function easeCameraToPanel(page, panelIndex) {
   if (compactByPage.get(page)) await hideSidePanels(page);
-  const view = page.viewportSize() ?? { width: 1920, height: 1080 };
-  const viewCx = view.width * 0.5;
-  const viewCy = view.height * (compactByPage.get(page) ? 0.46 : 0.5);
-  const targetZoom = compactByPage.get(page) ? randBetween(1.52, 1.82) : randBetween(1.42, 1.78);
-  let map = await pageScreenMap(page);
-  let mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
-  await humanPanTo(page, mid.x, mid.y, viewCx, viewCy);
-  map = await pageScreenMap(page);
-  mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
-  await wheelZoomToward(page, mid.x, mid.y, targetZoom);
-  map = await pageScreenMap(page);
-  mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
-  if (Math.hypot(mid.x - viewCx, mid.y - viewCy) > 40) {
-    await humanPanTo(page, mid.x, mid.y, viewCx, viewCy);
+  const map = await pageScreenMap(page);
+  const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
+  await clickAt(page, mid.x, mid.y);
+  const fitted = await clickStatusButton(page, /fit selection to viewport/i);
+  if (!fitted) {
+    await blurChrome(page);
+    await page.keyboard.press('Shift+Digit2');
+    await beat(page, 700, 1100);
   }
-  await beat(page, 300, 560);
+  const zoom = await currentZoom(page);
+  log(`camera panel ${panelIndex + 1} zoom=${zoom.toFixed(2)}`);
+  if (zoom > 2.4) {
+    await clickStatusButton(page, /fit all to viewport/i);
+    const retry = await pageScreenMap(page);
+    const again = localToScreen(retry, panelIndex, PANEL_W / 2, PANEL_H / 2);
+    await clickAt(page, again.x, again.y);
+    await clickStatusButton(page, /fit selection to viewport/i);
+  } else if (zoom < 1.15) {
+    const after = await pageScreenMap(page);
+    const aim = localToScreen(after, panelIndex, PANEL_W / 2, PANEL_H / 2);
+    await wheelZoomToward(page, aim.x, aim.y, 1.65);
+    log(`camera panel ${panelIndex + 1} nudged zoom=${(await currentZoom(page)).toFixed(2)}`);
+  }
+  await beat(page, 280, 520);
 }
 
 async function easeCameraToPage(page) {
   if (compactByPage.get(page)) await hideSidePanels(page);
-  const view = page.viewportSize() ?? { width: 1920, height: 1080 };
-  const cx = view.width * 0.5;
-  const cy = view.height * 0.5;
-  const target = compactByPage.get(page) ? randBetween(0.86, 1.04) : randBetween(0.6, 0.8);
-  await wheelZoomToward(page, cx, cy, target);
   const map = await pageScreenMap(page);
-  const pageCx = map.origin.x + map.w / 2;
-  const pageCy = map.origin.y + map.h / 2;
-  if (Math.hypot(pageCx - cx, pageCy - cy) > 30) {
-    await humanPanTo(page, pageCx, pageCy, cx, cy);
+  const margin = {
+    x: map.origin.x + 10,
+    y: map.origin.y + 10,
+  };
+  await clickAt(page, margin.x, margin.y);
+  const fitted = await clickStatusButton(page, /fit selection to viewport/i);
+  if (!fitted) {
+    await clickStatusButton(page, /fit all to viewport/i);
   }
-  await beat(page, 420, 720);
+  if ((await currentZoom(page)) > 1.3) {
+    await clickStatusButton(page, /fit all to viewport/i);
+  }
+  log(`camera page zoom=${(await currentZoom(page)).toFixed(2)}`);
 }
 
 async function hideOverlays(page) {
@@ -1176,6 +1158,9 @@ async function placeDialogue(page, placement) {
     await ensureInspector(page);
     await wrapSelectedText(page, placement.query, placement.action);
     await beat(page, 480, 820);
+    const map = await pageScreenMap(page);
+    const body = localToScreen(map, placement.panel, placement.localX + 36, placement.localY + 22);
+    await clickAt(page, body.x, body.y);
     await hideSidePanels(page);
     return;
   }
@@ -1234,6 +1219,14 @@ async function captionHasTail(page) {
 async function removeCaptionTail(page) {
   for (let attempt = 0; attempt < 3; attempt++) {
     if (compactByPage.get(page)) {
+      const map = await pageScreenMap(page);
+      const body = localToScreen(
+        map,
+        PLACEMENTS.caption.panel,
+        PLACEMENTS.caption.localX + 36,
+        PLACEMENTS.caption.localY + 22,
+      );
+      await clickAt(page, body.x, body.y);
       await ensureInspector(page);
       await openComicSection(page);
     } else {
@@ -1337,6 +1330,9 @@ async function dragSelectedTail(page, placement) {
   if (!compactByPage.get(page)) {
     await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
   } else {
+    const map = await pageScreenMap(page);
+    const body = localToScreen(map, placement.panel, placement.localX + 36, placement.localY + 22);
+    await clickAt(page, body.x, body.y);
     await ensureInspector(page);
     await openComicSection(page);
   }
