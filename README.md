@@ -26,6 +26,7 @@
   <a href="https://varve.studio/download"><strong>Download Varve</strong></a> ·
   <a href="https://varve.studio"><strong>Website</strong></a> ·
   <a href="https://varve.studio/docs"><strong>Docs</strong></a> ·
+  <a href="https://varve.studio/about/how-its-built"><strong>How it's built</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/releases"><strong>Releases</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a> ·
   <a href="https://github.com/sponsors/K-Arthur"><strong>Sponsor</strong></a>
