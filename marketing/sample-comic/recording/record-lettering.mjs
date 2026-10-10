@@ -533,7 +533,7 @@ async function selectLayer(page, pattern, which = 'first') {
   const item = which === 'last' ? items.nth(Math.max(0, (await items.count()) - 1)) : items.first();
   await item.waitFor({ state: 'visible', timeout: 8000 });
   const box = await item.boundingBox();
-  if (box) await clickAt(page, box.x + 28, box.y + box.height / 2, 240);
+  if (box) await clickAt(page, box.x + Math.min(96, box.width * 0.55), box.y + box.height / 2, 240);
   else await item.click();
   await pause(page, 140);
   return item;
@@ -581,10 +581,13 @@ async function chooseTextTool(page) {
 async function setSpin(page, name, value) {
   await ensureInspector(page);
   const field = page
-    .locator('.inspector-panel')
-    .getByRole('spinbutton', { name: new RegExp(`^${name}$`, 'i') })
+    .locator('.editor-inspector, .editor__inspector-panel, [data-panel-root="inspector"]')
+    .getByRole('spinbutton', { name: new RegExp(`^${name}(?:\\s*\\([^)]*\\))?$`, 'i') })
     .first();
-  if (!(await field.isVisible({ timeout: 1800 }).catch(() => false))) return false;
+  if (!(await field.isVisible({ timeout: 1800 }).catch(() => false))) {
+    log(`spinbutton "${name}" not visible`);
+    return false;
+  }
   const box = await field.boundingBox();
   if (box) await clickAt(page, box.x + 18, box.y + box.height / 2, 220);
   else await field.click();
@@ -763,20 +766,31 @@ async function lockAllWalls(page) {
   }
 }
 
-async function lockPanelBackdrop(page, panelIndex) {
-  await lockNamedLayers(page, `Panel ${panelIndex + 1}`);
-  await lockNamedLayers(page, 'Page');
-}
-
 async function openComicSection(page) {
   await ensureInspector(page);
   const section = page.getByRole('button', { name: /comic balloon/i }).first();
+  if (
+    !(await section
+      .waitFor({ state: 'attached', timeout: 2500 })
+      .then(() => true)
+      .catch(() => false))
+  ) {
+    return false;
+  }
+  await section.scrollIntoViewIfNeeded().catch(() => undefined);
   if (!(await section.isVisible({ timeout: 2000 }).catch(() => false))) return false;
   if ((await section.getAttribute('aria-expanded')) === 'false') {
     const box = await section.boundingBox();
     if (box) await clickAt(page, box.x + 24, box.y + box.height / 2, 220);
     else await section.click();
     await pause(page, 180);
+  }
+  const tailX = page
+    .locator('.editor-inspector, .editor__inspector-panel, [data-panel-root="inspector"]')
+    .getByRole('spinbutton', { name: /^tail x/i })
+    .first();
+  if (await tailX.isVisible({ timeout: 800 }).catch(() => false)) {
+    await tailX.scrollIntoViewIfNeeded().catch(() => undefined);
   }
   return true;
 }
@@ -805,11 +819,15 @@ async function revealBalloon(page, pattern) {
     await selectLayer(page, pick);
     await item.press('ArrowRight');
     await pause(page, 140);
+    await selectLayer(page, pick);
+    await openComicSection(page);
     const selected = await page.evaluate(
       () => window.__varveIsoTest?.getSelection?.()?.length ?? 0,
     );
-    if (selected === 0) await selectLayer(page, pick);
-    await openComicSection(page);
+    if (selected === 0) {
+      await selectLayer(page, pick);
+      await openComicSection(page);
+    }
     return true;
   }
   return false;
@@ -1048,108 +1066,20 @@ async function removeCaptionTail(page) {
   throw new Error('caption still has a Balloon tail after Remove tail');
 }
 
-async function selectedTailGeometry(page) {
-  return page.evaluate(() => {
-    const hooks = window.__varveIsoTest;
-    const canvas = document.querySelector('.editor-canvas');
-    if (!hooks || !canvas) return null;
-    const geometry = hooks.getSelectionGeometry()[0];
-    const shape = geometry?.shape;
-    if (!geometry || !shape) return null;
-    const kind = shape.kind;
-    if (kind !== 'circle' && kind !== 'path') return null;
-    const rect = canvas.getBoundingClientRect();
-    const matrix = geometry.worldTransform;
-    let lx = 0;
-    let ly = 0;
-    if (kind === 'circle') {
-      lx = shape.cx ?? 0;
-      ly = shape.cy ?? 0;
-    } else if (Array.isArray(shape.points) && shape.points.length) {
-      const last = shape.points[shape.points.length - 1];
-      lx = last.x ?? last[0] ?? 0;
-      ly = last.y ?? last[1] ?? 0;
-    } else {
-      lx = 16;
-      ly = 48;
-    }
-    const wx = matrix[0] * lx + matrix[2] * ly + matrix[4];
-    const wy = matrix[1] * lx + matrix[3] * ly + matrix[5];
-    const screen = hooks.worldToScreen(wx, wy);
-    return {
-      kind,
-      x: rect.left + screen.x,
-      y: rect.top + screen.y,
-    };
-  });
-}
-
-async function applyInspectorTail(page, placement) {
+async function dragSelectedTail(page, placement) {
+  if (!placement.tailToward) return;
+  // Aim the parametric tail from the balloon group. Canvas-dragging the tail
+  // path translates a detached stub and is what previously grabbed the panel.
   await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
   const tailX = Math.round(placement.tailToward.localX - placement.localX);
   const tailY = Math.round(placement.tailToward.localY - placement.localY);
-  await setSpin(page, 'tail x', tailX);
-  await setSpin(page, 'tail y', tailY);
-  await pause(page, 200);
-}
-
-async function dragSelectedTail(page, placement) {
-  if (!placement.tailToward) return;
-  await lockPanelBackdrop(page, placement.panel);
-  await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
-
-  const tailPattern = placement.layer?.source.includes('thought')
-    ? /thought bubble/i
-    : /balloon tail/i;
-  const tails = page.getByRole('treeitem', { name: tailPattern });
-  let dragged = false;
-  if (
-    await tails
-      .first()
-      .isVisible({ timeout: 1500 })
-      .catch(() => false)
-  ) {
-    await selectLayer(page, tailPattern, 'last');
-    const start = await selectedTailGeometry(page);
-    if (start) {
-      const map = await pageScreenMap(page);
-      const end = localToScreen(
-        map,
-        placement.panel,
-        placement.tailToward.localX,
-        placement.tailToward.localY,
-      );
-      if (compactByPage.get(page)) await hideSidePanels(page);
-      await humanMove(page, start.x, start.y, 300);
-      await page.mouse.down();
-      await pause(page, 50);
-      await humanMove(page, start.x + 5, start.y + 5, 80);
-      const held = await selectedTailGeometry(page);
-      if (!held) {
-        await page.mouse.up();
-        await blurChrome(page);
-        await page.keyboard.press('Control+z');
-        await pause(page, 200);
-        log('tail mousedown missed the tail node; inspector Tail X/Y fallback');
-      } else {
-        await humanMove(page, end.x, end.y, 700);
-        await pause(page, 80);
-        await page.mouse.up();
-        await pause(page, 240);
-        const after = await selectedTailGeometry(page);
-        if (!after) {
-          await blurChrome(page);
-          await page.keyboard.press('Control+z');
-          await pause(page, 200);
-          log('tail canvas drag moved a non-tail node; undone');
-        } else {
-          dragged = true;
-        }
-      }
-    }
-  }
-  if (!dragged) await applyInspectorTail(page, placement);
-  await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
+  const midX = await setSpin(page, 'tail x', Math.round(tailX * 0.4));
+  const midY = await setSpin(page, 'tail y', Math.round(tailY * 0.4));
+  await pause(page, 220);
+  const endX = await setSpin(page, 'tail x', tailX);
+  const endY = await setSpin(page, 'tail y', tailY);
+  log(`tail aim ${tailX},${tailY} spins=${midX}/${midY}/${endX}/${endY}`);
+  await pause(page, 360);
   await filterLayers(page, '');
   if (compactByPage.get(page)) await hideSidePanels(page);
 }

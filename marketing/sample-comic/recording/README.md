@@ -16,8 +16,8 @@ Writes:
 - `../video/lettering-timelapse.mp4` — 16:9 full lettering pass (1920x1080)
 - `../video/lettering-vertical.mp4` — real 9:16 viewport (1080x1920). Layers and
   Inspector are hidden so the canvas and toolbar fit without clipping.
-- `../video/balloon-tail-loop.mp4` — one speech balloon + tail drag. Art and the
-  panel frame are locked so the drag moves only the tail.
+- `../video/balloon-tail-loop.mp4` — one speech balloon + tail aimed with the
+  balloon group's Tail X/Y controls. Artwork is locked so the panel cannot slide.
 
 `--probe` letters only the speech balloon, dumps wrap/bind JSON, and writes
 screenshots under `.tmp/`.
