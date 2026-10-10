@@ -140,6 +140,17 @@ function knownDefaultCommit(git, remote, explicitRefs = null) {
   return null;
 }
 
+/**
+ * Commits already on the remote default branch are not this push's history.
+ * Merging master into a long-lived PR otherwise re-scans master's messages
+ * (including already-landed trailers) as if they were new on the feature branch.
+ */
+function commitsNovelToDefaultBranch(git, remote, commits, explicitRefs = null) {
+  const defaultCommit = knownDefaultCommit(git, remote, explicitRefs);
+  if (!defaultCommit) return commits;
+  return commits.filter((commit) => !isAncestor(git, commit, defaultCommit));
+}
+
 function newRefBase(git, remote, head, explicitRefs = null) {
   for (const ref of defaultBranchCandidates(git, remote, explicitRefs)) {
     const result = gitResult(git, ['rev-parse', '--verify', `${ref}^{commit}`]);
@@ -487,9 +498,15 @@ export function buildPushPlan(input, options = {}) {
   ].sort();
   const planner = makePlanner(files, options);
   const validation = selectPushValidation(planner, { files, strict: Boolean(options.strict) });
+  const historyCommits = commitsNovelToDefaultBranch(
+    git,
+    remote,
+    commits,
+    options.defaultBranchRefs ?? null,
+  );
   const historyFindings = options.historyScanner
-    ? options.historyScanner(commits)
-    : scanOutgoingHistory(commits, { git });
+    ? options.historyScanner(historyCommits)
+    : scanOutgoingHistory(historyCommits, { git });
   if (historyFindings.length)
     riskReasons.push('history-sensitive policy finding requires push refusal');
 
