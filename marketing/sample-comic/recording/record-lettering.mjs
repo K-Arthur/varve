@@ -44,6 +44,7 @@ const pointerByPage = new WeakMap();
 const compactByPage = new WeakMap();
 const cursorLog = [];
 let cursorLogOrigin = 0;
+const fittedPage = new WeakSet();
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -496,19 +497,27 @@ async function humanMove(page, x, y, opts = {}) {
     x: last.x + dx * randBetween(0.56, 0.88) + nx * o2 + randBetween(-20, 20),
     y: last.y + dy * randBetween(0.56, 0.88) + ny * o2 + randBetween(-20, 20),
   };
-  const longMove = !drag && !precise && dist > 36;
-  const overshoot = longMove && (compact || rand() < 0.8);
+  const longMove = !drag && !precise && dist > (compact ? 90 : 36);
+  const overshoot = longMove && (compact ? rand() < 0.55 : rand() < 0.8);
   const ox = overshoot ? x + (dx / dist) * randBetween(14, 34) + nx * randBetween(-12, 12) : x;
   const oy = overshoot ? y + (dy / dist) * randBetween(14, 34) + ny * randBetween(-12, 12) : y;
   const speed = drag
     ? randBetween(480, 920)
     : precise
       ? randBetween(520, 780)
-      : randBetween(280, 720);
-  const duration = Math.max(drag ? 160 : precise ? 180 : 280, (dist / speed) * 1000);
-  const steps = Math.max(drag ? 12 : precise ? 10 : 28, Math.round(duration / (drag ? 16 : 14)));
+      : compact
+        ? randBetween(420, 880)
+        : randBetween(280, 720);
+  const duration = Math.max(
+    drag ? 160 : precise ? 180 : compact ? 220 : 280,
+    (dist / speed) * 1000,
+  );
+  const steps = Math.max(
+    drag ? 12 : precise ? 10 : compact ? 16 : 28,
+    Math.round(duration / (drag ? 16 : compact ? 22 : 14)),
+  );
   const progress = drag || precise ? easeInOutCubic : humanEase();
-  const pauseAt = !drag && !precise && rand() < 0.22 ? randBetween(0.28, 0.72) : -1;
+  const pauseAt = !drag && !precise && !compact && rand() < 0.22 ? randBetween(0.28, 0.72) : -1;
   for (let i = 1; i <= steps; i++) {
     const u = i / steps;
     const t = Math.min(1, Math.max(0, progress(u)));
@@ -520,7 +529,15 @@ async function humanMove(page, x, y, opts = {}) {
     }
     const edge = Math.min(u, 1 - u);
     await page.waitForTimeout(
-      drag ? randBetween(8, 16) : edge < 0.18 ? randBetween(16, 36) : randBetween(8, 24),
+      drag
+        ? randBetween(8, 16)
+        : compact
+          ? edge < 0.18
+            ? randBetween(10, 18)
+            : randBetween(6, 12)
+          : edge < 0.18
+            ? randBetween(16, 36)
+            : randBetween(8, 24),
     );
   }
   if (overshoot) {
@@ -555,12 +572,12 @@ async function taskThink(page) {
 
 async function clickAt(page, x, y) {
   await humanMove(page, x, y);
-  await think(page, 400, compactByPage.get(page) ? 750 : 1100);
+  await think(page, compactByPage.get(page) ? 160 : 400, compactByPage.get(page) ? 280 : 1100);
   await page.mouse.click(x, y);
-  await pause(page, randBetween(120, 240));
+  await pause(page, compactByPage.get(page) ? randBetween(60, 120) : randBetween(120, 240));
 }
 
-async function typeHuman(page, text) {
+async function typeHuman(page, text, opts = {}) {
   const lines = String(text).split('\n');
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
@@ -579,7 +596,7 @@ async function typeHuman(page, text) {
       await think(page, 280, 640);
     }
   }
-  await reactPause(page);
+  if (opts.react !== false) await reactPause(page);
 }
 
 async function beat(page, min = 380, max = 720) {
@@ -671,7 +688,7 @@ async function easeCameraToPanel(page, panelIndex) {
     await hideSidePanels(page);
     await blurChrome(page);
     await page.keyboard.press('Shift+Digit1');
-    await think(page, 400, 700);
+    await think(page, compactByPage.get(page) ? 220 : 400, compactByPage.get(page) ? 380 : 700);
     if (panelIndex === 0) {
       const map = await pageScreenMap(page);
       const wall = localToScreen(map, panelIndex, PANEL_W * 0.72, PANEL_H * 0.22);
@@ -685,7 +702,7 @@ async function easeCameraToPanel(page, panelIndex) {
       }
     }
     log(`camera panel ${panelIndex + 1} zoom=${(await currentZoom(page)).toFixed(2)}`);
-    await think(page, 400, 900);
+    if (!compactByPage.get(page)) await think(page, 400, 900);
     return;
   }
   const map = await pageScreenMap(page);
@@ -712,7 +729,14 @@ async function easeCameraToPanel(page, panelIndex) {
 }
 
 async function easeCameraToPage(page) {
-  if (compactByPage.get(page)) await hideSidePanels(page);
+  if (compactByPage.get(page)) {
+    await hideSidePanels(page);
+    await blurChrome(page);
+    await page.keyboard.press('Shift+Digit1');
+    await pause(page, 280);
+    log(`camera page zoom=${(await currentZoom(page)).toFixed(2)}`);
+    return;
+  }
   const map = await pageScreenMap(page);
   const margin = {
     x: map.origin.x + 10,
@@ -962,9 +986,10 @@ async function focusCanvas(page) {
 }
 
 async function chooseTextTool(page) {
-  await focusCanvas(page);
+  if (compactByPage.get(page)) await blurChrome(page);
+  else await focusCanvas(page);
   await page.keyboard.press('t');
-  await pause(page, 140);
+  await pause(page, compactByPage.get(page) ? 80 : 140);
 }
 
 async function setTextResizingFixed(page) {
@@ -1087,7 +1112,7 @@ async function wrapSelectedText(page, query, actionName) {
   }
   if (!opened) throw new Error(`quick actions did not open for ${actionName}`);
   await pause(page, 160);
-  await typeHuman(page, query);
+  await typeHuman(page, query, { react: false });
   const option = page.getByRole('option', { name: new RegExp(actionName, 'i') }).first();
   await option.waitFor({ state: 'visible', timeout: 5000 });
   await think(page, 400, compactByPage.get(page) ? 700 : 900);
@@ -1107,10 +1132,13 @@ async function wrapSelectedText(page, query, actionName) {
 
 async function followPanel(page, panelIndex) {
   if (compactByPage.get(page)) {
-    await hideSidePanels(page);
-    await blurChrome(page);
-    await page.keyboard.press('Shift+Digit1');
-    await taskThink(page);
+    if (!fittedPage.has(page)) {
+      await hideSidePanels(page);
+      await blurChrome(page);
+      await page.keyboard.press('Shift+Digit1');
+      await pause(page, 280);
+      fittedPage.add(page);
+    }
     log(`camera panel ${panelIndex + 1} zoom=${(await currentZoom(page)).toFixed(2)}`);
     return;
   }
@@ -1229,17 +1257,19 @@ async function showSettledCalloutInspector(page, placement) {
     log('callout group not selected; inspector stays hidden');
     return false;
   }
-  await taskThink(page);
+  if (!compactByPage.get(page)) await taskThink(page);
   if (!(await ensureInspector(page))) return false;
   const comic = page.getByRole('button', { name: /comic balloon/i }).first();
   if (!(await comic.isVisible({ timeout: 2000 }).catch(() => false))) {
-    await setSidePanel(page, 'inspector', false);
-    await think(page, 400, 800);
+    if (!compactByPage.get(page)) {
+      await setSidePanel(page, 'inspector', false);
+      await think(page, 400, 800);
+    }
     if (!(await waitForCalloutGroup(page, placement))) return false;
     if (!(await ensureInspector(page))) return false;
   }
   await openComicSection(page);
-  await taskThink(page);
+  if (!compactByPage.get(page)) await taskThink(page);
   log('callout inspector ready');
   return true;
 }
@@ -1713,7 +1743,7 @@ async function finishOnPage(page) {
   await page.keyboard.press('v');
   await think(page, 180, 320);
   await easeCameraToPage(page);
-  await beat(page, compactByPage.get(page) ? 500 : 1600, compactByPage.get(page) ? 800 : 2400);
+  await beat(page, compactByPage.get(page) ? 320 : 1600, compactByPage.get(page) ? 500 : 2400);
 }
 
 async function letterPage(page, options = {}) {
@@ -1735,7 +1765,7 @@ async function letterPage(page, options = {}) {
     }
     if (!compactByPage.get(page) && placement.tailToward) await dragSelectedTail(page, placement);
     if (compactByPage.get(page)) await hideSidePanels(page);
-    await beat(page, compactByPage.get(page) ? 280 : 380, compactByPage.get(page) ? 480 : 700);
+    await beat(page, compactByPage.get(page) ? 160 : 380, compactByPage.get(page) ? 260 : 700);
     if (PROBE) {
       await page.screenshot({ path: join(RAW_DIR, `probe-${key}.png`) });
     }
