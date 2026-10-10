@@ -120,11 +120,13 @@ function lanesForCategory(plan, category) {
   const selected = new Set(plan.selectedLanes ?? []);
   if (category === 'pipeline') return ['pipeline-validate'];
   if (category === 'js') {
+    // typecheck:e2e is selected when the e2e category is on, but the
+    // aggregator records every typecheck:* lane as JS evidence. Running it
+    // here (not in Playwright) keeps the compiler receipt on the JS job.
     return [...selected].filter(
       (lane) =>
         lane.startsWith('js-unit:') ||
-        (lane.startsWith('typecheck:') && lane !== 'typecheck:e2e') ||
-        lane === 'typecheck:all' ||
+        lane.startsWith('typecheck:') ||
         lane === 'lint:all' ||
         lane === 'audit:tokens',
     );
