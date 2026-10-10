@@ -632,17 +632,20 @@ async function clickInspectorButton(page, name) {
 
 async function revealBalloon(page, pattern) {
   await filterLayers(page, 'balloon');
-  const item = page.getByRole('treeitem', { name: pattern }).first();
+  const groupPattern = new RegExp(`${pattern.source},\\s*group`, 'i');
+  const preferred = page.getByRole('treeitem', { name: groupPattern }).first();
+  const fallback = page.getByRole('treeitem', { name: pattern }).first();
+  const useGroup = await preferred.isVisible({ timeout: 800 }).catch(() => false);
+  const item = useGroup ? preferred : fallback;
   if (await item.isVisible({ timeout: 2500 }).catch(() => false)) {
-    await selectLayer(page, pattern);
+    const pick = useGroup ? groupPattern : pattern;
+    await selectLayer(page, pick);
     await item.press('ArrowRight');
     await pause(page, 140);
     const selected = await page.evaluate(
       () => window.__varveIsoTest?.getSelection?.()?.length ?? 0,
     );
-    if (selected === 0) {
-      await selectLayer(page, pattern);
-    }
+    if (selected === 0) await selectLayer(page, pick);
     await openComicSection(page);
     return true;
   }
@@ -799,11 +802,37 @@ async function captionHasTail(page) {
 async function removeCaptionTail(page) {
   for (let attempt = 0; attempt < 3; attempt++) {
     await revealBalloon(page, /caption balloon/i);
-    await clickInspectorButton(page, 'Remove tail');
+    const remove = page.getByRole('button', { name: 'Remove tail', exact: true }).first();
+    if (
+      await remove
+        .waitFor({ state: 'visible', timeout: 3000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      await remove.scrollIntoViewIfNeeded();
+      const box = await remove.boundingBox();
+      if (box)
+        await clickAt(page, box.x + Math.min(72, box.width / 2), box.y + box.height / 2, 240);
+      else await remove.click();
+      await pause(page, 360);
+    } else {
+      await clickInspectorButton(page, 'Remove tail');
+    }
     if (!(await captionHasTail(page))) {
       await filterLayers(page, '');
       return;
     }
+  }
+  await filterLayers(page, 'tail');
+  const tail = page.getByRole('treeitem', { name: /balloon tail/i }).first();
+  if (await tail.isVisible({ timeout: 800 }).catch(() => false)) {
+    await selectLayer(page, /balloon tail/i);
+    await page.keyboard.press('Delete');
+    await pause(page, 280);
+  }
+  if (!(await captionHasTail(page))) {
+    await filterLayers(page, '');
+    return;
   }
   throw new Error('caption still has a Balloon tail after Remove tail');
 }
