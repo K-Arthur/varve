@@ -246,8 +246,8 @@ for (const [id, scene] of Object.entries(scenes)) {
             );
             continue;
           }
-          if (!variant.file.endsWith('.webp')) {
-            fail(`${id}: variant ${variant.file} must be a .webp derivative`);
+          if (!/\.(webp|avif)$/.test(variant.file)) {
+            fail(`${id}: variant ${variant.file} must be a .webp or .avif derivative`);
           }
           let variantBuf;
           try {
@@ -262,6 +262,12 @@ for (const [id, scene] of Object.entries(scenes)) {
               `${id}: variant ${variant.file} does not decode cleanly: ${variantAnalysis.errors.join('; ')}`,
             );
             continue;
+          }
+          const expectedFormat = variant.file.endsWith('.avif') ? 'avif' : 'webp';
+          if (variantAnalysis.format !== expectedFormat) {
+            fail(
+              `${id}: variant ${variant.file} is ${variantAnalysis.format}, expected ${expectedFormat}`,
+            );
           }
           if (createHashHex(variantBuf) !== variant.sha256) {
             fail(`${id}: variant ${variant.file} sha256 does not match manifest`);
@@ -316,9 +322,9 @@ if (totalPngBytes > PNG_TOTAL_BUDGET_FAIL) {
 // files that do not exist pass this validator while the built pages served
 // 404s (found 2026-09-29).
 const refPatterns = [
-  /(?:src|href|poster)=["']?[^"'\s>]*\/screenshots\/([a-z0-9-]+\.(?:png|webp|webm|mp4))["']?/g,
-  /!\[[^\]]*\]\([^)\s]*\/screenshots\/([a-z0-9-]+\.(?:png|webp|webm|mp4))/g,
-  /\/screenshots\/([a-z0-9-]+\.(?:png|webp|webm|mp4))/g,
+  /(?:src|href|poster)=["']?[^"'\s>]*\/screenshots\/([a-z0-9-]+\.(?:png|webp|avif|webm|mp4))["']?/g,
+  /!\[[^\]]*\]\([^)\s]*\/screenshots\/([a-z0-9-]+\.(?:png|webp|avif|webm|mp4))/g,
+  /\/screenshots\/([a-z0-9-]+\.(?:png|webp|avif|webm|mp4))/g,
 ];
 const haystack = [
   ...globSync('docs/**/*.md', { cwd: ROOT }),
@@ -351,7 +357,7 @@ for (const { rel, text } of haystack) {
       const file = m[1];
       if (capturedFiles.has(file)) continue;
       if (generatedAssets.has(file) && existsSync(join(PUBLIC_DIR, file))) continue;
-      if (/\.(webm|mp4|webp)$/.test(file)) {
+      if (/\.(webm|mp4|webp|avif)$/.test(file)) {
         if (!existsSync(join(PUBLIC_DIR, file))) missingRefs.set(file, rel);
         continue;
       }
@@ -378,7 +384,7 @@ for (const [label, dir] of [
   ['public/screenshots', PUBLIC_DIR],
   ['docs/screenshots/product', DOCS_DIR],
 ]) {
-  for (const file of globSync('*.{png,webp}', { cwd: dir })) {
+  for (const file of globSync('*.{png,webp,avif}', { cwd: dir })) {
     if (capturedFiles.has(file) || generatedAssets.has(file)) continue;
     if (/^debug-/.test(file)) {
       // A diagnostic dump from a VARVE_SHOT_DEBUG run. Since 2026-09-29 the

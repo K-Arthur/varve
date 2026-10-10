@@ -8,6 +8,11 @@ import { expect, test } from '@playwright/test';
  */
 async function waitForImages(page: import('@playwright/test').Page) {
   await page.evaluate(() => document.fonts.ready);
+  const bodyFamily = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+  expect(
+    bodyFamily,
+    'latin webfonts must apply on first paint (preload + font-display: optional)',
+  ).toMatch(/IBM Plex Sans Variable|Geist Variable/);
   await page.evaluate(() => {
     for (const img of document.images) img.loading = 'eager';
   });

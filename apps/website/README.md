@@ -12,6 +12,7 @@ documentation, downloads, and community.
   ranking in `src/lib/search/` with no runtime dependency
 - **Deployment**: GitHub Pages via `.github/workflows/website-deploy.yml`
 - **Testing**: Vitest unit tests (`src/test/`), Playwright E2E (`tests/e2e/`)
+- **Lighthouse CI**: `apps/website/lighthouserc.cjs` + `.github/workflows/website-lighthouse.yml` against the built dist; optional live report after deploy smoke. `LHCI_BASE_URL` retargets the same config at https://varve.studio.
 
 ## Running
 

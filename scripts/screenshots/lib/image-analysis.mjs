@@ -224,9 +224,96 @@ export function readWebpInfo(buf) {
   return null;
 }
 
+function readIsoBox(buf, offset) {
+  if (offset + 8 > buf.length) return null;
+  let size = buf.readUInt32BE(offset);
+  const type = buf.toString('latin1', offset + 4, offset + 8);
+  let header = 8;
+  if (size === 1) {
+    if (offset + 16 > buf.length) return null;
+    const extended = buf.readBigUInt64BE(offset + 8);
+    if (extended > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+    size = Number(extended);
+    header = 16;
+  } else if (size === 0) {
+    size = buf.length - offset;
+  }
+  if (size < header) return null;
+  const end = Math.min(offset + size, buf.length);
+  return {
+    type,
+    size,
+    header,
+    payloadStart: offset + header,
+    payloadEnd: end,
+    truncated: offset + size > buf.length,
+  };
+}
+
+function walkIsoBoxes(buf, start, end, visit) {
+  let offset = start;
+  while (offset + 8 <= end) {
+    const box = readIsoBox(buf, offset);
+    if (!box) break;
+    visit(box);
+    if (box.truncated || box.size === 0) break;
+    offset += box.size;
+  }
+}
+
 /**
- * Format-agnostic structural check for the two formats the pipeline emits.
- * PNG gets the full chunk/CRC/inflate treatment; WebP gets a container read.
+ * AVIF dimensions from the ISO-BMFF `ispe` box.
+ *
+ * The pipeline writes AVIF derivatives with the browser encoder. This only
+ * needs the container's declared width/height — it does not decode pixels.
+ */
+export function readAvifInfo(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 16) return null;
+  const ftyp = readIsoBox(buf, 0);
+  if (ftyp?.type !== 'ftyp') return null;
+  const brands = buf.toString('latin1', ftyp.payloadStart, ftyp.payloadEnd);
+  if (!brands.includes('avif') && !brands.includes('avis')) return null;
+
+  let width = 0;
+  let height = 0;
+  let truncated = ftyp.truncated;
+  const visit = (box) => {
+    if (box.truncated) truncated = true;
+    if (box.type === 'meta' || box.type === 'iprp' || box.type === 'ipco') {
+      const innerStart = box.type === 'meta' ? box.payloadStart + 4 : box.payloadStart;
+      walkIsoBoxes(buf, innerStart, box.payloadEnd, visit);
+      return;
+    }
+    if (box.type === 'ispe' && box.payloadEnd - box.payloadStart >= 12) {
+      width = buf.readUInt32BE(box.payloadStart + 4);
+      height = buf.readUInt32BE(box.payloadStart + 8);
+    }
+  };
+  walkIsoBoxes(buf, 0, buf.length, visit);
+  return { format: 'avif', width, height, truncated: truncated || width === 0 || height === 0 };
+}
+
+function emptyAnalysis(format, errors) {
+  return {
+    valid: false,
+    format,
+    width: 0,
+    height: 0,
+    bitDepth: 0,
+    colorType: 0,
+    channels: 0,
+    chunkCount: 0,
+    inflatedBytes: 0,
+    distinctByteValues: 0,
+    uniform: false,
+    errors,
+  };
+}
+
+/**
+ * Format-agnostic structural check for the formats the pipeline emits.
+ * PNG gets the full chunk/CRC/inflate treatment; WebP and AVIF get a
+ * container read of the declared dimensions.
  */
 export function analyseImage(buf, options) {
   const png = readPngChunks(buf);
@@ -254,18 +341,25 @@ export function analyseImage(buf, options) {
       errors,
     };
   }
-  return {
-    valid: false,
-    format: null,
-    width: 0,
-    height: 0,
-    bitDepth: 0,
-    colorType: 0,
-    channels: 0,
-    chunkCount: 0,
-    inflatedBytes: 0,
-    distinctByteValues: 0,
-    uniform: false,
-    errors: ['not a PNG or WebP'],
-  };
+  const avif = readAvifInfo(buf);
+  if (avif) {
+    const errors = [];
+    if (avif.width === 0 || avif.height === 0) errors.push('zero AVIF dimensions');
+    if (avif.truncated) errors.push('AVIF container is truncated or missing an ispe box');
+    return {
+      valid: errors.length === 0,
+      format: 'avif',
+      width: avif.width,
+      height: avif.height,
+      bitDepth: 0,
+      colorType: 0,
+      channels: 0,
+      chunkCount: 0,
+      inflatedBytes: 0,
+      distinctByteValues: 0,
+      uniform: false,
+      errors,
+    };
+  }
+  return emptyAnalysis(null, ['not a PNG, WebP, or AVIF']);
 }

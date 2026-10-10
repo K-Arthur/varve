@@ -103,6 +103,8 @@ npm-debug.log*
 test-results/
 test-results-*/
 playwright-report/
+# Lighthouse CI local/CI reports (HTML + JSON). Never commit them.
+.lighthouseci/
 # Scratch recordings from scripts/capture — the delivered clips live in docs/
 .capture-tmp/
 visual-diff-report/

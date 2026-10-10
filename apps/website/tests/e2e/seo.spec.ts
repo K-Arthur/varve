@@ -99,6 +99,13 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
           document
             .querySelector('link[rel="alternate"][type="text/plain"]')
             ?.getAttribute('href') ?? null,
+        fontPreloads: [...document.querySelectorAll('link[rel="preload"][as="font"]')].map(
+          (el) => ({
+            href: el.getAttribute('href') ?? '',
+            type: el.getAttribute('type'),
+            crossorigin: el.getAttribute('crossorigin'),
+          }),
+        ),
         ldJson,
         ldTypes: ldJson.map((s) => s['@type']),
       };
@@ -118,6 +125,25 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
 
     expect(meta.robots, `${route}: robots`).toBe('index, follow');
     expect(meta.canonical, `${route}: canonical`).not.toBeNull();
+    expect(meta.fontPreloads, `${route}: latin variable font preloads`).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          href: expect.stringContaining('geist-latin-wght-normal'),
+          type: 'font/woff2',
+          crossorigin: 'anonymous',
+        }),
+        expect.objectContaining({
+          href: expect.stringContaining('ibm-plex-sans-latin-wght-normal'),
+          type: 'font/woff2',
+          crossorigin: 'anonymous',
+        }),
+        expect.objectContaining({
+          href: expect.stringContaining('fraunces-latin-opsz-normal'),
+          type: 'font/woff2',
+          crossorigin: 'anonymous',
+        }),
+      ]),
+    );
 
     const canonical = new URL(meta.canonical!);
     expect(KNOWN_ORIGINS, `${route}: canonical origin`).toContain(canonical.origin);

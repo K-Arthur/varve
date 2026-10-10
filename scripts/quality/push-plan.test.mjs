@@ -424,6 +424,78 @@ try {
   assert.ok(history.historyFindings.some((finding) => finding.kind === 'secret'));
   assert.equal(history.status, 'blocked');
 
+  // Merging the remote default branch into an existing feature ref must not
+  // treat already-landed default-branch trailers as this push's history.
+  git(['switch', '-q', '-c', 'merge-master-trailer', base]);
+  const featureBase = writeCommit('feature.txt', 'leaf\n', 'feature work');
+  git(['update-ref', 'refs/remotes/origin/merge-master-trailer', featureBase]);
+  git(['switch', '-q', 'master']);
+  git(['reset', '-q', '--hard', base]);
+  const masterWithTrailer = writeCommit(
+    'master-copy.txt',
+    'accepted\n',
+    'master copy\n\nCo-authored-by: Cursor Agent <cursoragent@cursor.com>\n',
+  );
+  git(['update-ref', 'refs/remotes/origin/master', masterWithTrailer]);
+  git(['switch', '-q', 'merge-master-trailer']);
+  git(['merge', '-q', '--no-ff', '-m', 'Merge origin/master into merge-master-trailer', 'master']);
+  const mergedHead = git(['rev-parse', 'HEAD']);
+  const mergedMaster = buildPushPlan(
+    [
+      {
+        localRef: 'refs/heads/merge-master-trailer',
+        localSha: mergedHead,
+        remoteRef: 'refs/heads/merge-master-trailer',
+        remoteSha: featureBase,
+      },
+    ],
+    {
+      git: createGitAdapter(repo),
+      cwd: repo,
+      root: repo,
+      remote: 'origin',
+      policyHash,
+      planBuilder: fakePlanner,
+    },
+  );
+  assert.ok(
+    mergedMaster.union.outgoingCommits.includes(masterWithTrailer),
+    'the default-branch commit is still outgoing relative to the stale feature tip',
+  );
+  assert.equal(mergedMaster.historyFindings.length, 0);
+  assert.equal(mergedMaster.status, 'ready');
+
+  const dirtyOwnTrailer = writeCommit(
+    'own-trailer.txt',
+    'new\n',
+    'own work\n\nCo-authored-by: Cursor Agent <cursoragent@cursor.com>\n',
+  );
+  const ownTrailer = buildPushPlan(
+    [
+      {
+        localRef: 'refs/heads/merge-master-trailer',
+        localSha: dirtyOwnTrailer,
+        remoteRef: 'refs/heads/merge-master-trailer',
+        remoteSha: featureBase,
+      },
+    ],
+    {
+      git: createGitAdapter(repo),
+      cwd: repo,
+      root: repo,
+      remote: 'origin',
+      policyHash,
+      planBuilder: fakePlanner,
+    },
+  );
+  assert.ok(
+    ownTrailer.historyFindings.some(
+      (finding) =>
+        finding.rule === 'prohibited-commit-trailer' && finding.commit === dirtyOwnTrailer,
+    ),
+  );
+  assert.equal(ownTrailer.status, 'blocked');
+
   // NUL-delimited rename/copy/type records preserve paths with whitespace and
   // never turn a pathname into shell syntax.
   const records = parseNameStatusZ(

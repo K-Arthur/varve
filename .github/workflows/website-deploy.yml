@@ -436,3 +436,60 @@ jobs:
       # canonicalizes to the wrong host is a failed deploy.
       - name: Smoke check the live deployment
         run: node scripts/website/smoke-pages.mjs "${{ steps.deployment.outputs.page_url }}" --expect-origin https://varve.studio
+
+  # Report-only live Lighthouse after a successful smoke check. This job
+  # checks out the trusted workflow ref and fetches https://varve.studio —
+  # it must not install or execute the deployed source_sha. Failures here
+  # must not roll back a successful deploy.
+  lighthouse-live:
+    name: Lighthouse report (live, non-blocking)
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    timeout-minutes: 15
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install Lighthouse report dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium for Lighthouse
+        run: pnpm exec playwright install chromium
+
+      - name: Lighthouse report (live, non-blocking)
+        env:
+          LHCI_BASE_URL: https://varve.studio
+          LHCI_FORM_FACTOR: mobile
+          LHCI_NUMBER_OF_RUNS: '1'
+          LHCI_REPORT_ONLY: '1'
+        run: |
+          export CHROME_PATH
+          CHROME_PATH="$(node -e "const {chromium}=require('playwright'); console.log(chromium.executablePath())")"
+          test -n "$CHROME_PATH"
+          test -x "$CHROME_PATH"
+          npx --yes @lhci/cli@0.15.1 autorun --config=apps/website/lighthouserc.cjs
+
+      - name: Upload live Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: website-lighthouse-live-${{ github.sha }}-${{ github.run_id }}
+          path: .lighthouseci/mobile/
+          if-no-files-found: ignore
+          retention-days: 14

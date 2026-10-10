@@ -3,10 +3,12 @@ import path from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
+  analyseImage,
   analysePng,
   buffersEqual,
   crc32,
   pngDimensions,
+  readAvifInfo,
   readPngChunks,
 } from '../../../../scripts/screenshots/lib/image-analysis.mjs';
 
@@ -140,6 +142,41 @@ describe('image analysis', () => {
     expect(a.length).toBe(b.length);
     expect(buffersEqual(a, b)).toBe(false);
     expect(buffersEqual(a, Buffer.from('aaaa'))).toBe(true);
+  });
+
+  it('reads AVIF dimensions from the ispe box', () => {
+    const box = (type: string, payload: Buffer): Buffer => {
+      const out = Buffer.alloc(8 + payload.length);
+      out.writeUInt32BE(out.length, 0);
+      out.write(type, 4, 'latin1');
+      payload.copy(out, 8);
+      return out;
+    };
+    const ftyp = box(
+      'ftyp',
+      Buffer.concat([
+        Buffer.from('avif', 'latin1'),
+        Buffer.alloc(4),
+        Buffer.from('avif', 'latin1'),
+      ]),
+    );
+    const ispePayload = Buffer.alloc(12);
+    ispePayload.writeUInt32BE(640, 4);
+    ispePayload.writeUInt32BE(480, 8);
+    const avif = Buffer.concat([
+      ftyp,
+      box(
+        'meta',
+        Buffer.concat([Buffer.alloc(4), box('iprp', box('ipco', box('ispe', ispePayload)))]),
+      ),
+    ]);
+    expect(readAvifInfo(avif)).toMatchObject({ format: 'avif', width: 640, height: 480 });
+    expect(analyseImage(avif)).toMatchObject({
+      valid: true,
+      format: 'avif',
+      width: 640,
+      height: 480,
+    });
   });
 
   it('rejects every committed captured screenshot that does not decode', () => {

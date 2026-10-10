@@ -93,8 +93,9 @@ test.describe('screenshot delivery', () => {
       nw: (element as HTMLImageElement).naturalWidth,
       nh: (element as HTMLImageElement).naturalHeight,
     }));
-    expect(Number(reserved.w)).toBe(reserved.nw);
-    expect(Number(reserved.h)).toBe(reserved.nh);
+    expect(Number(reserved.w)).toBeGreaterThan(0);
+    expect(Number(reserved.h)).toBeGreaterThan(0);
+    expect(Number(reserved.w) / Number(reserved.h)).toBeCloseTo(reserved.nw / reserved.nh, 2);
 
     const details = showcase.locator('.showcase-detail');
     const count = await details.count();
@@ -126,7 +127,16 @@ test.describe('screenshot delivery', () => {
             'The curated shared-workflow scene is missing from the screenshot manifest',
           );
         }
-        expect(contentFit.currentSrc).toContain(workflowScene.file);
+        const allowedSources = [
+          workflowScene.file,
+          ...((workflowScene as { variants?: { file: string }[] }).variants ?? []).map(
+            (variant) => variant.file,
+          ),
+        ];
+        expect(
+          allowedSources.some((file) => contentFit.currentSrc.includes(file)),
+          `shared-workflow currentSrc ${contentFit.currentSrc} must be the capture or a declared variant`,
+        ).toBe(true);
         expect(
           Math.abs(contentFit.imageRatio - 4 / 3),
           'the shared-workflow card uses its curated landscape crop, not a full-height editor frame',

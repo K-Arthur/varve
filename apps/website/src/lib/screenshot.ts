@@ -25,6 +25,14 @@ export interface SceneVariant {
   sha256?: string;
 }
 
+export type VariantImageType = 'image/avif' | 'image/webp';
+
+export interface PictureSource {
+  type: VariantImageType;
+  srcset: string;
+  sizes?: string;
+}
+
 export interface ScreenshotScene {
   file: string;
   alt: string;
@@ -85,6 +93,7 @@ export function sceneFitStyle(scene: ScreenshotScene, fit: 'scene' | 'contain' =
 
 export interface PictureAttributes {
   src: string;
+  sources: PictureSource[];
   srcset?: string;
   sizes?: string;
   type?: string;
@@ -96,13 +105,51 @@ export interface PictureAttributes {
   fetchpriority: 'high' | 'auto' | 'low';
 }
 
+const SOURCE_TYPE_ORDER: VariantImageType[] = ['image/avif', 'image/webp'];
+
+/** MIME type for a generated screenshot derivative, or `null` for the PNG source. */
+export function variantImageType(file: string): VariantImageType | null {
+  if (file.endsWith('.avif')) return 'image/avif';
+  if (file.endsWith('.webp')) return 'image/webp';
+  return null;
+}
+
+/**
+ * Prefix every `srcset` URL with the site base path.
+ *
+ * Variant `srcset` values are root-relative (`/screenshots/...`). The Pages
+ * project-site build serves under `/varve`, so those URLs must go through
+ * `sitePath` the same way the `<img src>` does.
+ */
+export function qualifySrcset(srcset: string, qualify: (url: string) => string): string {
+  return srcset
+    .split(',')
+    .map((part) => {
+      const trimmed = part.trim();
+      const descriptor = trimmed.match(/\s+(\d+w|\d+(?:\.\d+)?x)$/);
+      if (!descriptor || descriptor.index === undefined) return qualify(trimmed);
+      const url = trimmed.slice(0, descriptor.index);
+      return `${qualify(url)} ${descriptor[1]}`;
+    })
+    .join(', ');
+}
+
+function srcsetFor(variants: SceneVariant[]): string {
+  return variants
+    .slice()
+    .sort((left, right) => left.width - right.width)
+    .map((variant) => `/screenshots/${variant.file} ${variant.width}w`)
+    .join(', ');
+}
+
 /**
  * `srcset`/`sizes` from the *measured* component layout.
  *
- * Width descriptors come from the real variant files; the intrinsic capture is
- * always the largest entry. A scene with no generated variants returns no
- * `srcset` at all, so the browser downloads exactly one file rather than
- * guessing from a placeholder.
+ * Width descriptors come from the real variant files, grouped by format so
+ * `<picture>` can offer AVIF then WebP. The PNG capture stays the `<img>`
+ * fallback and is never mixed into a compressed `srcset`. A scene with no
+ * generated variants returns no sources, so the browser downloads exactly
+ * one file rather than guessing from a placeholder.
  */
 export function scenePicture(
   scene: ScreenshotScene,
@@ -115,18 +162,26 @@ export function scenePicture(
   const width = scene.width ?? 1440;
   const height = scene.height ?? 900;
   const variants = (scene.variants ?? []).filter((variant) => variant.width <= width);
-  const candidates = [
-    ...variants.map((variant) => ({ url: `/screenshots/${variant.file}`, width: variant.width })),
-    { url: `/screenshots/${scene.file}`, width },
-  ];
-  const srcset =
-    variants.length > 0
-      ? candidates.map((candidate) => `${candidate.url} ${candidate.width}w`).join(', ')
-      : undefined;
+  const byType = new Map<VariantImageType, SceneVariant[]>();
+  for (const variant of variants) {
+    const type = variantImageType(variant.file);
+    if (!type) continue;
+    const list = byType.get(type) ?? [];
+    list.push(variant);
+    byType.set(type, list);
+  }
+  const sources: PictureSource[] = [];
+  for (const type of SOURCE_TYPE_ORDER) {
+    const list = byType.get(type);
+    if (!list?.length) continue;
+    sources.push({ type, srcset: srcsetFor(list), sizes });
+  }
+  const webp = sources.find((source) => source.type === 'image/webp');
   return {
     src: `/screenshots/${scene.file}`,
-    srcset,
-    sizes: srcset ? sizes : undefined,
+    sources,
+    srcset: webp?.srcset,
+    sizes: sources.length > 0 ? sizes : undefined,
     width,
     height,
     alt: scene.alt,

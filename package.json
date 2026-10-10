@@ -95,6 +95,7 @@
     "capture:all": "node scripts/capture/workflow.mjs --all",
     "capture:encode": "node scripts/capture/encode-workflows.mjs",
     "capture:verify": "node scripts/capture/verify-workflows.mjs",
+    "screenshots:variants": "node scripts/screenshots/variants.mjs",
     "screenshots:website": "pnpm build:website && node scripts/screenshots/validate.mjs",
     "screenshots:update": "pnpm screenshots:product && pnpm screenshots:og && pnpm screenshots:workflow && pnpm screenshots:website -- --strict",
     "test:website": "vitest run apps/website/src/test",

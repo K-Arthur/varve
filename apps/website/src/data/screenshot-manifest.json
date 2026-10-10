@@ -33,7 +33,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-05T01-44-03-574Z-3180173",
         "promotedAt": "2026-10-05T01:49:52.868Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "workspace-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "5e2b13e5810d401fc80a0047b34b64aeee794563ae860158ddfac3a260f914c0"
+        },
+        {
+          "file": "workspace-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "8e650304e03d1b55a6c460f06999c831328c57af4abe20b6627c9bb1506c87d7"
+        },
+        {
+          "file": "workspace-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "af0ea47982f66ecc1790a2e082c4e8c73b9de77a357af6f39876cdc103d5e048"
+        },
+        {
+          "file": "workspace-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "cd548ca108b5aa03e72bbb8ae95e2b7f10f445b11babfc65ba86e6382951b5be"
+        }
+      ]
     },
     "workspace-dark": {
       "file": "workspace-dark.png",
@@ -65,7 +91,33 @@
         "theme": "dark",
         "promotedFrom": "2026-10-05T01-44-03-574Z-3180173",
         "promotedAt": "2026-10-05T01:49:52.869Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "workspace-dark-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "2e72d3a5121686c822e20d8e11d0b024f20311f680eac49c33fc9d9ac68928c8"
+        },
+        {
+          "file": "workspace-dark-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "8ed38998ba6e55d9406671a0ddbdfcbce40c9321d3eb082409061a78d92f41ae"
+        },
+        {
+          "file": "workspace-dark-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "afb6a15fed5f753db2ba8bb9780ff4aa33157939f3e9eb740f1e0f9a59485057"
+        },
+        {
+          "file": "workspace-dark-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "f485e4a9e3b35d04b580058d3d14597903b3a49fc9a9f120e9d9cfff3536cc91"
+        }
+      ]
     },
     "vector": {
       "file": "vector-light.png",
@@ -103,7 +155,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-05T02-12-26-613Z-3207442",
         "promotedAt": "2026-10-05T02:14:08.474Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "vector-light-720.webp",
+          "width": 720,
+          "height": 650,
+          "sha256": "ce126fb20d8da58bef6a51a9b05a688ab841b08c37f0017d83fa4285db10984a"
+        },
+        {
+          "file": "vector-light-720.avif",
+          "width": 720,
+          "height": 650,
+          "sha256": "b85509c874f0d969c2d18c62c181b1ca4bda4f116addd98cca6ceaeee94fa7e4"
+        },
+        {
+          "file": "vector-light-776.webp",
+          "width": 776,
+          "height": 701,
+          "sha256": "0b30cd629da1f995be36c6522a5d712d15496b69234cfba46b9138b4838fb747"
+        },
+        {
+          "file": "vector-light-776.avif",
+          "width": 776,
+          "height": 701,
+          "sha256": "2e7502bff4f02b99937e2d89697f75e84d4d1a0f70dafdfca69a7614c4adbe64"
+        }
+      ]
     },
     "comic-lettering": {
       "file": "comic-lettering-light.png",
@@ -139,7 +217,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-05T02-14-24-714Z-3208302",
         "promotedAt": "2026-10-05T02:14:35.168Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "comic-lettering-light-720.webp",
+          "width": 720,
+          "height": 405,
+          "sha256": "66539ee1ee720d89fa04ef44f91e83f287200148b200581764082d897cfb5bd6"
+        },
+        {
+          "file": "comic-lettering-light-720.avif",
+          "width": 720,
+          "height": 405,
+          "sha256": "fe32043777e9389711608bf78f3748b3ed7267b65053f6d2daf0467cf9733072"
+        },
+        {
+          "file": "comic-lettering-light-1280.webp",
+          "width": 1280,
+          "height": 720,
+          "sha256": "785c70e4e4a7d1f724d8f0658e657e6a08d91c3e9c7f1fc61a44b61f6f865505"
+        },
+        {
+          "file": "comic-lettering-light-1280.avif",
+          "width": 1280,
+          "height": 720,
+          "sha256": "15de6ef04e00cb31c91ad335c2eac5b9e87d2a8552308eafd4ff3776c5de8692"
+        }
+      ]
     },
     "typography": {
       "file": "typography-light.png",
@@ -177,7 +281,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.183Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "typography-light-720.webp",
+          "width": 720,
+          "height": 627,
+          "sha256": "b1ac4f4c629fdef5c6c1cdc99da13946d5c2785b52591b20f413ab35505c600a"
+        },
+        {
+          "file": "typography-light-720.avif",
+          "width": 720,
+          "height": 627,
+          "sha256": "453c90f2c0ff3c6a1adc63732b5635a1159cd29da16a0d123c5e98732f790940"
+        },
+        {
+          "file": "typography-light-832.webp",
+          "width": 832,
+          "height": 724,
+          "sha256": "1b549a8fd2344ed898cea83791702863cd59aad94a5121239b227b6f6cb9ef42"
+        },
+        {
+          "file": "typography-light-832.avif",
+          "width": 832,
+          "height": 724,
+          "sha256": "78cbcfd471b2b04bf2ac5a53116375f4627062ce05fa609db86f2a0dfbe27629"
+        }
+      ]
     },
     "motion": {
       "file": "motion-dark.png",
@@ -209,7 +339,33 @@
         "theme": "dark",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.185Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "motion-dark-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "2328c6da9b7d561b85feb9ffed82f2b0ed77b921876a3beacc86cad17ebeada6"
+        },
+        {
+          "file": "motion-dark-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "605207924b5915965d7ce7aaf338488e50f6cf464ae127b43527f4a5d6f67f0e"
+        },
+        {
+          "file": "motion-dark-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "4cc89721cddce8ebe9ac47ce94650c2176e4b30a04b9e014ab8f1ad17b3ee6b8"
+        },
+        {
+          "file": "motion-dark-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "a6ae17f6331a551a8a53e0b2174c0cf4fa82dc482ac8a331091739d525d3ca9c"
+        }
+      ]
     },
     "layout": {
       "file": "layout-light.png",
@@ -241,7 +397,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.186Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "layout-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "9cd2f7cb6acb36f9e95e7c1236b4463d203dfcdf5bee4f67ce6ad069b5fa1e0b"
+        },
+        {
+          "file": "layout-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "2e9cefe05cd15a5d54745d2e08e9c525e08336935a601de6c9bb923c7193f746"
+        },
+        {
+          "file": "layout-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "3d0add18dcdd13a23810767ac1455e34674124ac5eab12682c16b8ab06948ce2"
+        },
+        {
+          "file": "layout-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "9205fd4231d859c6912df58f81bb1801ba7d9f5a275832b59a302eccc0cbd3d1"
+        }
+      ]
     },
     "typography-panel": {
       "file": "typography-panel-light.png",
@@ -279,7 +461,21 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.188Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "typography-panel-light-293.webp",
+          "width": 293,
+          "height": 692,
+          "sha256": "c9b9e30afb2e953abab7d98d6164e14f8d0a78d281680660ecc49998a3df3aad"
+        },
+        {
+          "file": "typography-panel-light-293.avif",
+          "width": 293,
+          "height": 692,
+          "sha256": "dbbb5445e492cdb6995c20773782c270f8c22b37a683e13c886f58df62574cc6"
+        }
+      ]
     },
     "layers": {
       "file": "layers-light.png",
@@ -321,7 +517,21 @@
         "promotedFrom": "2026-10-05T01-44-03-574Z-3180173",
         "promotedAt": "2026-10-05T01:49:52.872Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "layers-light-317.webp",
+          "width": 317,
+          "height": 539,
+          "sha256": "574cdd26feecdc36f2a4675649234033c9a1033a649c550137607fd5fe660ef9"
+        },
+        {
+          "file": "layers-light-317.avif",
+          "width": 317,
+          "height": 539,
+          "sha256": "c82f347d1a4baca9d0268144af416200029097f410b39fa4bab7350717adb573"
+        }
+      ]
     },
     "palette-inspector": {
       "file": "palette-inspector-light.png",
@@ -353,7 +563,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.190Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "palette-inspector-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "b0498a2ab79a5785052a2389c6905627ccfaf446cc5c8632213b5b6c00aad5cb"
+        },
+        {
+          "file": "palette-inspector-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "e93a2ce822323432ee2bd0be4f23cab5a9d8b75c95b32294c0bee92d58df6dd6"
+        },
+        {
+          "file": "palette-inspector-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "2681114fea4d25bff7cc150eaa60a3fc11923660e142002e078c6379eac021d1"
+        },
+        {
+          "file": "palette-inspector-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "7fdd7004c7b745db08597e5c0dc677b5980e4020d04ce2b02bb39bb5a12bbaa1"
+        }
+      ]
     },
     "enhance-dialog-auto": {
       "file": "enhance-dialog-auto.png",
@@ -385,7 +621,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.192Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "enhance-dialog-auto-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "add14f726d6408d4204cabc12e3de771fdccb22662ca70e0a154342c6dba2d66"
+        },
+        {
+          "file": "enhance-dialog-auto-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "37b0c1945fa79e8694a38a20dee849de396383bc091e0df6ccdf3cc99920478a"
+        },
+        {
+          "file": "enhance-dialog-auto-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "d3f226b8d2b55db0a2cbe162137a15f3e794694b0af0b15e51f892faa990ba82"
+        },
+        {
+          "file": "enhance-dialog-auto-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "42d9fd85a24ba00f8069abe93082d72a931c505e752f8f16aa05f94222e07b14"
+        }
+      ]
     },
     "export": {
       "file": "export-dialog-light.png",
@@ -417,7 +679,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.193Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "export-dialog-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "2f02ba3d055fe7ae8484f3350c2caa22836b0084dae0abf73e34aebb6c4d9cbd"
+        },
+        {
+          "file": "export-dialog-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "5dbbbee0311fd7f316f3b71708630312464199abbc9431631b7e962a16313252"
+        },
+        {
+          "file": "export-dialog-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "39213ff35bf7cafaf3a09b9403ca886b5b4ac3fe2c6bc5f15c40b9ffc20f9428"
+        },
+        {
+          "file": "export-dialog-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "761895259542cf042d00e325e644ebee8c875bd2f014ad921acc1f62919c23ef"
+        }
+      ]
     },
     "print-production": {
       "file": "print-production-light.png",
@@ -449,7 +737,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.211Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "print-production-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "3f06c7f795bdbbe1ae61a4fe0191fcd273029039c5e991aec9e2bff25df5671d"
+        },
+        {
+          "file": "print-production-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "0c1c30966fa0dc92c2a2f9516320d798eeef0a581839a5ef54d3ea8b1ec52b9e"
+        },
+        {
+          "file": "print-production-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "ac208d686e825bd77e334a4dac91c56a7d2b5c436220766c14ec5ffdd1ced2a2"
+        },
+        {
+          "file": "print-production-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "84575ba73e29772ef506118a7464ec47991f7dc3de43371aab25018f1dcf7ac8"
+        }
+      ]
     },
     "vectorize": {
       "file": "vectorize-dialog-light.png",
@@ -481,7 +795,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.194Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "vectorize-dialog-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "9b4180090462a1ac9a2d9478e0c1e036aaaf54061b821d897d9c7a5a01af1aa6"
+        },
+        {
+          "file": "vectorize-dialog-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "42629f6d7d744ef06968d28d39920b82c7203cf04e70a5a8ad1286eb2bf75604"
+        },
+        {
+          "file": "vectorize-dialog-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "69221aa4425b7738ac7b95cc070bcd37274fade8a28feea6eb20d166bfd80d31"
+        },
+        {
+          "file": "vectorize-dialog-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "ffee044b4d1abde1382c1757d82bdaceae71f3aaf0d51e66bd832d26bf218c4a"
+        }
+      ]
     },
     "workspaces": {
       "file": "workspaces-light.png",
@@ -513,7 +853,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-04T14-19-18-944Z-2787694",
         "promotedAt": "2026-10-04T14:25:48.522Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "workspaces-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "34bfb34b1b8d654b4296249beeb6c5c70f02fc6876edd5a6f3d8bc651f67d1c8"
+        },
+        {
+          "file": "workspaces-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "0dadcee0ab161b0dcbdfc065b4bf46c7afe9643537898be48186acde22f0aa72"
+        },
+        {
+          "file": "workspaces-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "82fadf7840d4ca2a9839416adcd263ef08cc5a9e980139316290a8fc6b4cd20a"
+        },
+        {
+          "file": "workspaces-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "ca8407a770fb6022ff3ffa8cd6667dd0af163d9f8891a9b231474c9e90539c15"
+        }
+      ]
     },
     "image-tools": {
       "file": "image-tools-panel-light.png",
@@ -551,7 +917,21 @@
         "theme": "light",
         "promotedFrom": "2026-10-05T01-44-03-574Z-3180173",
         "promotedAt": "2026-10-05T01:49:52.872Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "image-tools-panel-light-349.webp",
+          "width": 349,
+          "height": 692,
+          "sha256": "24caca84a22f2cba65de55382cb5a7bcbb4b0513f84748bc17c599d0b301c82b"
+        },
+        {
+          "file": "image-tools-panel-light-349.avif",
+          "width": 349,
+          "height": 692,
+          "sha256": "422e7bfd0db1947d9bd82e493ee90086fb60d5480e3904a84aacb076d7a032bd"
+        }
+      ]
     },
     "effects": {
       "file": "effects-light.png",
@@ -583,7 +963,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.196Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "effects-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "e0a9e5a6d005de99ea0d3afe2df2503a87095ee2d33b298f4aaa39513078d29b"
+        },
+        {
+          "file": "effects-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "27b8baa4081b2d36143eb53c66c215f3a14faee74c57f153415a0791e41e9d06"
+        },
+        {
+          "file": "effects-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "a71e6925b7bb4c51b371fca8723f04fe0f204880e8da2c9cebd9703c7a552922"
+        },
+        {
+          "file": "effects-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "2af964bc16c647491072be9e58e2b33612a3afcc59e4efaaf71b975267cf2aad"
+        }
+      ]
     },
     "background-removal": {
       "file": "background-removal-light.png",
@@ -615,7 +1021,33 @@
         "theme": "light",
         "promotedFrom": "release-0.5.0-combined-review",
         "promotedAt": "2026-10-03T00:56:27.177Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "background-removal-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "b0c6dac2d8fd3aa50621613ab513d102de8703b6cbc52feff61b9a6119ce526b"
+        },
+        {
+          "file": "background-removal-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "d55835ee05c6bd2452678b73438bcea158fc9f563db48acd4b7277cd1c7fe3d6"
+        },
+        {
+          "file": "background-removal-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "cb02cf3ecce32628174169468363815737272f90459255f818303fa6a250212c"
+        },
+        {
+          "file": "background-removal-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "9e4ed436a17ac99cb4cd28fea41f00069b14af5cc094190191b3f003d1964728"
+        }
+      ]
     },
     "depth-blur": {
       "file": "depth-blur-light.png",
@@ -647,7 +1079,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T03-58-32-219Z-1272927",
         "promotedAt": "2026-10-03T04:00:14.024Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "depth-blur-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "cd3d8d49093c237e49738db894c36a51932a930302aadc0b534fbfd86cccd0cb"
+        },
+        {
+          "file": "depth-blur-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "5a1ed9c88d78ed634d975e6f6bda1276d3d73e785809e4b96f38b6a6d4fd5c85"
+        },
+        {
+          "file": "depth-blur-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "97ae50bb53b5fe24d35e7d46378858b84bf2ad2b25a3b1cdd17dcbf9b34393c3"
+        },
+        {
+          "file": "depth-blur-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "58346500cd5f41a2311c9087df491d6f6b648d88f58d11a34394b763bc2c63ac"
+        }
+      ]
     },
     "solid-picker": {
       "file": "solid-picker-light.png",
@@ -679,7 +1137,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.198Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "solid-picker-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "189884636076d9d6c787c506fad15155cc409ba25e6ecc0c2fd11122b4567bfc"
+        },
+        {
+          "file": "solid-picker-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "58edd9dbe787df9328d90bab9283826e96b161e8dcc285f97eadd7c063342b13"
+        },
+        {
+          "file": "solid-picker-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "f480008481b4e27a5a3a56e66cae913e190635e0f72a0fa95a189173b915b467"
+        },
+        {
+          "file": "solid-picker-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "fac8739a2bf5cd62c3b0d9f1ae554078fc2da94d2a40c8113077e5629d06f239"
+        }
+      ]
     },
     "gradient-picker": {
       "file": "gradient-picker-light.png",
@@ -711,7 +1195,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.200Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "gradient-picker-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "9082dec670e16638ef40d6ac95bc6b53ecb184bb04ec1917e518c861aa46a628"
+        },
+        {
+          "file": "gradient-picker-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "1841ef8ebf949951260a8024dfed10e2ce9975b2a5362bf56dba8cb2becb1695"
+        },
+        {
+          "file": "gradient-picker-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "f7dd9638b503c275fb8677d77b778e35acd52c8ebb833dfefdc876cde8efd9fc"
+        },
+        {
+          "file": "gradient-picker-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "2851d875160c0e537307b938672a02b3a47f7ed31af0d4b7fe57c4982383a941"
+        }
+      ]
     },
     "font-toolbar": {
       "sha256": "33eca0107c8d9f12ef7f083a44d64e975f5564da88fb7eb96485412d035896f1",
@@ -743,7 +1253,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.200Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "font-toolbar-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "eeb8b8f821beb58ca8b3042f51637593249748f384da6b14188cb3fba64fe7a3"
+        },
+        {
+          "file": "font-toolbar-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "d7ea7bd14d4e18ac932823bd1ea33a4f7f5cac4720bc382ba8706c0c6d8d0436"
+        },
+        {
+          "file": "font-toolbar-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "2e5e8d5f7b89b5b09e76d13cfadce68f4693a35955334c35953c53313666a79e"
+        },
+        {
+          "file": "font-toolbar-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "738508baefb706f73dff701b7cd78e2694762d63b3254d009a90e352c8e33296"
+        }
+      ]
     },
     "font-browser": {
       "sha256": "66d457b5cda7f504379ed030dbbbc2668d8ccc78a37ddd45de7d573e8e4b5c3c",
@@ -775,7 +1311,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.200Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "font-browser-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "1115ac4a55544f06c93c282433b3976a3f8398e58558fb7121a7cbb6687a79a0"
+        },
+        {
+          "file": "font-browser-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "13a60e6b514d50e1679da5870eac70d1626a3cf568b2ef48f8cc245e3fa98696"
+        },
+        {
+          "file": "font-browser-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "288245410c197b5e74a0f342328d9a1918a6e92540489a5f0a5f33f2ba5c634b"
+        },
+        {
+          "file": "font-browser-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "d15d1bffe57d6cf841305e3bd97483bc6bc038f8179734a30eda2c8ba7aab73c"
+        }
+      ]
     },
     "guide-layouts": {
       "sha256": "eb9ace8d6b1dc51fcf64d257f52d07774039c9ec5898b250319b0d2377ccfc8b",
@@ -807,7 +1369,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T10-45-24-594Z-1566371",
         "promotedAt": "2026-10-03T11:28:22.178Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "guide-layouts-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "8491719dd1879123e5e5cd936ae8a9e28137f5ec3d0a6ef62e174bcddfda1161"
+        },
+        {
+          "file": "guide-layouts-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "25d480981d3c551dbc033b572fc7ed40775c0417fe1e13c46d14272f3f7d1258"
+        },
+        {
+          "file": "guide-layouts-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "756c2fa28aa7ddfbfec4dfa241020734648536c7e3c23d643bb9d750803a2f36"
+        },
+        {
+          "file": "guide-layouts-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "8665eaa9a4eacf062bbf7ce9378a512fea96d2f9f904ebb1e45dd3b9adc1bd83"
+        }
+      ]
     },
     "plugin-rename-preview": {
       "file": "plugins-rename-preview-light.png",
@@ -839,7 +1427,33 @@
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.283Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "plugins-rename-preview-light-720.webp",
+          "width": 720,
+          "height": 406,
+          "sha256": "45ceb581e79e352a784ae8a4ff17377badfcf35cca108e709ec9952dccd57416"
+        },
+        {
+          "file": "plugins-rename-preview-light-720.avif",
+          "width": 720,
+          "height": 406,
+          "sha256": "79760a9877e4c78a7fd1fdb2a584a7af0943366c59ad697042f4f3bbbd20fb3d"
+        },
+        {
+          "file": "plugins-rename-preview-light-1280.webp",
+          "width": 1280,
+          "height": 721,
+          "sha256": "38acde2608f89d2377dc30b3b360225f2c68efd094d29d449ab65537997df819"
+        },
+        {
+          "file": "plugins-rename-preview-light-1280.avif",
+          "width": 1280,
+          "height": 721,
+          "sha256": "a983f15462888d2155f86a1c2cec363d20f673a09c543fba9cdddfb58b6fd3e6"
+        }
+      ]
     },
     "plugin-permission-review": {
       "file": "plugins-permission-review-dark.png",
@@ -871,7 +1485,33 @@
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.284Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "plugins-permission-review-dark-720.webp",
+          "width": 720,
+          "height": 676,
+          "sha256": "fd8901c507c80a5c9f4b290b774cef7145abfb6c366e34137df3354d3292d0a4"
+        },
+        {
+          "file": "plugins-permission-review-dark-720.avif",
+          "width": 720,
+          "height": 676,
+          "sha256": "ea5a87bb5b70da6088c883e8cbebda30c3efcd1d0486fb37e622bb55c690e0c3"
+        },
+        {
+          "file": "plugins-permission-review-dark-1024.webp",
+          "width": 1024,
+          "height": 961,
+          "sha256": "df810d9b72beb195552f72115ab7642907d0541b8e134afda2bf0c41c17fd35f"
+        },
+        {
+          "file": "plugins-permission-review-dark-1024.avif",
+          "width": 1024,
+          "height": 961,
+          "sha256": "daf16791de2006759a9248095b8a402c17e6c84456f0bd5304dafa95aa5d4252"
+        }
+      ]
     },
     "plugin-inspector-analysis": {
       "file": "plugins-inspector-analysis-light.png",
@@ -903,7 +1543,33 @@
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.286Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "plugins-inspector-analysis-light-720.webp",
+          "width": 720,
+          "height": 406,
+          "sha256": "09d46f149f2bd2928b901bc018e197ceba25212e61fc5dcfab652466d43bf049"
+        },
+        {
+          "file": "plugins-inspector-analysis-light-720.avif",
+          "width": 720,
+          "height": 406,
+          "sha256": "bef12ebe34906a6e9d050bbdb61a5c705ec696bd715607b38a020de1037acf2b"
+        },
+        {
+          "file": "plugins-inspector-analysis-light-1280.webp",
+          "width": 1280,
+          "height": 721,
+          "sha256": "19deadbf3a911e0548133eb6e9e77e48faacc87009a5932a32ba80c758fb99a1"
+        },
+        {
+          "file": "plugins-inspector-analysis-light-1280.avif",
+          "width": 1280,
+          "height": 721,
+          "sha256": "a360f56014c293523707c3721a96af13254a15e4f40650b8562b8f539562b268"
+        }
+      ]
     },
     "plugin-manager-discovery": {
       "file": "plugins-manager-discovery-light.png",
@@ -935,7 +1601,33 @@
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.287Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "plugins-manager-discovery-light-720.webp",
+          "width": 720,
+          "height": 619,
+          "sha256": "d19aec3c98785c5d75c69095016115118d1f5c483b9e30fa3c03de7fad65f58d"
+        },
+        {
+          "file": "plugins-manager-discovery-light-720.avif",
+          "width": 720,
+          "height": 619,
+          "sha256": "e34dd4e56ced910d41eb405fbf9408ce91d4711b837bce32c81b207676f7724e"
+        },
+        {
+          "file": "plugins-manager-discovery-light-1280.webp",
+          "width": 1280,
+          "height": 1101,
+          "sha256": "1f91181f7bf64be2321b1a68f826fae4c636ff6a3616bad4244fdfeac262df60"
+        },
+        {
+          "file": "plugins-manager-discovery-light-1280.avif",
+          "width": 1280,
+          "height": 1101,
+          "sha256": "65837eaeb6b98f1f731d3d6ef320b4d07e3103867fde684eb6974bda959dd607"
+        }
+      ]
     },
     "workspace-shared-workflows": {
       "sha256": "c59be705f1b5584ffd6771a4d9d14b6602ce052721f94ed8988b2bee18d89045",
@@ -971,7 +1663,33 @@
       "viewport": {
         "width": 936,
         "height": 702
-      }
+      },
+      "variants": [
+        {
+          "file": "workspace-shared-workflows-light-720.webp",
+          "width": 720,
+          "height": 540,
+          "sha256": "01c15584bf1bc7b69ab752d88770748c7fa0e5e409f24befa48b190d7a670f24"
+        },
+        {
+          "file": "workspace-shared-workflows-light-720.avif",
+          "width": 720,
+          "height": 540,
+          "sha256": "d7f024fbd6dbd8df9473294bea08c5bf29fbcefb5a0749803a73ea18913f3a02"
+        },
+        {
+          "file": "workspace-shared-workflows-light-936.webp",
+          "width": 936,
+          "height": 702,
+          "sha256": "1504b355868aabe5cc8108cde3234e2756f2aa42992524fd054314182111ae8e"
+        },
+        {
+          "file": "workspace-shared-workflows-light-936.avif",
+          "width": 936,
+          "height": 702,
+          "sha256": "3bd4cfda7dc4c040bb26aff1102ae36a42a393fbd98ffc4149f8d8432c3fdcc7"
+        }
+      ]
     },
     "tonal-curves": {
       "file": "tonal-curves-light.png",
@@ -1007,7 +1725,33 @@
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.289Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "tonal-curves-light-720.webp",
+          "width": 720,
+          "height": 405,
+          "sha256": "411e5b7ebe192b4510f9927989c0b9e7a5b936d2932ed76d6c6fed348015c810"
+        },
+        {
+          "file": "tonal-curves-light-720.avif",
+          "width": 720,
+          "height": 405,
+          "sha256": "3846a84c20a70caa63be577f386ab21eaabd3fd73408c6a074bc177797bf0cf3"
+        },
+        {
+          "file": "tonal-curves-light-1280.webp",
+          "width": 1280,
+          "height": 720,
+          "sha256": "c0de090263e0fc9453bff9639e0d5b4bed8321333a4ae4ea61270ed8b5b03a9b"
+        },
+        {
+          "file": "tonal-curves-light-1280.avif",
+          "width": 1280,
+          "height": 720,
+          "sha256": "18af2d12feab348f99e9d97e1a198c58b25bed8838795573034a785b15368efe"
+        }
+      ]
     },
     "tonal-split-tone": {
       "file": "tonal-split-tone-light.png",
@@ -1043,7 +1787,33 @@
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.289Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "tonal-split-tone-light-720.webp",
+          "width": 720,
+          "height": 405,
+          "sha256": "d3cd598b30b4660317be42bd20a31f36423338ca8e7dad5ac333a822c88f1018"
+        },
+        {
+          "file": "tonal-split-tone-light-720.avif",
+          "width": 720,
+          "height": 405,
+          "sha256": "998759ca66a0be24d475b16e3dfd7266b25a6be4ab7713e0d8ecba9e9163c415"
+        },
+        {
+          "file": "tonal-split-tone-light-1280.webp",
+          "width": 1280,
+          "height": 720,
+          "sha256": "8257c6fadac6873f34254dde98957f4a38b1acaeb56754cb044676e627a5b245"
+        },
+        {
+          "file": "tonal-split-tone-light-1280.avif",
+          "width": 1280,
+          "height": 720,
+          "sha256": "232f9a05d36ffffc0610850cf21b354de4ae4ee977840861e5c3cc125bb5267d"
+        }
+      ]
     },
     "tablet-workspace": {
       "sha256": "a611772902792164e5557fce293f0203de9cb72a64e8d10941db22c509721d2f",
@@ -1079,7 +1849,33 @@
         "promotedFrom": "2026-10-04T14-19-18-944Z-2787694",
         "promotedAt": "2026-10-04T14:25:48.518Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "tablet-workspace-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "1ca95aa91bcb8fc75ce501659c355557a7e6e8e6d433d3e3d3ceefda5b431aad"
+        },
+        {
+          "file": "tablet-workspace-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "65abf727be7d4c8149ec66adcae82c638309de7f94eaa4feec8b373c85c14d9b"
+        },
+        {
+          "file": "tablet-workspace-light-1200.webp",
+          "width": 1200,
+          "height": 750,
+          "sha256": "9f9520ac2201618b997aea2f2d202e5cb6372cdf32de28e35d3c3bd5a9aa6e7c"
+        },
+        {
+          "file": "tablet-workspace-light-1200.avif",
+          "width": 1200,
+          "height": 750,
+          "sha256": "563598a896e81f3adcc269a334d60d97b0fed290a7090a84334d3230c5ffe59e"
+        }
+      ]
     },
     "performance-settings": {
       "file": "performance-settings-dark.png",
@@ -1111,7 +1907,33 @@
         "theme": "dark",
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.275Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "performance-settings-dark-720.webp",
+          "width": 720,
+          "height": 595,
+          "sha256": "ff145f9a4f989d77814f7d8917f1f2e73669757d61542bfb74636c68a4990acc"
+        },
+        {
+          "file": "performance-settings-dark-720.avif",
+          "width": 720,
+          "height": 595,
+          "sha256": "18ced057f7e4860eeb94b98c651ed9c5e5967194203b850e55a446331cb803b6"
+        },
+        {
+          "file": "performance-settings-dark-920.webp",
+          "width": 920,
+          "height": 760,
+          "sha256": "f8934f0d8e93670641a315ed31c164f4338c7ff3e02996f42336251352f5aa77"
+        },
+        {
+          "file": "performance-settings-dark-920.avif",
+          "width": 920,
+          "height": 760,
+          "sha256": "fd34591fe1ccb02201325a4c55c440c9011dc805cffa88ea0bad6b59d6ab45b3"
+        }
+      ]
     },
     "design-tokens-contrast": {
       "file": "design-tokens-alias-bound-light.png",
@@ -1147,7 +1969,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.276Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "design-tokens-alias-bound-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "6b6873c999f8192fa617ddeb39d1536a43566e60ec22e89aff8b65c6c24d4fb0"
+        },
+        {
+          "file": "design-tokens-alias-bound-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "2ba2775e9ed92ac446241bc3197ea88ce341cc55ecfccfdd4262885fed38e923"
+        },
+        {
+          "file": "design-tokens-alias-bound-light-1600.webp",
+          "width": 1600,
+          "height": 1000,
+          "sha256": "177ce1be48d1930cd8c22222b66a5a7a4dd437905bdfc1e8eae637041bec5153"
+        },
+        {
+          "file": "design-tokens-alias-bound-light-1600.avif",
+          "width": 1600,
+          "height": 1000,
+          "sha256": "f9ee4e06617d6a2424bec4d4a4bfad6b585c68cb1e029a1af847b3ad27706327"
+        }
+      ]
     },
     "tablet-controls": {
       "sha256": "436746e41e4f66e777535483b4c808a4f612236772e65b0e63c940b9fb7d973c",
@@ -1183,7 +2031,33 @@
         "promotedFrom": "2026-10-04T14-19-18-944Z-2787694",
         "promotedAt": "2026-10-04T14:25:48.520Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "tablet-controls-detail-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "56c72189453e3a21874093e848bd05331db1343ae323565a4a4221d611be9cfa"
+        },
+        {
+          "file": "tablet-controls-detail-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "11c65bf2083e581171a7197fd0508afa0dde6488d0d0de5a170b2c5f829faf87"
+        },
+        {
+          "file": "tablet-controls-detail-light-1200.webp",
+          "width": 1200,
+          "height": 750,
+          "sha256": "9fffbedfdfd067d58750f3c51db07d1045f80951e11b0501aaa50b7695fc3ac5"
+        },
+        {
+          "file": "tablet-controls-detail-light-1200.avif",
+          "width": 1200,
+          "height": 750,
+          "sha256": "4185e62d9081f7f2c45706b84e837013adca8b32e248564e9b561105c3d17fc4"
+        }
+      ]
     },
     "presentation-navigator": {
       "sha256": "231a6ecfa65107749e4ab827abaa87dce91572ca57959d9a17a9257f59118215",
@@ -1215,7 +2089,33 @@
         "promotedFrom": "2026-10-03T12-10-33-136Z-1643607",
         "promotedAt": "2026-10-03T12:13:22.789Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "presentation-navigator-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "3ad904e529d921bbd10ea5b09ed3ba707139c84013ea44c485ac7cfe84a7c7b5"
+        },
+        {
+          "file": "presentation-navigator-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "01ebb3e0456756d9f64c12831aed11f2d73658970f95f6bbad05eb7672cecd47"
+        },
+        {
+          "file": "presentation-navigator-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "2b4fce224a6bee3f7be2c686d722ca32da3a48e48240cfad74cb9d9ba3770407"
+        },
+        {
+          "file": "presentation-navigator-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "c1186db1272239f0ef2ad5c84fae71f83df185683b1adf6dbadad6c466b2775f"
+        }
+      ]
     },
     "presentation-slide": {
       "sha256": "febb2360a8c53a45c13b6959182e4744d4341abf309cfbb52c7a98aac6677fc9",
@@ -1247,7 +2147,33 @@
         "promotedFrom": "2026-10-03T12-10-33-136Z-1643607",
         "promotedAt": "2026-10-03T12:13:22.790Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "presentation-slide-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "5d267cbd034fd5c0356d67c1482c2cb9ef4e8f990e6d3188b5329d54592b61ea"
+        },
+        {
+          "file": "presentation-slide-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "d27c0ad9bc1023da92fb0f4e98c13b1196c4312c2e0bddec59e7911437ba6a32"
+        },
+        {
+          "file": "presentation-slide-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "b4312e87353d1218e6ea216d8ce7eecd15ff06f75a4fd90ca3790d5fe60f4cf2"
+        },
+        {
+          "file": "presentation-slide-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "ecab18f8fd1cd1898f6b355c76e1bf9cb26e5e92a90c3950fc68596c22d53f3a"
+        }
+      ]
     },
     "presentation-layout-revision": {
       "sha256": "8d6a24d2d36f138882e3406fa6e1576fc7e003444db534367cfdde393611ae55",
@@ -1283,7 +2209,33 @@
         "promotedFrom": "2026-10-03T12-10-33-136Z-1643607",
         "promotedAt": "2026-10-03T12:13:22.790Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "presentation-layout-revision-tablet-dark-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "163d3a088b2234755205c6555e606752299a78c2028e96c39f2b98dae4e5ef35"
+        },
+        {
+          "file": "presentation-layout-revision-tablet-dark-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "abe02710889ee18af3e44a3c3b0d295d620d9cda18ac38c7af1d7be90cd8484d"
+        },
+        {
+          "file": "presentation-layout-revision-tablet-dark-1200.webp",
+          "width": 1200,
+          "height": 750,
+          "sha256": "bab41c19ed90a1347d897ad84668e6879181f66dff4c1b412b8728052c830db2"
+        },
+        {
+          "file": "presentation-layout-revision-tablet-dark-1200.avif",
+          "width": 1200,
+          "height": 750,
+          "sha256": "105a1971bb7736a7ffa8e7d707d78a68e4dff430e03de1f121c8115629ad5467"
+        }
+      ]
     },
     "presentation-preview": {
       "sha256": "980be75389a78531f1f5e368f3ad625d936250bfe861406391b6431dc26c8c59",
@@ -1315,7 +2267,33 @@
         "promotedFrom": "2026-10-03T12-10-33-136Z-1643607",
         "promotedAt": "2026-10-03T12:13:22.791Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "presentation-preview-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "2d32820bbda09d28eaf9f9892a58b6e139b62da22b559cb4f8dd030c80d972cd"
+        },
+        {
+          "file": "presentation-preview-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "1f6ddf4ba967607aa2d1eea7997d830674320b2c16c003aa5db12646c1dc7bfd"
+        },
+        {
+          "file": "presentation-preview-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "bd2f5396964fcfe81f60db2d17602df4b76cdae0e0542d003a13647e966106c9"
+        },
+        {
+          "file": "presentation-preview-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "c7caee438d9b190a4c5c74c2699d92373dc9603c371653ec07093c4d812d5d34"
+        }
+      ]
     },
     "presentation-export": {
       "sha256": "9a3cc22aafb3a3d62a88e86cc5d1bdedcdf8216c21489cf152af437c39d4bfa0",
@@ -1347,7 +2325,33 @@
         "promotedFrom": "2026-10-03T12-10-33-136Z-1643607",
         "promotedAt": "2026-10-03T12:13:22.791Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "presentation-export-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "fb46a808474ec738629df05cd1899459a4842e8e0b6f6e8f74b59eabbe1d6e9d"
+        },
+        {
+          "file": "presentation-export-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "0908e6cf3d5c2cd0d4260279432ba74671962fe82b5a7da61b989c36d3e07926"
+        },
+        {
+          "file": "presentation-export-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "30b361985955e4a5378d60303a4a83cbb64e9bbbc72f8b4acc04fa78ddc45934"
+        },
+        {
+          "file": "presentation-export-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "e91ce535df8c08c4022d30b48b14449fa372319a513e1cea5322daafc5638a1e"
+        }
+      ]
     },
     "effect-studio-desktop-light": {
       "file": "effect-studio-desktop-light.png",
@@ -1383,7 +2387,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.277Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "effect-studio-desktop-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "22f839ff73e5f85c299df00dc1a255f5b55e46658063215302c09afac60c8c05"
+        },
+        {
+          "file": "effect-studio-desktop-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "25001154750b2ce875bd3f4eac7276bfc53fed277516f942ab77f4e44a3a823c"
+        },
+        {
+          "file": "effect-studio-desktop-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "d3f481d67c8fd2d52ae8973ff4621ea403e0ed2eeda8a16631e5d17ac6c3f637"
+        },
+        {
+          "file": "effect-studio-desktop-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "2a4e5c3e2a3d60876d0e11c3c0e860db5405982a027f13145933029947d9e24d"
+        }
+      ]
     },
     "effect-studio-mobile-light": {
       "file": "effect-studio-mobile-light.png",
@@ -1419,7 +2449,21 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.278Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "effect-studio-mobile-light-390.webp",
+          "width": 390,
+          "height": 844,
+          "sha256": "c1c5b269614ed3427a6231289f9264179f36290ed28d426bdff1267baf28ac31"
+        },
+        {
+          "file": "effect-studio-mobile-light-390.avif",
+          "width": 390,
+          "height": 844,
+          "sha256": "152bc365a691486d84012da93bb7347dd3476b053d08430e8f8f5132fda69530"
+        }
+      ]
     },
     "illustration-linework-flats": {
       "file": "illustration-linework-flats.png",
@@ -1455,7 +2499,33 @@
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.279Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "illustration-linework-flats-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "0e79f0ebc1f4fe611358a23171315e9a64c3f28ec67834d19084d8f4e9257f28"
+        },
+        {
+          "file": "illustration-linework-flats-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "c527f370e858994916ce550aa3cb9310afdb4229e838e36608df3320ba8aba6a"
+        },
+        {
+          "file": "illustration-linework-flats-1280.webp",
+          "width": 1280,
+          "height": 800,
+          "sha256": "0e1e72886c8064df4571d05d832f8b23ac0a7fab58d658fa9310106b5cda1920"
+        },
+        {
+          "file": "illustration-linework-flats-1280.avif",
+          "width": 1280,
+          "height": 800,
+          "sha256": "8c22e54b2e409fc17038fd60ed2a436cc46f474df83863bcdf270c328668f9bf"
+        }
+      ]
     },
     "illustration-clipped-shading": {
       "file": "illustration-clipped-shading.png",
@@ -1491,7 +2561,33 @@
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.280Z"
       },
-      "provenanceUnknown": false
+      "provenanceUnknown": false,
+      "variants": [
+        {
+          "file": "illustration-clipped-shading-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "6f0fe1843c43d97ff52b51a78260bdb3dcbdf4186f7e2fd4597cefa17041385b"
+        },
+        {
+          "file": "illustration-clipped-shading-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "f6b17b9c85eb1828f9f956ddd6b4b646b02477e8a28e0ebaa709719c86f43af5"
+        },
+        {
+          "file": "illustration-clipped-shading-1280.webp",
+          "width": 1280,
+          "height": 800,
+          "sha256": "ab96e87f7e6737fe0f40a90bd4efe6d5e1f9e2a0ccb077c91f6235a1b19b7ff5"
+        },
+        {
+          "file": "illustration-clipped-shading-1280.avif",
+          "width": 1280,
+          "height": 800,
+          "sha256": "f3f77ea0c6e2e5227781c1fcb0273e598c250275068cd93d55a534d10fcea10a"
+        }
+      ]
     },
     "illustration-vector-clipped-texture": {
       "file": "illustration-vector-clipped-texture.png",
@@ -1527,7 +2623,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.280Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "illustration-vector-clipped-texture-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "99401134fa7ecca3b84cee15241eef791dcb2c58494d52c1f6454ed81b5025b5"
+        },
+        {
+          "file": "illustration-vector-clipped-texture-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "cfc376f905a6d0a8a1e2ebc0ba139a403f5940c87b3df170e1bd27ce275b106b"
+        },
+        {
+          "file": "illustration-vector-clipped-texture-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "847f92b2df81f10b99d5813a7f4549065e6c1183a05cb6ccdc36c7a02bf803cc"
+        },
+        {
+          "file": "illustration-vector-clipped-texture-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "08dc4fb21c9172c1d6d12ba73da1f10caef44f80dbce7c807dced9a86866c0a3"
+        }
+      ]
     },
     "concept-art-reference-workflow": {
       "file": "concept-art-reference-workflow.png",
@@ -1563,7 +2685,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-03T11-31-34-211Z-1591158",
         "promotedAt": "2026-10-03T11:31:48.283Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "concept-art-reference-workflow-720.webp",
+          "width": 720,
+          "height": 500,
+          "sha256": "6662b4326df009c2a368b3aaff60e8ed23ca1a5b0328e0c778945afe0fb8603a"
+        },
+        {
+          "file": "concept-art-reference-workflow-720.avif",
+          "width": 720,
+          "height": 500,
+          "sha256": "57a82dc7aeb7b9cad8dd886364b197a7fa62901d0ae3ba6f9d207cfdab7a0547"
+        },
+        {
+          "file": "concept-art-reference-workflow-1440.webp",
+          "width": 1440,
+          "height": 1000,
+          "sha256": "b1cffba285ca0f47defb9501f8cd84208020f2176febf9cdaaf0d9851be56876"
+        },
+        {
+          "file": "concept-art-reference-workflow-1440.avif",
+          "width": 1440,
+          "height": 1000,
+          "sha256": "04c1f60381f24212133598a692f9abf9e0566bf3c7e0cdcb7c6cf39c1dad0e10"
+        }
+      ]
     },
     "patterns": {
       "file": "patterns-document-alignment.png",
@@ -1599,7 +2747,33 @@
         "theme": "light",
         "promotedFrom": "2026-10-05T02-14-24-714Z-3208302",
         "promotedAt": "2026-10-05T02:14:35.171Z"
-      }
+      },
+      "variants": [
+        {
+          "file": "patterns-document-alignment-720.webp",
+          "width": 720,
+          "height": 405,
+          "sha256": "a8b7c546687f27821efe09d208c502c5acc43ac9e29db7ac7d05cd0f413e889a"
+        },
+        {
+          "file": "patterns-document-alignment-720.avif",
+          "width": 720,
+          "height": 405,
+          "sha256": "fbdbcecc6686ecc02a0edfb692eb0828f0ad0c1db13104efd23de8abefd4f795"
+        },
+        {
+          "file": "patterns-document-alignment-1280.webp",
+          "width": 1280,
+          "height": 720,
+          "sha256": "b67667c5fbd152640ec72ffd937869c21c64e4dc884c132d531b8c5839299622"
+        },
+        {
+          "file": "patterns-document-alignment-1280.avif",
+          "width": 1280,
+          "height": 720,
+          "sha256": "075ca4a15612ab6547d1ccb3c17a3f0f3fe25e3b117fab9b9e32022e68b8b48d"
+        }
+      ]
     }
   },
   "provenance": {

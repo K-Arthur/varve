@@ -14,6 +14,22 @@ async function openWithTrigger(page: Page) {
   await expect(page.locator('[data-search-dialog]')).toBeVisible();
 }
 
+test('does not fetch the search index until a trigger is used', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('search-index.json')) requests.push(request.url());
+  });
+  await page.goto('/');
+  await expect(page.locator('[data-search-ready], html[data-search-ready]')).toHaveCount(1);
+  // The previous idle prefetch used a 4s timeout. Stay past that window so a
+  // regression that brings idle loading back fails this spec.
+  await page.waitForTimeout(4500);
+  expect(requests, 'idle page load must not transfer search-index.json').toEqual([]);
+
+  await page.locator('.nav-search-trigger').hover();
+  await expect.poll(() => requests.length, { timeout: 10_000 }).toBeGreaterThan(0);
+});
+
 test('desktop trigger opens the dialog with popular destinations', async ({ page }) => {
   await page.goto('/');
   const trigger = page.locator('.nav-search-trigger');
