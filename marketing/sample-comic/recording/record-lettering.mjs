@@ -1081,10 +1081,17 @@ async function wrapSelectedText(page, query, actionName) {
 }
 
 async function followPanel(page, panelIndex) {
+  if (compactByPage.get(page)) {
+    await hideSidePanels(page);
+    await blurChrome(page);
+    await page.keyboard.press('Shift+Digit1');
+    await taskThink(page);
+    log(`camera panel ${panelIndex + 1} zoom=${(await currentZoom(page)).toFixed(2)}`);
+    return;
+  }
   await easeCameraToPanel(page, panelIndex);
   const zoom = await currentZoom(page);
   if (zoom >= 1.15 && zoom <= 3.4) {
-    if (compactByPage.get(page)) await hideSidePanels(page);
     return;
   }
   const map = await pageScreenMap(page);
@@ -1213,14 +1220,17 @@ async function showSettledCalloutInspector(page, placement) {
 }
 
 async function clickInspectorButton(page, name) {
-  await ensureInspector(page);
+  if (!(await ensureInspector(page))) return false;
   const button = page.getByRole('button', { name, exact: true }).first();
   if (!(await button.isVisible({ timeout: 1800 }).catch(() => false))) return false;
   await button.scrollIntoViewIfNeeded().catch(() => undefined);
   const box = await button.boundingBox();
-  if (box) await clickAt(page, box.x + Math.min(72, box.width / 2), box.y + box.height / 2, 240);
-  else await button.click();
-  await pause(page, 280);
+  if (box) {
+    await humanMove(page, box.x + Math.min(72, box.width / 2), box.y + box.height / 2);
+    await pause(page, compactByPage.get(page) ? randBetween(180, 360) : randBetween(400, 900));
+    await page.mouse.click(box.x + Math.min(72, box.width / 2), box.y + box.height / 2);
+  } else await button.click();
+  await pause(page, 220);
   return true;
 }
 
@@ -1569,36 +1579,6 @@ async function tailXParkPoint(page) {
     (label ? await label.boundingBox().catch(() => null) : null) ?? (await field.boundingBox());
   if (!box) return null;
   return { x: box.x + Math.min(18, box.width * 0.4), y: box.y + box.height / 2 };
-}
-
-async function growBalloonLikeAPerson(page) {
-  const width = await readSpin(page, 'w');
-  const height = await readSpin(page, 'h');
-  const handle = await page.evaluate(
-    ({ w, h }) => {
-      const hooks = window.__varveIsoTest;
-      const canvas = document.querySelector('.editor-canvas');
-      const geometry = hooks?.getSelectionGeometry?.()?.[0];
-      if (!hooks || !canvas || !geometry || !(w > 0) || !(h > 0)) return null;
-      const rect = canvas.getBoundingClientRect();
-      const m = geometry.worldTransform;
-      const wx = m[0] * w + m[2] * h + m[4];
-      const wy = m[1] * w + m[3] * h + m[5];
-      const screen = hooks.worldToScreen(wx, wy);
-      return { x: rect.left + screen.x, y: rect.top + screen.y };
-    },
-    { w: width ?? 0, h: height ?? 0 },
-  );
-  if (!handle) return;
-  await humanMove(page, handle.x, handle.y);
-  await think(page, 400, 1100);
-  await page.mouse.down();
-  await pause(page, randBetween(40, 80));
-  await humanMove(page, handle.x + randBetween(22, 40), handle.y + randBetween(16, 32), {
-    drag: true,
-  });
-  await page.mouse.up();
-  await think(page, 400, 900);
 }
 
 async function restoreSpin(page, name, target) {
@@ -2043,7 +2023,7 @@ async function main() {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
         const duration = await writeWindowed(session, dest, 35, 45, {
           realtime: true,
-          maxRate: 1.35,
+          maxRate: 1.85,
         });
         await extractStills(dest, join(RAW_DIR, 'stills-vertical'));
         outputs.push({ path: dest, duration, width: 1080, height: 1920 });
