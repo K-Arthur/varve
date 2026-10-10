@@ -16,7 +16,7 @@ pkgrel=1
 pkgdesc="Local-first design suite for vector, layout, typography, motion and print"
 arch=('x86_64' 'aarch64')
 url="https://github.com/K-Arthur/varve"
-license=('FSL-1.1-MIT')
+license=('LicenseRef-FSL-1.1-MIT')
 # Runtime libraries the Tauri binary links against. Deliberately not the full
 # AppImage payload: on Arch these are all present as system packages, and using
 # them keeps the install small and patched by the distro.
@@ -40,10 +40,17 @@ provides=("${_appname}")
 conflicts=("${_appname}" "${_appname}-git")
 options=('!strip' '!debug')
 
-source=("Varve-${pkgver}-linux-${CARCH}.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-${CARCH}.AppImage")
+# Arch-specific source arrays are required: a single `source=($CARCH)` plus
+# both sha256sums_* arrays fails makepkg 7.1 ("Integrity checks differ in
+# size from the source array"). This matches the dual-arch .SRCINFO.
+source_x86_64=("Varve-${pkgver}-linux-x86_64.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-x86_64.AppImage")
+source_aarch64=("Varve-${pkgver}-linux-aarch64.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-aarch64.AppImage")
 sha256sums_x86_64=('fb0c188286fbd92479f88dd0eefc4547d3544b33e7dc5120abd399bfdf2237af')
 sha256sums_aarch64=('4684fef861cdf3dd51cfd326f5a9452d29d733af9e9d4c53b18f06fc0ab8c404')
-noextract=("Varve-${pkgver}-linux-${CARCH}.AppImage")
+noextract=(
+  "Varve-${pkgver}-linux-x86_64.AppImage"
+  "Varve-${pkgver}-linux-aarch64.AppImage"
+)
 
 # Install a directory tree with world-readable dirs (755), regular files 644,
 # and executables / shared objects 755. The v0.5.0 AppImage squashfs ships
@@ -132,10 +139,27 @@ package() {
     _install_tree usr/share/icons/hicolor "${pkgdir}/usr/share/icons/hicolor"
   fi
 
-  # MIME types for .varve and .strata documents, so double-click opens the app
+  # MIME types for .varve and .strata documents, so double-click opens the app.
+  # The v0.5.0 AppImage does not ship this file; later bundles may.
   if [[ -f "usr/share/mime/packages/dev.varve.desktop.xml" ]]; then
     install -Dm644 "usr/share/mime/packages/dev.varve.desktop.xml" \
       "${pkgdir}/usr/share/mime/packages/dev.varve.desktop.xml"
+  else
+    install -Dm644 /dev/stdin "${pkgdir}/usr/share/mime/packages/dev.varve.desktop.xml" <<'MIME'
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-varve">
+    <comment>Varve design document</comment>
+    <glob pattern="*.varve"/>
+    <icon name="dev.varve.desktop"/>
+  </mime-type>
+  <mime-type type="application/x-strata">
+    <comment>Varve design document (legacy Strata format)</comment>
+    <glob pattern="*.strata"/>
+    <icon name="dev.varve.desktop"/>
+  </mime-type>
+</mime-info>
+MIME
   fi
 
   # Documentation
