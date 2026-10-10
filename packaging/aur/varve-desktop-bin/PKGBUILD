@@ -16,7 +16,7 @@ pkgrel=1
 pkgdesc="Local-first design suite for vector, layout, typography, motion and print"
 arch=('x86_64' 'aarch64')
 url="https://github.com/K-Arthur/varve"
-license=('FSL-1.1-MIT')
+license=('LicenseRef-FSL-1.1-MIT')
 # Runtime libraries the Tauri binary links against. Deliberately not the full
 # AppImage payload: on Arch these are all present as system packages, and using
 # them keeps the install small and patched by the distro.
@@ -40,10 +40,41 @@ provides=("${_appname}")
 conflicts=("${_appname}" "${_appname}-git")
 options=('!strip' '!debug')
 
-source=("Varve-${pkgver}-linux-${CARCH}.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-${CARCH}.AppImage")
+# Arch-specific source arrays are required: a single `source=($CARCH)` plus
+# both sha256sums_* arrays fails makepkg 7.1 ("Integrity checks differ in
+# size from the source array"). This matches the dual-arch .SRCINFO.
+source_x86_64=("Varve-${pkgver}-linux-x86_64.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-x86_64.AppImage")
+source_aarch64=("Varve-${pkgver}-linux-aarch64.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-aarch64.AppImage")
 sha256sums_x86_64=('fb0c188286fbd92479f88dd0eefc4547d3544b33e7dc5120abd399bfdf2237af')
 sha256sums_aarch64=('4684fef861cdf3dd51cfd326f5a9452d29d733af9e9d4c53b18f06fc0ab8c404')
-noextract=("Varve-${pkgver}-linux-${CARCH}.AppImage")
+noextract=(
+  "Varve-${pkgver}-linux-x86_64.AppImage"
+  "Varve-${pkgver}-linux-aarch64.AppImage"
+)
+
+# Install a directory tree with world-readable dirs (755), regular files 644,
+# and executables / shared objects 755. The v0.5.0 AppImage squashfs ships
+# every directory as 0700 (and AppRun.wrapped as 0770); `cp -a` would otherwise
+# install root-owned 0700 trees that unprivileged users cannot read.
+_install_tree() {
+  local src="$1" dest="$2" path rel
+  install -dm755 "${dest}"
+  while IFS= read -r -d '' path; do
+    rel="${path#"${src}"/}"
+    if [[ -d "${path}" && ! -L "${path}" ]]; then
+      install -dm755 "${dest}/${rel}"
+    elif [[ -L "${path}" ]]; then
+      install -dm755 "${dest}/$(dirname "${rel}")"
+      cp -d "${path}" "${dest}/${rel}"
+    elif [[ -f "${path}" ]]; then
+      if [[ "${rel}" == *.so || "${rel}" == *.so.* || -x "${path}" ]]; then
+        install -Dm755 "${path}" "${dest}/${rel}"
+      else
+        install -Dm644 "${path}" "${dest}/${rel}"
+      fi
+    fi
+  done < <(find "${src}" -mindepth 1 -print0)
+}
 
 prepare() {
   cd "${srcdir}"
@@ -51,6 +82,10 @@ prepare() {
   # --appimage-extract does not need FUSE, so this works in a clean chroot and
   # in CI containers where /dev/fuse is unavailable.
   "./Varve-${pkgver}-linux-${CARCH}.AppImage" --appimage-extract >/dev/null
+
+  # World-readable extract: dirs 755, files 644, anything that already had
+  # user-execute (binaries, AppRun.wrapped, most .so files) 755.
+  chmod -R u+rwX,go+rX,go-w squashfs-root
 }
 
 package() {
@@ -67,8 +102,7 @@ package() {
   # where Tauri looks for them. This includes ONNX Runtime which is not in any
   # distro repo.
   if [[ -d "usr/lib/Varve" ]]; then
-    install -dm755 "${pkgdir}/usr/lib/Varve"
-    cp -a "usr/lib/Varve/." "${pkgdir}/usr/lib/Varve/"
+    _install_tree "usr/lib/Varve" "${pkgdir}/usr/lib/Varve"
   fi
 
   # Install license files (required for non-common licenses)
@@ -79,8 +113,8 @@ package() {
       "${pkgdir}/usr/share/licenses/${pkgname}/THIRD_PARTY_NOTICES"
   fi
   if [[ -d "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_LICENSES" ]]; then
-    cp -a "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_LICENSES" \
-      "${pkgdir}/usr/share/licenses/${pkgname}/"
+    _install_tree "usr/lib/Varve/_up_/_up_/_up_/THIRD_PARTY_LICENSES" \
+      "${pkgdir}/usr/share/licenses/${pkgname}/THIRD_PARTY_LICENSES"
   fi
 
   # Desktop entry, normalised to the packaged binary path
@@ -88,6 +122,10 @@ package() {
   _desktop="$(find usr/share/applications -name '*.desktop' | head -1)"
   if [[ -n "${_desktop}" ]]; then
     install -Dm644 "${_desktop}" "${pkgdir}/usr/share/applications/dev.varve.desktop.desktop"
+    sed -i \
+      -e 's|^Exec=.*|Exec=varve-desktop %F|' \
+      -e 's|^Icon=.*|Icon=dev.varve.desktop|' \
+      "${pkgdir}/usr/share/applications/dev.varve.desktop.desktop"
   fi
 
   # MetaInfo for GNOME Software, KDE Discover, etc.
@@ -96,15 +134,32 @@ package() {
       "${pkgdir}/usr/share/metainfo/dev.varve.desktop.metainfo.xml"
   fi
 
-  # Icons — every size the AppImage carries
+  # Icons — every size the AppImage carries, with modes reset (not `cp -a`).
   if [[ -d usr/share/icons/hicolor ]]; then
-    cp -a usr/share/icons/hicolor "${pkgdir}/usr/share/icons/"
+    _install_tree usr/share/icons/hicolor "${pkgdir}/usr/share/icons/hicolor"
   fi
 
-  # MIME types for .varve and .strata documents, so double-click opens the app
+  # MIME types for .varve and .strata documents, so double-click opens the app.
+  # The v0.5.0 AppImage does not ship this file; later bundles may.
   if [[ -f "usr/share/mime/packages/dev.varve.desktop.xml" ]]; then
     install -Dm644 "usr/share/mime/packages/dev.varve.desktop.xml" \
       "${pkgdir}/usr/share/mime/packages/dev.varve.desktop.xml"
+  else
+    install -Dm644 /dev/stdin "${pkgdir}/usr/share/mime/packages/dev.varve.desktop.xml" <<'MIME'
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-varve">
+    <comment>Varve design document</comment>
+    <glob pattern="*.varve"/>
+    <icon name="dev.varve.desktop"/>
+  </mime-type>
+  <mime-type type="application/x-strata">
+    <comment>Varve design document (legacy Strata format)</comment>
+    <glob pattern="*.strata"/>
+    <icon name="dev.varve.desktop"/>
+  </mime-type>
+</mime-info>
+MIME
   fi
 
   # Documentation
