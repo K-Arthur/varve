@@ -78,6 +78,26 @@
       // which is exactly the case that used to be invisible.
         (function () {
         var reported = false;
+        // Keep in sync with packages/crash/src/benign.ts — this script cannot
+        // import the module graph, and must ignore the same recovered
+        // diagnostics so a ResizeObserver notice cannot replace the splash.
+        function isBenignBootDiagnostic(message, reason) {
+          var text = String(message || '');
+          var name = reason && reason.name ? String(reason.name) : '';
+          if (name === 'AbortError' || name === 'GPUDeviceLostError') return true;
+          if (/ResizeObserver loop/i.test(text)) return true;
+          if (
+            /^(The operation was aborted|The user aborted a request|signal is aborted)/i.test(text)
+          )
+            return true;
+          if (/webgl(?:2)? context lost|webgpu device|device was lost/i.test(text)) return true;
+          if (/webview (?:dropped|destroyed)|window not found|command was cancelled/i.test(text))
+            return true;
+          return false;
+        }
+        window.__varveMarkBooted = function () {
+          reported = true;
+        };
         function showBootError(kind, message, detail) {
           if (reported) return;
           reported = true;
@@ -140,6 +160,7 @@
         }
 
         window.addEventListener('error', function (event) {
+          if (isBenignBootDiagnostic(event.message, event.error)) return;
           showBootError(
             'Script error',
             event.message || 'Unknown error',
@@ -148,9 +169,11 @@
         });
         window.addEventListener('unhandledrejection', function (event) {
           var reason = event.reason;
+          var message = (reason && (reason.message || reason)) || 'Unknown';
+          if (isBenignBootDiagnostic(message, reason)) return;
           showBootError(
             'Unhandled promise rejection',
-            (reason && (reason.message || reason)) || 'Unknown',
+            message,
             (reason && reason.stack) || '',
           );
         });

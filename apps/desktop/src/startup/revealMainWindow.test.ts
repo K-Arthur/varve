@@ -38,6 +38,16 @@ describe('revealMainWindow', () => {
     expect(document.getElementById('varve-boot-fallback')).toBeNull();
   });
 
+  it('dismissBootFallback tells inline boot handlers to stop showing a start screen', () => {
+    let marked = false;
+    (window as Window & { __varveMarkBooted?: () => void }).__varveMarkBooted = () => {
+      marked = true;
+    };
+    dismissBootFallback();
+    expect(marked).toBe(true);
+    delete (window as Window & { __varveMarkBooted?: () => void }).__varveMarkBooted;
+  });
+
   it('dismissBootFallback removes fallback before root element is visible', () => {
     // Simulate the real main.tsx sequence: dismiss first, then create root
     const bootEl = document.createElement('div');

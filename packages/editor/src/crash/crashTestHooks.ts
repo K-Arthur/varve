@@ -76,7 +76,17 @@ export function installCrashTestHooks(controller: CrashCenterController): void {
       });
     },
     simulateContextLoss: () => {
-      window.dispatchEvent(new WebGLContextEvent('webglcontextlost'));
+      // A bubbling webglcontextlost event is recovered by the compositor and
+      // is no longer treated as a crash. The hook still captures an
+      // unrecovered GPU death so tests can open the recovery dialog.
+      void controller.captureCrash({
+        type: 'contextlost',
+        category: 'renderer-context-lost',
+        subsystem: 'canvas',
+        message: 'WebGL context lost (unrecovered, simulated)',
+        threadCategory: 'render',
+        recoveryStatus: 'not-recovered',
+      });
     },
     simulateRustPanic: async (message = 'synthetic rust panic') => {
       await controller.captureCrash({

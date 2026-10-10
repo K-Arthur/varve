@@ -80,6 +80,20 @@ describe('ErrorBoundary', () => {
     spy.mockRestore();
   });
 
+  it('still shows the fallback for a genuine render crash', () => {
+    function EngineBomb({ shouldThrow }: { shouldThrow?: boolean }) {
+      if (shouldThrow) throw new TypeError("Cannot read properties of null (reading 'engine')");
+      return <div>OK</div>;
+    }
+    const { container } = render(
+      <ErrorBoundary>
+        <EngineBomb shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+    expect(container.textContent).toContain('Something went wrong');
+    expect(container.textContent).toContain("reading 'engine'");
+  });
+
   it('clears a captured error when resetKey changes', () => {
     const { container, rerender } = render(
       <ErrorBoundary resetKey="doc-a">

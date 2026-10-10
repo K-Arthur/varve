@@ -356,9 +356,81 @@ describe('controller + dialog flow (integration)', () => {
         message: 'ResizeObserver loop completed with undelivered notifications.',
       }),
     );
+    window.dispatchEvent(
+      new ErrorEvent('error', {
+        message: 'ResizeObserver loop limit exceeded',
+      }),
+    );
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(controller.getState().awaitingReport).toBeNull();
     expect(controller.getState().queuedReports).toHaveLength(0);
+    controller.dispose();
+  });
+
+  it('ignores aborted work instead of opening the crash dialog', async () => {
+    const { controller } = makeController({ state: 'unknown' });
+    await controller.boot();
+    const reason = new DOMException('The operation was aborted.', 'AbortError');
+    const promise = Promise.reject(reason);
+    void promise.catch(() => undefined);
+    window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', { promise, reason }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(controller.getState().awaitingReport).toBeNull();
+    expect(controller.getState().queuedReports).toHaveLength(0);
+    controller.dispose();
+  });
+
+  it('ignores font-face prefetch failures instead of opening the crash dialog', async () => {
+    const { controller } = makeController({ state: 'unknown' });
+    await controller.boot();
+    const reason = new Error('Failed to load font "Geist Variable"');
+    reason.name = 'NetworkError';
+    const promise = Promise.reject(reason);
+    void promise.catch(() => undefined);
+    window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', { promise, reason }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(controller.getState().awaitingReport).toBeNull();
+    expect(controller.getState().queuedReports).toHaveLength(0);
+    controller.dispose();
+  });
+
+  it('ignores recovered WebGL context loss from compositor teardown', async () => {
+    const { controller } = makeController({ state: 'unknown' });
+    await controller.boot();
+    window.dispatchEvent(new Event('webglcontextlost'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(controller.getState().awaitingReport).toBeNull();
+    expect(controller.getState().queuedReports).toHaveLength(0);
+    controller.dispose();
+  });
+
+  it('still captures a genuine unhandled rejection as a crash', async () => {
+    const { controller } = makeController({ state: 'unknown' });
+    await controller.boot();
+    const reason = new Error('synthetic unhandled rejection');
+    const promise = Promise.reject(reason);
+    void promise.catch(() => undefined);
+    window.dispatchEvent(new PromiseRejectionEvent('unhandledrejection', { promise, reason }));
+    await waitFor(() => expect(controller.getState().awaitingReport).not.toBeNull());
+    expect(controller.getState().dialogVisible).toBe(true);
+    expect(controller.getState().awaitingReport?.crash.message).toBe(
+      'synthetic unhandled rejection',
+    );
+    controller.dispose();
+  });
+
+  it('still captures a genuine window error as a crash', async () => {
+    const { controller } = makeController({ state: 'unknown' });
+    await controller.boot();
+    window.dispatchEvent(
+      new ErrorEvent('error', {
+        message: "Cannot read properties of null (reading 'engine')",
+        error: new TypeError("Cannot read properties of null (reading 'engine')"),
+      }),
+    );
+    await waitFor(() => expect(controller.getState().awaitingReport).not.toBeNull());
+    expect(controller.getState().dialogVisible).toBe(true);
+    expect(controller.getState().awaitingReport?.crash.message).toMatch(/engine/);
     controller.dispose();
   });
 

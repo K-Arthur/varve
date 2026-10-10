@@ -30,6 +30,8 @@ import {
   enterSafeMode,
   exitSafeMode,
   IndexedDbCrashReportStorage,
+  isBenignRejection,
+  isBenignWindowErrorEvent,
   isInCrashLoop,
   LocalCrashMetrics,
   LocalStorageCrashConsentStorage,
@@ -50,13 +52,6 @@ import { createNativeCrashStorage, listEmergencyRecords } from './nativeFsBridge
 import { getReleaseInfo, type ReleaseInfo } from './releaseInfo';
 
 export type PlatformKind = 'tauri' | 'web' | 'memory';
-
-/** Browser diagnostic events that are not application failures. */
-function isBenignWindowError(message: string): boolean {
-  return /^ResizeObserver loop (completed with undelivered notifications|limit exceeded)\.?$/i.test(
-    message.trim(),
-  );
-}
 
 export interface CrashUiState {
   consent: CrashConsentRecord;
@@ -309,11 +304,14 @@ export class CrashCenterController {
 
   private readonly handleWindowError = (event: ErrorEvent): void => {
     if (this.capturing) return;
-    // Chromium/WebKit report this non-fatal layout diagnostic through the
-    // global error channel. Treating it as a crash blocks the editor with a
-    // recovery dialog while the document is still healthy, especially when a
-    // responsive font browser is measuring its virtualized panes.
-    if (isBenignWindowError(event.message)) return;
+    // Chromium, WebKitGTK, and WebView2 report non-fatal layout and GPU
+    // diagnostics through the global error channel. Treating those as a crash
+    // opens the recovery dialog while the document is still healthy.
+    if (isBenignWindowErrorEvent(event)) {
+      console.warn('[crash] ignored benign window error', event.message || event.error);
+      event.preventDefault();
+      return;
+    }
     this.capturing = true;
     try {
       const error = event.error;
@@ -334,6 +332,11 @@ export class CrashCenterController {
 
   private readonly handleUnhandledRejection = (event: PromiseRejectionEvent): void => {
     if (this.capturing) return;
+    if (isBenignRejection(event.reason)) {
+      console.warn('[crash] ignored benign unhandled rejection', event.reason);
+      event.preventDefault();
+      return;
+    }
     this.capturing = true;
     try {
       const reason = event.reason;
@@ -359,22 +362,17 @@ export class CrashCenterController {
   };
 
   private readonly handleContextLost = (event: Event): void => {
-    if (this.capturing) return;
-    this.capturing = true;
+    // Compositor backends already fall back to Canvas2D and recover in place.
+    // loseContext() during teardown also bubbles here, so treating the window
+    // event as a crash showed the recovery dialog on document switches.
     try {
-      void this.captureCrash({
-        type: 'contextlost',
-        category: 'renderer-context-lost',
-        subsystem: 'canvas',
-        message: 'WebGL context lost',
-        threadCategory: 'render',
-        recoveryStatus: 'not-applicable',
-      });
-      if (event instanceof WebGLContextEvent && !event.defaultPrevented) {
+      this.breadcrumbs.record('webgl.context.lost', 'renderer');
+      console.warn('[crash] WebGL context lost; compositor fallback handles recovery');
+      if (event.cancelable && !event.defaultPrevented) {
         event.preventDefault();
       }
-    } finally {
-      this.capturing = false;
+    } catch {
+      // handlers never throw
     }
   };
 
