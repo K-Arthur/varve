@@ -668,7 +668,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     defaultExpanded: false,
     canHide: true,
     essential: false,
-    order: 280,
+    order: 281,
     category: 'advanced',
     // Only show for single selections with AI edit history
     isAvailable: (ctx) => {
