@@ -539,9 +539,9 @@ async function think(page, min = 400, max = 1500) {
 
 async function clickAt(page, x, y) {
   await humanMove(page, x, y);
-  await think(page, 400, 1500);
+  await think(page, 400, 1100);
   await page.mouse.click(x, y);
-  await pause(page, randBetween(140, 320));
+  await pause(page, randBetween(140, 280));
 }
 
 async function typeHuman(page, text) {
@@ -650,19 +650,20 @@ async function easeCameraToPanel(page, panelIndex) {
     await hideSidePanels(page);
     await blurChrome(page);
     await page.keyboard.press('Shift+Digit1');
-    await think(page, 500, 800);
-    const map = await pageScreenMap(page);
-    const wall = localToScreen(map, panelIndex, PANEL_W * 0.72, PANEL_H * 0.22);
-    await clickAt(page, wall.x, wall.y);
-    await clickStatusButton(page, /fit selection to viewport/i);
-    let zoom = await currentZoom(page);
-    if (zoom > 3.2 || zoom < 0.8) {
-      await blurChrome(page);
-      await page.keyboard.press('Shift+Digit1');
-      await think(page, 400, 700);
-      zoom = await currentZoom(page);
+    await think(page, 400, 700);
+    if (panelIndex === 0) {
+      const map = await pageScreenMap(page);
+      const wall = localToScreen(map, panelIndex, PANEL_W * 0.72, PANEL_H * 0.22);
+      await clickAt(page, wall.x, wall.y);
+      await clickStatusButton(page, /fit selection to viewport/i);
+      const zoom = await currentZoom(page);
+      if (zoom > 3.2 || zoom < 0.8) {
+        await blurChrome(page);
+        await page.keyboard.press('Shift+Digit1');
+        await think(page, 400, 700);
+      }
     }
-    log(`camera panel ${panelIndex + 1} zoom=${zoom.toFixed(2)}`);
+    log(`camera panel ${panelIndex + 1} zoom=${(await currentZoom(page)).toFixed(2)}`);
     await think(page, 400, 900);
     return;
   }
@@ -1150,15 +1151,27 @@ async function selectionKind(page) {
   return page.evaluate(() => window.__varveIsoTest?.getSelectionGeometry?.()?.[0]?.kind ?? null);
 }
 
+async function climbToCalloutGroup(page) {
+  for (let i = 0; i < 4; i++) {
+    const kind = await selectionKind(page);
+    if (kind === 'group') return true;
+    if (!kind) break;
+    await page.keyboard.press('Alt+ArrowUp');
+    await pause(page, 160);
+  }
+  return (await selectionKind(page)) === 'group';
+}
+
 async function waitForCalloutGroup(page, placement) {
   await setSidePanel(page, 'inspector', false);
-  for (let i = 0; i < 12; i++) {
-    if ((await selectionKind(page)) === 'group') {
-      await pause(page, 240);
-      if ((await selectionKind(page)) === 'group') return true;
-    }
+  if (await climbToCalloutGroup(page)) {
+    await pause(page, 200);
+    if ((await selectionKind(page)) === 'group') return true;
+  }
+  for (let i = 0; i < 8; i++) {
+    if ((await selectionKind(page)) === 'group') return true;
     await setSidePanel(page, 'inspector', false);
-    await pause(page, 90);
+    await pause(page, 80);
   }
   if ((await selectionKind(page)) !== 'group') {
     await selectCalloutGroup(page, placement);
@@ -1169,20 +1182,12 @@ async function waitForCalloutGroup(page, placement) {
 
 async function selectCalloutGroup(page, placement) {
   await setSidePanel(page, 'inspector', false);
-  if ((await selectionKind(page)) === 'group') return true;
+  if (await climbToCalloutGroup(page)) return true;
   const map = await pageScreenMap(page);
-  const probes = [
-    [placement.localX + 36, placement.localY + 22],
-    [placement.localX + 52, placement.localY + 18],
-    [placement.localX + 24, placement.localY + 28],
-  ];
-  for (const [lx, ly] of probes) {
-    const body = localToScreen(map, placement.panel, lx, ly);
-    await clickAt(page, body.x, body.y);
-    await setSidePanel(page, 'inspector', false);
-    if ((await selectionKind(page)) === 'group') return true;
-  }
-  return false;
+  const body = localToScreen(map, placement.panel, placement.localX + 8, placement.localY + 8);
+  await clickAt(page, body.x, body.y);
+  await setSidePanel(page, 'inspector', false);
+  return climbToCalloutGroup(page);
 }
 
 async function showSettledCalloutInspector(page, placement) {
@@ -1202,6 +1207,7 @@ async function showSettledCalloutInspector(page, placement) {
   }
   await openComicSection(page);
   await think(page, 400, 1500);
+  log('callout inspector ready');
   return true;
 }
 
@@ -1390,6 +1396,7 @@ async function placeDialogue(page, placement) {
     await think(page, 400, 1100);
     await wrapSelectedText(page, placement.query, placement.action);
     await hideSidePanels(page);
+    await climbToCalloutGroup(page);
     await think(page, 400, 900);
     const inspectorReady = await showSettledCalloutInspector(page, placement);
     if (inspectorReady) {
