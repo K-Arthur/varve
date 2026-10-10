@@ -493,7 +493,7 @@ test('install guidance is honest about Gatekeeper, SmartScreen, and checksums', 
     'the repository PKGBUILD is fine to use',
   );
   await expect(page.locator('#troubleshoot-help')).toContainText('The AppImage also works');
-  await expect(page.locator('#troubleshoot-help')).toContainText('an AUR package is coming');
+  await expect(page.locator('#troubleshoot-help')).toContainText('An AUR package is coming');
   await expect(page.locator('#troubleshoot-help')).toContainText(
     'AUR registration is currently closed',
   );
