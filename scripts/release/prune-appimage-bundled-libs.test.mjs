@@ -8,13 +8,28 @@
  * plan that keeps resources while removing the bundled GTK/WebKit closure.
  */
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
+  APPSTREAM_DESKTOP_ID,
   collectPrunePlan,
   collectRuntimePrunePlan,
+  collectStrayBuildArtifacts,
+  normalizeAppDirPermissions,
+  normalizeAppImageDesktopEntries,
+  prepareAppDirForRepack,
   resolveLinuxResourceDirName,
+  TAURI_APPIMAGE_DESKTOP_NAME,
 } from './prune-appimage-bundled-libs.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -27,6 +42,15 @@ function write(path, contents = 'x') {
 
 function relative(squashfsRoot, path) {
   return path.slice(squashfsRoot.length + 1).replaceAll('\\', '/');
+}
+
+function existsAsEntry(path) {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 try {
@@ -130,6 +154,103 @@ try {
   assert.equal(resolveLinuxResourceDirName(confFixture), 'FixtureApp');
   write(confFixture, JSON.stringify({ productName: '' }));
   assert.equal(resolveLinuxResourceDirName(confFixture), null);
+
+  // ── 6. Cargo dep-info files are stripped from the payload ────────────
+  const helperD = join(
+    appRoot,
+    'usr',
+    'lib',
+    'Varve',
+    '_up_',
+    '_up_',
+    '_up_',
+    'target',
+    'release',
+    'varve-generative-helper.d',
+  );
+  write(helperD, 'cargo dep-info');
+  write(join(appRoot, 'usr', 'lib', 'Varve', 'varve-generative-helper'), 'binary');
+  assert.deepEqual(collectStrayBuildArtifacts(appRoot), [helperD]);
+
+  // ── 7. AppDir modes become world-traversable / world-executable ──────
+  const modeRoot = join(fixture, 'modes');
+  mkdirSync(join(modeRoot, 'usr', 'bin'), { recursive: true });
+  writeFileSync(join(modeRoot, 'AppRun'), '#!/bin/sh\n');
+  writeFileSync(join(modeRoot, 'AppRun.wrapped'), 'ELF');
+  writeFileSync(join(modeRoot, 'usr', 'bin', 'varve-desktop'), 'ELF');
+  chmodSync(modeRoot, 0o700);
+  chmodSync(join(modeRoot, 'usr'), 0o700);
+  chmodSync(join(modeRoot, 'usr', 'bin'), 0o700);
+  chmodSync(join(modeRoot, 'AppRun.wrapped'), 0o770);
+  chmodSync(join(modeRoot, 'AppRun'), 0o770);
+  chmodSync(join(modeRoot, 'usr', 'bin', 'varve-desktop'), 0o770);
+  normalizeAppDirPermissions(modeRoot);
+  assert.equal(lstatSync(modeRoot).mode & 0o777, 0o755);
+  assert.equal(lstatSync(join(modeRoot, 'usr')).mode & 0o777, 0o755);
+  assert.equal(lstatSync(join(modeRoot, 'AppRun.wrapped')).mode & 0o777, 0o755);
+  assert.equal(lstatSync(join(modeRoot, 'usr', 'bin', 'varve-desktop')).mode & 0o777, 0o755);
+
+  // ── 8. AppImage desktop file matches the AppStream launchable ────────
+  const desktopRoot = join(fixture, 'desktop');
+  mkdirSync(join(desktopRoot, 'usr', 'share', 'applications'), { recursive: true });
+  write(
+    join(desktopRoot, 'usr', 'share', 'applications', TAURI_APPIMAGE_DESKTOP_NAME),
+    '[Desktop Entry]\nName=Varve\n',
+  );
+  symlinkSync(
+    join('usr', 'share', 'applications', TAURI_APPIMAGE_DESKTOP_NAME),
+    join(desktopRoot, TAURI_APPIMAGE_DESKTOP_NAME),
+  );
+  normalizeAppImageDesktopEntries(desktopRoot);
+  assert.ok(
+    existsSync(join(desktopRoot, 'usr', 'share', 'applications', APPSTREAM_DESKTOP_ID)),
+    'applications desktop must use the reverse-DNS AppStream id',
+  );
+  assert.ok(
+    !existsAsEntry(join(desktopRoot, 'usr', 'share', 'applications', TAURI_APPIMAGE_DESKTOP_NAME)),
+    'Tauri productName desktop file must be renamed away',
+  );
+  assert.equal(
+    lstatSync(join(desktopRoot, APPSTREAM_DESKTOP_ID)).isSymbolicLink(),
+    true,
+    'top-level desktop entry must stay a symlink after the rename',
+  );
+
+  const prepared = join(fixture, 'prepared');
+  write(
+    join(
+      prepared,
+      'usr',
+      'lib',
+      'Varve',
+      '_up_',
+      '_up_',
+      '_up_',
+      'target',
+      'release',
+      'varve-generative-helper.d',
+    ),
+    'dep',
+  );
+  write(join(prepared, 'AppRun'), '#!/bin/sh\n');
+  prepareAppDirForRepack(prepared);
+  assert.ok(
+    !existsSync(
+      join(
+        prepared,
+        'usr',
+        'lib',
+        'Varve',
+        '_up_',
+        '_up_',
+        '_up_',
+        'target',
+        'release',
+        'varve-generative-helper.d',
+      ),
+    ),
+    'prepareAppDirForRepack must drop the cargo dep-info file',
+  );
 
   console.log('prune-appimage-bundled-libs tests passed');
 } finally {

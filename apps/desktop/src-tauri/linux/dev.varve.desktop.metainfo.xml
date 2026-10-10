@@ -42,6 +42,9 @@
       Varve is source-available under the Functional Source License (FSL-1.1-MIT). Each release becomes available under the MIT licence two years after it is published.
     </p>
   </description>
+  <!-- Must match the .desktop file shipped in the AppImage, AUR package, and
+       Flatpak. Tauri writes Varve.desktop from productName; the AppImage prune
+       step renames it to this reverse-DNS id before linuxdeploy repacks. -->
   <launchable type="desktop-id">dev.varve.desktop.desktop</launchable>
   <url type="homepage">https://varve.studio</url>
   <url type="bugtracker">https://github.com/K-Arthur/varve/issues</url>
