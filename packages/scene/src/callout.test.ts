@@ -392,6 +392,43 @@ describe('comic callouts', () => {
     expect(tip?.kind === 'path' ? tip.points[1] : null).toMatchObject({ x: 30, y: 210 });
   });
 
+  it('seats a tight fixed speech wrap inside the balloon without a separate fit', () => {
+    // Repro: drag a ~128x36 box, type "Perfect!", Add Speech Balloon, and do
+    // not click Fit. The ellipse crown used to clip the top-aligned line.
+    const text = makeTextNode('perfect', 'Perfect!', {
+      transform: [1, 0, 0, 1, 80, 90],
+      w: 128,
+      h: 36,
+      textResizing: 'fixed',
+    });
+    const doc = addNode(createDocument('wrap-perfect', true), text);
+    const result = wrapTextInCallout(doc, text.id, { kind: 'speech' });
+    expect(result).not.toBeNull();
+    const wrapped = result!.document;
+    const report = getCalloutFitReport(wrapped, result!.groupId);
+    expect(report).not.toBeNull();
+    expect(report!.status).not.toBe('overflow');
+    const body = wrapped.nodes[result!.bodyId];
+    const seated = wrapped.nodes[text.id];
+    expect(body?.kind).toBe('shape');
+    expect(seated?.kind).toBe('text');
+    if (body?.kind !== 'shape' || body.shape.kind !== 'rect' || seated?.kind !== 'text') {
+      throw new Error('expected rect body and text');
+    }
+    expect(seated.textAlignVertical).toBe('middle');
+    const padding = report!.padding;
+    const left = seated.transform[4];
+    const top = seated.transform[5];
+    const right = left + (seated.w ?? report!.layoutWidth);
+    const bottom = top + (seated.h ?? report!.layoutHeight);
+    expect(left).toBeGreaterThanOrEqual(padding - 0.5);
+    expect(top).toBeGreaterThanOrEqual(padding - 0.5);
+    expect(right).toBeLessThanOrEqual(body.shape.w - padding + 0.5);
+    expect(bottom).toBeLessThanOrEqual(body.shape.h - padding + 0.5);
+    expect(report!.layoutWidth).toBeLessThanOrEqual(report!.availableWidth + 0.01);
+    expect(report!.layoutHeight).toBeLessThanOrEqual(report!.availableHeight + 0.01);
+  });
+
   it('stacks auto-width dialogue into a stacked balloon instead of a ribbon', () => {
     const text = makeTextNode(
       'auto-wide',
