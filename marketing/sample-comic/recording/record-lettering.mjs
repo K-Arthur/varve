@@ -43,6 +43,31 @@ const WANT_VERTICAL =
 const pointerByPage = new WeakMap();
 const compactByPage = new WeakMap();
 
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(0xc0ffee42);
+function randBetween(min, max) {
+  return min + rand() * (max - min);
+}
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+function cubicBezier(p0, p1, p2, p3, t) {
+  const u = 1 - t;
+  return {
+    x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
+    y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y,
+  };
+}
+
 const ART_LOCK_NAMES = [
   'Wall',
   'Window',
@@ -257,6 +282,7 @@ const CURSOR_BOOT = `(() => {
       pointer-events: none;
       z-index: 2147483646;
       transform: translate(-40px, -40px);
+      filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35));
     }
   \`;
   const cursor = document.createElement('div');
@@ -268,7 +294,7 @@ const CURSOR_BOOT = `(() => {
     if (!document.documentElement.contains(cursor)) document.documentElement.appendChild(cursor);
   };
   const move = (event) => {
-    cursor.style.transform = 'translate(' + event.clientX + 'px,' + event.clientY + 'px)';
+    cursor.style.transform = 'translate(' + (event.clientX - 4) + 'px,' + (event.clientY - 3) + 'px)';
   };
   mount();
   document.addEventListener('mousemove', move, true);
@@ -331,11 +357,51 @@ async function dismissNoise(page) {
   }
 }
 
-async function humanMove(page, x, y, durationMs = 380) {
-  const last = pointerByPage.get(page) ?? { x: 960, y: 540 };
-  const dist = Math.hypot(x - last.x, y - last.y);
-  const steps = Math.max(8, Math.min(36, Math.round(dist / 18 + durationMs / 22)));
-  await page.mouse.move(x, y, { steps });
+async function humanMove(page, x, y) {
+  const last = pointerByPage.get(page) ?? { x: 480, y: 420 };
+  const dx = x - last.x;
+  const dy = y - last.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 2) {
+    await page.mouse.move(x, y);
+    pointerByPage.set(page, { x, y });
+    return;
+  }
+  const speed = randBetween(420, 860);
+  const duration = Math.max(220, (dist / speed) * 1000);
+  const nx = -dy / dist;
+  const ny = dx / dist;
+  const bulge = dist * randBetween(0.14, 0.34) * (rand() < 0.5 ? -1 : 1);
+  const p0 = last;
+  const p3 = { x, y };
+  const p1 = {
+    x: last.x + dx * 0.3 + nx * bulge,
+    y: last.y + dy * 0.3 + ny * bulge,
+  };
+  const p2 = {
+    x: last.x + dx * 0.68 + nx * bulge * randBetween(0.25, 0.55),
+    y: last.y + dy * 0.68 + ny * bulge * randBetween(0.25, 0.55),
+  };
+  const overshoot = dist > 90 && rand() < 0.5;
+  const ox = overshoot ? x + (dx / dist) * randBetween(7, 16) : x;
+  const oy = overshoot ? y + (dy / dist) * randBetween(7, 16) : y;
+  const end = overshoot ? { x: ox, y: oy } : p3;
+  const steps = Math.max(12, Math.round(duration / 16));
+  for (let i = 1; i <= steps; i++) {
+    const t = easeInOutCubic(i / steps);
+    const pt = cubicBezier(p0, p1, p2, end, t);
+    await page.mouse.move(pt.x, pt.y);
+    await page.waitForTimeout(16);
+  }
+  if (overshoot) {
+    const settle = Math.max(5, Math.round(randBetween(90, 160) / 16));
+    for (let i = 1; i <= settle; i++) {
+      const t = easeInOutCubic(i / settle);
+      await page.mouse.move(ox + (x - ox) * t, oy + (y - oy) * t);
+      await page.waitForTimeout(16);
+    }
+  }
+  await page.mouse.move(x, y);
   pointerByPage.set(page, { x, y });
 }
 
@@ -343,18 +409,163 @@ async function pause(page, ms) {
   await page.waitForTimeout(ms);
 }
 
-async function clickAt(page, x, y, durationMs = 380) {
-  await humanMove(page, x, y, durationMs);
-  await pause(page, 90);
-  await page.mouse.click(x, y);
+async function think(page, min = 250, max = 700) {
+  await pause(page, randBetween(min, max));
 }
 
-async function typeHuman(page, text, delay = 38) {
+async function clickAt(page, x, y) {
+  await humanMove(page, x, y);
+  await think(page, 250, 700);
+  await page.mouse.click(x, y);
+  await think(page, 200, 480);
+}
+
+async function typeHuman(page, text) {
   const lines = String(text).split('\n');
   for (let index = 0; index < lines.length; index++) {
-    if (lines[index]) await page.keyboard.type(lines[index], { delay });
-    if (index < lines.length - 1) await page.keyboard.press('Enter');
+    for (const ch of lines[index]) {
+      await page.keyboard.type(ch, { delay: 0 });
+      await pause(page, 1000 / randBetween(8, 12) + randBetween(-18, 36));
+      if (rand() < 0.09) await pause(page, randBetween(110, 260));
+    }
+    if (index < lines.length - 1) {
+      await think(page, 180, 360);
+      await page.keyboard.press('Enter');
+      await think(page, 140, 280);
+    }
   }
+}
+
+async function beat(page, min = 380, max = 720) {
+  await think(page, min, max);
+}
+
+async function currentZoom(page) {
+  const map = await pageScreenMap(page);
+  return map.h / PAGE_H;
+}
+
+async function dispatchCanvasWheel(page, x, y, deltaY) {
+  await page.evaluate(
+    ({ clientX, clientY, deltaY: dy }) => {
+      const canvas = document.querySelector('canvas.editor-canvas__content-layer');
+      if (!canvas) return;
+      canvas.dispatchEvent(
+        new WheelEvent('wheel', {
+          clientX,
+          clientY,
+          deltaX: 0,
+          deltaY: dy,
+          deltaMode: 0,
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    },
+    { clientX: x, clientY: y, deltaY },
+  );
+}
+
+async function wheelZoomToward(page, x, y, targetZoom) {
+  await humanMove(page, x, y);
+  await think(page, 180, 380);
+  let px = x;
+  let py = y;
+  const before = await currentZoom(page);
+  for (let i = 0; i < 32; i++) {
+    const zoom = await currentZoom(page);
+    if (Math.abs(zoom - targetZoom) < 0.06) break;
+    const inward = zoom < targetZoom;
+    const mag = randBetween(5, 11);
+    if (i === 4 && Math.abs(zoom - before) < 0.01) {
+      await page.keyboard.down('Control');
+      await page.mouse.wheel(0, inward ? -mag : mag);
+      await page.keyboard.up('Control');
+    } else {
+      await dispatchCanvasWheel(page, px, py, inward ? -mag : mag);
+    }
+    await pause(page, randBetween(42, 78));
+    if (i % 5 === 4) {
+      px += randBetween(-8, 8);
+      py += randBetween(-8, 8);
+      await page.mouse.move(px, py);
+      pointerByPage.set(page, { x: px, y: py });
+    }
+  }
+}
+
+async function humanPanBy(page, dx, dy) {
+  if (Math.hypot(dx, dy) < 10) return;
+  const view = page.viewportSize() ?? { width: 1920, height: 1080 };
+  const last = pointerByPage.get(page) ?? { x: view.width * 0.45, y: view.height * 0.45 };
+  let start = { x: last.x, y: last.y };
+  let end = { x: start.x + dx, y: start.y + dy };
+  const padX = 28;
+  const padY = 88;
+  if (end.x < padX || end.x > view.width - padX || end.y < padY || end.y > view.height - 36) {
+    start = {
+      x: Math.min(view.width - padX, Math.max(padX, start.x - dx * 0.35)),
+      y: Math.min(view.height - 36, Math.max(padY, start.y - dy * 0.35)),
+    };
+    end = {
+      x: Math.min(view.width - padX, Math.max(padX, start.x + dx)),
+      y: Math.min(view.height - 36, Math.max(padY, start.y + dy)),
+    };
+    await humanMove(page, start.x, start.y);
+  }
+  await blurChrome(page);
+  await page.keyboard.down(' ');
+  await pause(page, 70);
+  await page.mouse.down();
+  await pause(page, 40);
+  await humanMove(page, end.x, end.y);
+  await pause(page, 90);
+  await page.mouse.up();
+  await page.keyboard.up(' ');
+  await pause(page, 180);
+}
+
+async function humanPanTo(page, fromX, fromY, toX, toY) {
+  await humanMove(page, fromX, fromY);
+  await think(page, 200, 420);
+  await humanPanBy(page, toX - fromX, toY - fromY);
+}
+
+async function easeCameraToPanel(page, panelIndex) {
+  if (compactByPage.get(page)) await hideSidePanels(page);
+  const view = page.viewportSize() ?? { width: 1920, height: 1080 };
+  const viewCx = view.width * 0.5;
+  const viewCy = view.height * (compactByPage.get(page) ? 0.46 : 0.5);
+  const targetZoom = compactByPage.get(page) ? randBetween(1.68, 2.08) : randBetween(1.48, 1.88);
+  let map = await pageScreenMap(page);
+  let mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
+  await humanPanTo(page, mid.x, mid.y, viewCx, viewCy);
+  map = await pageScreenMap(page);
+  mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
+  await wheelZoomToward(page, mid.x, mid.y, targetZoom);
+  map = await pageScreenMap(page);
+  mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
+  if (Math.hypot(mid.x - viewCx, mid.y - viewCy) > 40) {
+    await humanPanTo(page, mid.x, mid.y, viewCx, viewCy);
+  }
+  await beat(page, 300, 560);
+}
+
+async function easeCameraToPage(page) {
+  if (compactByPage.get(page)) await hideSidePanels(page);
+  const view = page.viewportSize() ?? { width: 1920, height: 1080 };
+  const cx = view.width * 0.5;
+  const cy = view.height * 0.5;
+  const target = compactByPage.get(page) ? randBetween(0.86, 1.04) : randBetween(0.6, 0.8);
+  await wheelZoomToward(page, cx, cy, target);
+  const map = await pageScreenMap(page);
+  const pageCx = map.origin.x + map.w / 2;
+  const pageCy = map.origin.y + map.h / 2;
+  if (Math.hypot(pageCx - cx, pageCy - cy) > 30) {
+    await humanPanTo(page, pageCx, pageCy, cx, cy);
+  }
+  await beat(page, 420, 720);
 }
 
 async function hideOverlays(page) {
@@ -604,6 +815,7 @@ async function setTextResizingFixed(page) {
 
 async function clampTextBox(page, placement) {
   await setTextResizingFixed(page);
+  if (compactByPage.get(page)) return;
   const width = await setSpin(page, 'w', placement.boxW);
   const height = await setSpin(page, 'h', placement.boxH);
   log(
@@ -619,14 +831,17 @@ async function clampBalloonInPanel(page, placement) {
   const height = await readSpin(page, 'h');
   if (width != null && width > maxW) await setSpin(page, 'w', maxW);
   if (height != null && height > maxH) await setSpin(page, 'h', maxH);
-  await seatTextInBalloon(page);
+  if (!compactByPage.get(page)) await seatTextInBalloon(page);
   await revealBalloon(page, placement.layer ?? /balloon/i);
+}
+
+async function inspectorRoot(page) {
+  return page.locator('.editor-inspector, .editor__inspector-panel, [data-panel-root="inspector"]');
 }
 
 async function setSpin(page, name, value) {
   await ensureInspector(page);
-  const field = page
-    .locator('.editor-inspector, .editor__inspector-panel, [data-panel-root="inspector"]')
+  const field = (await inspectorRoot(page))
     .getByRole('spinbutton', { name: new RegExp(`^${name}(?:\\s*\\([^)]*\\))?$`, 'i') })
     .first();
   if (!(await field.isVisible({ timeout: 1800 }).catch(() => false))) {
@@ -634,12 +849,45 @@ async function setSpin(page, name, value) {
     return false;
   }
   const box = await field.boundingBox();
-  if (box) await clickAt(page, box.x + 18, box.y + box.height / 2, 220);
+  if (box) await clickAt(page, box.x + 18, box.y + box.height / 2);
   else await field.click();
   await page.keyboard.press('Control+a');
-  await typeHuman(page, String(value), 36);
+  await typeHuman(page, String(value));
   await page.keyboard.press('Enter');
-  await pause(page, 140);
+  await beat(page, 220, 420);
+  return true;
+}
+
+async function scrubSpin(page, name, deltaPx) {
+  await ensureInspector(page);
+  const field = (await inspectorRoot(page))
+    .getByRole('spinbutton', { name: new RegExp(`^${name}(?:\\s*\\([^)]*\\))?$`, 'i') })
+    .first();
+  if (!(await field.isVisible({ timeout: 1800 }).catch(() => false))) {
+    log(`spinbutton "${name}" not visible`);
+    return false;
+  }
+  const fieldId = await field.getAttribute('id');
+  const label = fieldId
+    ? page.locator(`label[for="${fieldId}"]`).first()
+    : (await inspectorRoot(page))
+        .locator('label')
+        .filter({ hasText: new RegExp(name, 'i') })
+        .first();
+  const box = (await label.boundingBox().catch(() => null)) ?? (await field.boundingBox());
+  if (!box) return false;
+  const startX = box.x + Math.min(18, box.width * 0.4);
+  const startY = box.y + box.height / 2 + randBetween(-2, 2);
+  await humanMove(page, startX, startY);
+  await think(page, 250, 620);
+  await page.mouse.down();
+  await pause(page, randBetween(50, 90));
+  const endX = startX + deltaPx + randBetween(-4, 4);
+  const endY = startY + randBetween(-5, 5);
+  await humanMove(page, endX, endY);
+  await pause(page, randBetween(80, 140));
+  await page.mouse.up();
+  await beat(page, 260, 520);
   return true;
 }
 
@@ -679,113 +927,15 @@ async function wrapSelectedText(page, query, actionName) {
   await pause(page, 380);
 }
 
-async function selectionKind(page) {
-  return page.evaluate(() => window.__varveIsoTest?.getSelectionGeometry?.()?.[0]?.kind ?? null);
-}
-
-async function fitSelectedFrame(page, expectedPattern) {
-  const kind = await selectionKind(page);
-  if (kind && kind !== 'frame') return false;
-  const selected = expectedPattern
-    ? await page
-        .getByRole('treeitem', { name: expectedPattern })
-        .first()
-        .getAttribute('aria-selected')
-    : 'true';
-  if (selected !== 'true') return false;
-  const fit = page.getByRole('button', { name: /fit selection to viewport/i });
-  if (await fit.isVisible({ timeout: 1500 }).catch(() => false)) {
-    await fit.click();
-    await pause(page, 280);
-    return true;
-  }
-  await blurChrome(page);
-  await page.keyboard.press('Shift+Digit2');
-  await pause(page, 280);
-  return true;
-}
-
-async function resetView(page) {
-  await blurChrome(page);
-  await page.keyboard.press('Shift+Digit1');
-  await pause(page, 400);
-}
-
-async function zoomToLayer(page, pattern) {
-  const item = page.getByRole('treeitem', { name: pattern }).first();
-  await item.waitFor({ state: 'visible', timeout: 5000 });
-  const box = await item.boundingBox();
-  if (box) {
-    await clickAt(page, box.x + 28, box.y + box.height / 2, 200);
-    await item.click({ button: 'right' });
-  } else {
-    await item.click({ button: 'right' });
-  }
-  const zoom = page.getByRole('menuitem', { name: /zoom to selection/i }).first();
-  if (
-    await zoom
-      .waitFor({ state: 'visible', timeout: 2500 })
-      .then(() => true)
-      .catch(() => false)
-  ) {
-    await zoom.click();
-    await pause(page, 320);
-    return true;
-  }
-  await page.keyboard.press('Escape').catch(() => undefined);
-  return fitSelectedFrame(page, pattern);
-}
-
-async function followPanelCanvas(page, panelIndex) {
-  await hideSidePanels(page);
-  await resetView(page);
-  const map = await pageScreenMap(page);
-  const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
-  await clickAt(page, mid.x, mid.y, 240);
-  await blurChrome(page);
-  const kind = await selectionKind(page);
-  if (kind !== 'frame') return false;
-  await page.keyboard.press('Shift+Digit2');
-  await pause(page, 280);
-  const after = await pageScreenMap(page);
-  const zoom = after.h / PAGE_H;
-  if (zoom > 2.4 || zoom < 1.3) {
-    await page.keyboard.press('Digit5');
-    await pause(page, 240);
-  }
-  const fitted = await pageScreenMap(page);
-  const view = page.viewportSize() ?? { width: 1080, height: 1920 };
-  const center = localToScreen(fitted, panelIndex, PANEL_W / 2, PANEL_H / 2);
-  return (
-    fitted.h > 80 &&
-    center.y > 40 &&
-    center.y < view.height - 40 &&
-    center.x > 20 &&
-    center.x < view.width - 20
-  );
-}
-
 async function followPanel(page, panelIndex) {
-  if (compactByPage.get(page)) {
-    const viaCanvas = await followPanelCanvas(page, panelIndex);
-    if (viaCanvas) return;
-  }
-  const label = `Panel ${panelIndex + 1}`;
-  const pattern = new RegExp(`${label}(?:,|$)`, 'i');
-  await filterLayers(page, label);
-  await selectLayer(page, pattern);
-  await zoomToLayer(page, pattern);
-  await filterLayers(page, '');
+  await easeCameraToPanel(page, panelIndex);
   const map = await pageScreenMap(page);
   const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
   const view = page.viewportSize() ?? { width: 1920, height: 1080 };
   const insane = map.h > 6000 || map.h < 80 || mid.y < 40 || mid.y > view.height - 40;
   if (insane) {
-    await resetView(page);
-    await filterLayers(page, label);
-    await selectLayer(page, pattern);
-    await zoomToLayer(page, pattern);
-    await filterLayers(page, '');
+    await easeCameraToPage(page);
+    await easeCameraToPanel(page, panelIndex);
   }
   if (compactByPage.get(page)) await hideSidePanels(page);
 }
@@ -1008,13 +1158,13 @@ async function placeDialogue(page, placement) {
   if (!opened) {
     throw new Error(`text box did not open at ${start.x.toFixed(1)},${start.y.toFixed(1)}`);
   }
-  await pause(page, 140);
-  await typeHuman(page, placement.text, 38);
-  await pause(page, 240);
+  await think(page, 200, 420);
+  await typeHuman(page, placement.text);
+  await beat(page, 420, 780);
   await page.keyboard.press('Escape');
   await editor.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
   await page.keyboard.press('v');
-  await pause(page, 160);
+  await beat(page, 260, 480);
   const snippet = placement.text
     .split('\n')[0]
     .slice(0, 10)
@@ -1029,14 +1179,8 @@ async function placeDialogue(page, placement) {
   ) {
     await selectLayer(page, new RegExp(`text:.*${snippet}`, 'i'), 'last');
   }
-  if (placement.fontSize) await setSpin(page, 'size', placement.fontSize);
-  if (
-    await textLayer
-      .last()
-      .isVisible({ timeout: 800 })
-      .catch(() => false)
-  ) {
-    await selectLayer(page, new RegExp(`text:.*${snippet}`, 'i'), 'last');
+  if (!compactByPage.get(page) && placement.fontSize) {
+    await setSpin(page, 'size', placement.fontSize);
   }
   await clampTextBox(page, placement);
   if (
@@ -1048,17 +1192,19 @@ async function placeDialogue(page, placement) {
     await selectLayer(page, new RegExp(`text:.*${snippet}`, 'i'), 'last');
   }
   await wrapSelectedText(page, placement.query, placement.action);
+  await beat(page, 500, 900);
   await revealBalloon(page, placement.layer ?? /balloon/i);
   if (PROBE) await dumpBalloon(page, `wrap-${placement.action.replace(/\s+/g, '-').toLowerCase()}`);
-  await editBalloonText(page, placement.text);
-  await revealBalloon(page, placement.layer ?? /balloon/i);
-  await seatTextInBalloon(page);
-  await revealBalloon(page, placement.layer ?? /balloon/i);
-  await clickInspectorButton(page, 'Fit balloon to text');
-  await pause(page, 360);
+  if (!compactByPage.get(page)) {
+    await seatTextInBalloon(page);
+    await revealBalloon(page, placement.layer ?? /balloon/i);
+    await clickInspectorButton(page, 'Fit balloon to text');
+    await beat(page, 480, 820);
+  }
   await clampBalloonInPanel(page, placement);
   if (PROBE) await dumpBalloon(page, `fit-${placement.action.replace(/\s+/g, '-').toLowerCase()}`);
   if (compactByPage.get(page)) await hideSidePanels(page);
+  await beat(page, 360, 640);
 }
 
 async function captionHasTail(page) {
@@ -1151,19 +1297,19 @@ async function loopTailCycle(page) {
   const endX = Math.round(PLACEMENTS.speech.tailToward.localX - PLACEMENTS.speech.localX);
   const endY = Math.round(PLACEMENTS.speech.tailToward.localY - PLACEMENTS.speech.localY);
   log(`loop tail ${startX},${startY} -> ${endX},${endY} -> ${startX},${startY}`);
-  await pause(page, 900);
-  await setSpin(page, 'tail x', Math.round(startX + (endX - startX) * 0.4));
-  await setSpin(page, 'tail y', Math.round(startY + (endY - startY) * 0.4));
-  await pause(page, 240);
-  await setSpin(page, 'tail x', endX);
-  await setSpin(page, 'tail y', endY);
-  await pause(page, 560);
-  await setSpin(page, 'tail x', Math.round(startX + (endX - startX) * 0.4));
-  await setSpin(page, 'tail y', Math.round(startY + (endY - startY) * 0.4));
-  await pause(page, 240);
-  await setSpin(page, 'tail x', startX);
-  await setSpin(page, 'tail y', startY);
-  await pause(page, 1100);
+  await beat(page, 520, 860);
+  await scrubSpin(page, 'tail x', endX - startX);
+  await think(page, 280, 520);
+  if (Math.abs(endY - startY) > 6) await scrubSpin(page, 'tail y', endY - startY);
+  await beat(page, 640, 980);
+  if (Math.abs(endY - startY) > 6) await scrubSpin(page, 'tail y', startY - endY);
+  await think(page, 220, 420);
+  await scrubSpin(page, 'tail x', startX - endX);
+  const backX = await readSpin(page, 'tail x');
+  const backY = await readSpin(page, 'tail y');
+  if (backX != null && Math.abs(backX - startX) > 3) await setSpin(page, 'tail x', startX);
+  if (backY != null && Math.abs(backY - startY) > 3) await setSpin(page, 'tail y', startY);
+  await beat(page, 900, 1300);
 }
 
 async function dragSelectedTail(page, placement) {
@@ -1171,15 +1317,14 @@ async function dragSelectedTail(page, placement) {
   // Aim the parametric tail from the balloon group. Canvas-dragging the tail
   // path translates a detached stub and is what previously grabbed the panel.
   await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
+  const startX = (await readSpin(page, 'tail x')) ?? 40;
+  const startY = (await readSpin(page, 'tail y')) ?? 80;
   const tailX = Math.round(placement.tailToward.localX - placement.localX);
   const tailY = Math.round(placement.tailToward.localY - placement.localY);
-  const midX = await setSpin(page, 'tail x', Math.round(tailX * 0.4));
-  const midY = await setSpin(page, 'tail y', Math.round(tailY * 0.4));
-  await pause(page, 220);
-  const endX = await setSpin(page, 'tail x', tailX);
-  const endY = await setSpin(page, 'tail y', tailY);
-  log(`tail aim ${tailX},${tailY} spins=${midX}/${midY}/${endX}/${endY}`);
-  await pause(page, 360);
+  log(`tail aim ${startX},${startY} -> ${tailX},${tailY}`);
+  await scrubSpin(page, 'tail x', tailX - startX);
+  if (Math.abs(tailY - startY) > 6) await scrubSpin(page, 'tail y', tailY - startY);
+  await beat(page, 360, 680);
   await filterLayers(page, '');
   if (compactByPage.get(page)) await hideSidePanels(page);
 }
@@ -1200,30 +1345,29 @@ async function finishOnPage(page) {
   await page.keyboard.press('Escape');
   await blurChrome(page);
   await page.keyboard.press('v');
-  await pause(page, 120);
-  const fitAll = page.getByRole('button', { name: /fit all to viewport/i }).first();
-  if (!compactByPage.get(page) && (await fitAll.isVisible({ timeout: 800 }).catch(() => false))) {
-    await fitAll.click();
-  } else {
-    await page.keyboard.press('Shift+Digit1');
-  }
-  await pause(page, 3600);
+  await think(page, 180, 320);
+  await easeCameraToPage(page);
+  await beat(page, 1600, 2400);
 }
 
 async function letterPage(page, options = {}) {
-  const include = options.only ? [options.only] : ['caption', 'speech', 'shout', 'thought'];
+  const include =
+    options.include ?? (options.only ? [options.only] : ['caption', 'speech', 'shout', 'thought']);
   for (const key of include) {
     const placement = PLACEMENTS[key];
     await placeDialogue(page, placement);
-    if (key === 'caption') await removeCaptionTail(page);
+    if (key === 'caption') {
+      await removeCaptionTail(page);
+      await beat(page, 420, 720);
+    }
     if (placement.tailToward) await dragSelectedTail(page, placement);
     if (compactByPage.get(page)) await hideSidePanels(page);
-    await pause(page, 360);
+    await beat(page, 380, 700);
     if (PROBE) {
       await page.screenshot({ path: join(RAW_DIR, `probe-${key}.png`) });
     }
   }
-  if (!options.only && !options.skipFitDemo) {
+  if (!options.only && !options.include && !options.skipFitDemo) {
     await demonstrateFit(page).catch(() => undefined);
   }
   await finishOnPage(page);
@@ -1363,11 +1507,14 @@ async function encodeMp4(input, output, extra = []) {
   ]);
 }
 
-async function encodeToWindow(input, output, minSec, maxSec, vf) {
+async function encodeToWindow(input, output, minSec, maxSec, vf, options = {}) {
   const duration = await probeDuration(input);
+  const maxRate = options.maxRate ?? (options.realtime ? 1.18 : 2.2);
   let rate = 1;
-  if (duration > maxSec) rate = duration / maxSec;
+  if (duration > maxSec) rate = Math.min(maxRate, duration / maxSec);
   if (duration / rate < minSec && duration < minSec) rate = duration / minSec;
+  if (options.realtime && duration <= maxSec + 1.5)
+    rate = duration < minSec ? duration / minSec : 1;
   const filters = [];
   if (vf) filters.push(vf);
   if (Math.abs(rate - 1) > 0.04) filters.push(`setpts=${(1 / rate).toFixed(4)}*PTS`);
@@ -1438,7 +1585,7 @@ async function recordSession(browser, filePath, name, act, size, prepare) {
   }
 }
 
-async function writeWindowed(session, dest, minSec, maxSec) {
+async function writeWindowed(session, dest, minSec, maxSec, options = {}) {
   const trimmed = join(RAW_DIR, `${dest.split('/').pop()}-trimmed.mp4`);
   await encodeMp4(session.raw, trimmed, [
     '-ss',
@@ -1446,7 +1593,7 @@ async function writeWindowed(session, dest, minSec, maxSec) {
     '-vf',
     `scale=${session.width}:${session.height}:flags=lanczos`,
   ]);
-  await encodeToWindow(trimmed, dest, minSec, maxSec);
+  await encodeToWindow(trimmed, dest, minSec, maxSec, undefined, options);
   const info = await assertVideo(dest, session.width, session.height);
   log(`encoded ${dest} ${info.width}x${info.height} ${info.duration.toFixed(2)}s`);
   return info.duration;
@@ -1479,7 +1626,8 @@ async function main() {
       );
       if (session.raw) {
         const dest = join(VIDEO_DIR, 'lettering-timelapse.mp4');
-        const duration = await writeWindowed(session, dest, 30, 45);
+        const duration = await writeWindowed(session, dest, 30, 45, { maxRate: 2.2 });
+        await extractStills(dest, join(RAW_DIR, 'stills-timelapse'));
         outputs.push({ path: dest, duration, width: 1920, height: 1080 });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
       }
@@ -1497,11 +1645,12 @@ async function main() {
         async (page) => {
           await followPanel(page, PLACEMENTS.speech.panel);
           await revealBalloon(page, /speech balloon/i);
+          await setSidePanel(page, 'layers', false);
         },
       );
       if (session.raw) {
         const dest = join(VIDEO_DIR, 'balloon-tail-loop.mp4');
-        const duration = await writeWindowed(session, dest, 6, 10);
+        const duration = await writeWindowed(session, dest, 10, 12, { realtime: true });
         await extractStills(dest, join(RAW_DIR, 'stills-loop'));
         outputs.push({ path: dest, duration, width: 1920, height: 1080 });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
@@ -1514,7 +1663,7 @@ async function main() {
         unlettered.path,
         'vertical',
         async (page) => {
-          await letterPage(page, { skipFitDemo: true });
+          await letterPage(page, { include: ['caption', 'speech'], skipFitDemo: true });
         },
         { width: 1080, height: 1920 },
         async (page) => {
@@ -1524,7 +1673,7 @@ async function main() {
       );
       if (session.raw) {
         const dest = join(VIDEO_DIR, 'lettering-vertical.mp4');
-        const duration = await writeWindowed(session, dest, 15, 25);
+        const duration = await writeWindowed(session, dest, 35, 45, { realtime: true });
         await extractStills(dest, join(RAW_DIR, 'stills-vertical'));
         outputs.push({ path: dest, duration, width: 1080, height: 1920 });
         log(`wrote ${dest} (${duration.toFixed(2)}s)`);
