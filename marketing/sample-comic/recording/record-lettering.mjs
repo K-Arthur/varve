@@ -68,8 +68,8 @@ const PLACEMENTS = {
     panel: 2,
     localX: 188,
     localY: 52,
-    boxW: 170,
-    boxH: 72,
+    boxW: 150,
+    boxH: 58,
     text: 'Perfect!',
     action: 'Add Speech Balloon',
     query: 'speech balloon',
@@ -350,11 +350,13 @@ async function openUnlettered(page, filePath) {
   await dismissNoise(page);
   const newBtn = page.getByRole('button', { name: /^new$/i });
   const firstDesign = page.getByRole('button', { name: /create your first design/i });
-  await newBtn.or(firstDesign).first().waitFor({ state: 'visible', timeout: 120000 });
-  if (await firstDesign.isVisible().catch(() => false)) {
-    await firstDesign.click({ force: true });
-  } else {
+  await newBtn.or(firstDesign).first().waitFor({ state: 'attached', timeout: 120000 });
+  if (await newBtn.isVisible().catch(() => false)) {
     await newBtn.click({ force: true });
+  } else {
+    await firstDesign.click({ force: true }).catch(async () => {
+      await newBtn.click({ force: true });
+    });
   }
   const create = page
     .locator('dialog[open]')
@@ -366,7 +368,7 @@ async function openUnlettered(page, filePath) {
     await newBtn.click({ force: true }).catch(() => undefined);
   }
   await create.waitFor({ state: 'visible', timeout: 30000 });
-  await create.click();
+  await create.click({ force: true });
   await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 120000 });
   await page
     .locator('canvas.editor-canvas__content-layer')
@@ -535,27 +537,33 @@ async function wrapSelectedText(page, query, actionName) {
 }
 
 async function followPanel(page, panelIndex) {
-  await filterLayers(page, '');
-  await selectLayer(page, new RegExp(`Panel ${panelIndex + 1}(?:,|$)`, 'i'));
+  const label = `Panel ${panelIndex + 1}`;
+  await filterLayers(page, label);
+  await selectLayer(page, new RegExp(`${label}(?:,|$)`, 'i'));
   await blurChrome(page);
   await page.keyboard.press('Shift+Digit2');
   await pause(page, 280);
   await page.keyboard.press('5');
   await pause(page, 280);
+  await filterLayers(page, '');
 }
 
-async function lockAllWalls(page) {
-  await filterLayers(page, 'Wall');
-  const locks = page.getByRole('button', { name: /^Lock Wall$/i });
+async function lockNamedLayers(page, name) {
+  await filterLayers(page, name);
+  const locks = page.getByRole('button', { name: new RegExp(`^Lock ${name}$`, 'i') });
   const count = await locks.count();
   for (let i = 0; i < count; i++) {
     const button = locks.nth(i);
     if (await button.isVisible().catch(() => false)) {
       await button.click();
-      await pause(page, 80);
+      await pause(page, 70);
     }
   }
   await filterLayers(page, '');
+}
+
+async function lockAllWalls(page) {
+  await lockNamedLayers(page, 'Wall');
 }
 
 async function openComicSection(page) {
@@ -588,6 +596,12 @@ async function revealBalloon(page, pattern) {
     await selectLayer(page, pattern);
     await item.press('ArrowRight');
     await pause(page, 140);
+    const selected = await page.evaluate(
+      () => window.__varveIsoTest?.getSelection?.()?.length ?? 0,
+    );
+    if (selected === 0) {
+      await selectLayer(page, pattern);
+    }
     await openComicSection(page);
     return true;
   }
@@ -750,43 +764,27 @@ async function removeCaptionTail(page) {
   await filterLayers(page, '');
 }
 
-async function dragSelectedTail(page, placement) {
-  if (!placement.tailToward) return;
-  await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
-  const tailPattern = placement.layer?.source.includes('thought')
-    ? /thought bubble/i
-    : /balloon tail/i;
-  const tails = page.getByRole('treeitem', { name: tailPattern });
-  if (
-    !(await tails
-      .first()
-      .isVisible({ timeout: 2000 })
-      .catch(() => false))
-  )
-    return;
-  await selectLayer(page, tailPattern, 'last');
-  const map = await pageScreenMap(page);
-  const start = await page.evaluate(() => {
+async function selectedTailGeometry(page) {
+  return page.evaluate(() => {
     const hooks = window.__varveIsoTest;
     const canvas = document.querySelector('.editor-canvas');
     if (!hooks || !canvas) return null;
     const geometry = hooks.getSelectionGeometry()[0];
-    if (!geometry) return null;
+    const shape = geometry?.shape;
+    if (!geometry || !shape) return null;
+    const kind = shape.kind;
+    if (kind !== 'circle' && kind !== 'path') return null;
     const rect = canvas.getBoundingClientRect();
     const matrix = geometry.worldTransform;
-    const shape = geometry.shape;
     let lx = 0;
     let ly = 0;
-    if (shape?.kind === 'circle') {
+    if (kind === 'circle') {
       lx = shape.cx ?? 0;
       ly = shape.cy ?? 0;
-    } else if (shape?.kind === 'rect') {
-      lx = (shape.x ?? 0) + (shape.w ?? 0) / 2;
-      ly = (shape.y ?? 0) + (shape.h ?? 0);
-    } else if (shape?.kind === 'path' && Array.isArray(shape.points) && shape.points.length) {
+    } else if (Array.isArray(shape.points) && shape.points.length) {
       const last = shape.points[shape.points.length - 1];
-      lx = last.x ?? 0;
-      ly = last.y ?? 0;
+      lx = last.x ?? last[0] ?? 0;
+      ly = last.y ?? last[1] ?? 0;
     } else {
       lx = 16;
       ly = 48;
@@ -794,35 +792,57 @@ async function dragSelectedTail(page, placement) {
     const wx = matrix[0] * lx + matrix[2] * ly + matrix[4];
     const wy = matrix[1] * lx + matrix[3] * ly + matrix[5];
     const screen = hooks.worldToScreen(wx, wy);
-    return { x: rect.left + screen.x, y: rect.top + screen.y };
+    return {
+      kind,
+      x: rect.left + screen.x,
+      y: rect.top + screen.y,
+    };
   });
-  const end = localToScreen(
-    map,
-    placement.panel,
-    placement.tailToward.localX,
-    placement.tailToward.localY,
-  );
-  const from =
-    start ?? localToScreen(map, placement.panel, placement.localX + 40, placement.localY + 70);
-  const selectionBefore = await page.evaluate(
-    () => window.__varveIsoTest?.getSelectionGeometry?.()?.[0]?.kind ?? null,
-  );
-  await humanMove(page, from.x, from.y, 320);
-  await page.mouse.down();
-  await pause(page, 70);
-  await humanMove(page, end.x, end.y, 640);
-  await pause(page, 70);
-  await page.mouse.up();
-  await pause(page, 280);
-  const selectionAfter = await page.evaluate(
-    () => window.__varveIsoTest?.getSelectionGeometry?.()?.[0] ?? null,
-  );
-  if (selectionAfter?.kind === 'frame' || /wall/i.test(selectionAfter?.id ?? '')) {
-    throw new Error(`tail drag promoted to ${JSON.stringify(selectionAfter)}`);
+}
+
+async function dragSelectedTail(page, placement) {
+  if (!placement.tailToward) return;
+  await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
+  const tailX = Math.round(placement.tailToward.localX - placement.localX);
+  const tailY = Math.round(placement.tailToward.localY - placement.localY);
+  await setSpin(page, 'tail x', tailX);
+  await setSpin(page, 'tail y', tailY);
+  await pause(page, 200);
+
+  const tailPattern = placement.layer?.source.includes('thought')
+    ? /thought bubble/i
+    : /balloon tail/i;
+  const tails = page.getByRole('treeitem', { name: tailPattern });
+  if (
+    await tails
+      .first()
+      .isVisible({ timeout: 1500 })
+      .catch(() => false)
+  ) {
+    await selectLayer(page, tailPattern, 'last');
+    const start = await selectedTailGeometry(page);
+    if (start) {
+      const map = await pageScreenMap(page);
+      const end = localToScreen(
+        map,
+        placement.panel,
+        placement.tailToward.localX,
+        placement.tailToward.localY,
+      );
+      await humanMove(page, start.x, start.y, 300);
+      await page.mouse.down();
+      await pause(page, 70);
+      await humanMove(page, end.x, end.y, 560);
+      await pause(page, 70);
+      await page.mouse.up();
+      await pause(page, 240);
+      const after = await selectedTailGeometry(page);
+      if (!after) {
+        log('tail canvas drag lost the tail node; inspector move already applied');
+      }
+    }
   }
-  if (!selectionBefore) {
-    /* selection hook optional */
-  }
+  await revealBalloon(page, placement.layer ?? /(speech|shout|thought) balloon/i);
   await filterLayers(page, '');
 }
 
