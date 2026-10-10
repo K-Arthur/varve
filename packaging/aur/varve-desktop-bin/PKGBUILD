@@ -44,12 +44,40 @@ source=("Varve-${pkgver}-linux-x86_64.AppImage::${url}/releases/download/v${pkgv
 sha256sums=('fb0c188286fbd92479f88dd0eefc4547d3544b33e7dc5120abd399bfdf2237af')  # v0.5.0 published SHA256SUMS.txt
 noextract=("Varve-${pkgver}-linux-x86_64.AppImage")
 
+# Install a directory tree with world-readable dirs (755), regular files 644,
+# and executables / shared objects 755. The v0.5.0 AppImage squashfs ships
+# every directory as 0700 (and AppRun.wrapped as 0770); `cp -a` would otherwise
+# install root-owned 0700 trees that unprivileged users cannot read.
+_install_tree() {
+  local src="$1" dest="$2" path rel
+  install -dm755 "${dest}"
+  while IFS= read -r -d '' path; do
+    rel="${path#"${src}"/}"
+    if [[ -d "${path}" && ! -L "${path}" ]]; then
+      install -dm755 "${dest}/${rel}"
+    elif [[ -L "${path}" ]]; then
+      install -dm755 "${dest}/$(dirname "${rel}")"
+      cp -d "${path}" "${dest}/${rel}"
+    elif [[ -f "${path}" ]]; then
+      if [[ "${rel}" == *.so || "${rel}" == *.so.* || -x "${path}" ]]; then
+        install -Dm755 "${path}" "${dest}/${rel}"
+      else
+        install -Dm644 "${path}" "${dest}/${rel}"
+      fi
+    fi
+  done < <(find "${src}" -mindepth 1 -print0)
+}
+
 prepare() {
   cd "${srcdir}"
   chmod +x "Varve-${pkgver}-linux-x86_64.AppImage"
   # --appimage-extract does not need FUSE, so this works in a clean chroot and
   # in CI containers where /dev/fuse is unavailable.
   "./Varve-${pkgver}-linux-x86_64.AppImage" --appimage-extract >/dev/null
+
+  # World-readable extract: dirs 755, files 644, anything that already had
+  # user-execute (binaries, AppRun.wrapped, most .so files) 755.
+  chmod -R u+rwX,go+rX,go-w squashfs-root
 }
 
 package() {
@@ -61,10 +89,11 @@ package() {
   # On Arch those come from `depends` above, so they are intentionally dropped —
   # keeping them would ship stale, unpatched duplicates of distro libraries.
 
-  # Tauri resources (bundled ONNX Runtime) must be kept: they are not in any repo.
+  # Tauri resources (bundled ONNX Runtime, LICENSE, helper binaries) live at
+  # usr/lib/Varve — productName is "Varve", and the binary resolves resources
+  # from /usr/lib/Varve. Do not rename this directory.
   if [[ -d "usr/lib/Varve" ]]; then
-    install -dm755 "${pkgdir}/usr/lib/${_appname}"
-    cp -a "usr/lib/Varve/." "${pkgdir}/usr/lib/${_appname}/"
+    _install_tree "usr/lib/Varve" "${pkgdir}/usr/lib/Varve"
   fi
 
   # Desktop entry, normalised to the packaged binary path.
@@ -72,11 +101,30 @@ package() {
   _desktop="$(find usr/share/applications -name '*.desktop' | head -1)"
   if [[ -n "${_desktop}" ]]; then
     install -Dm644 "${_desktop}" "${pkgdir}/usr/share/applications/dev.varve.desktop.desktop"
+    sed -i \
+      -e 's|^Exec=.*|Exec=varve-desktop %F|' \
+      -e 's|^Icon=.*|Icon=dev.varve.desktop|' \
+      "${pkgdir}/usr/share/applications/dev.varve.desktop.desktop"
   fi
 
-  # Icons — every size the AppImage carries.
+  # Icons — every size the AppImage carries, with modes reset (not `cp -a`).
   if [[ -d usr/share/icons/hicolor ]]; then
-    cp -a usr/share/icons "${pkgdir}/usr/share/icons"
+    _install_tree usr/share/icons/hicolor "${pkgdir}/usr/share/icons/hicolor"
+  fi
+
+  if [[ -f usr/share/metainfo/dev.varve.desktop.metainfo.xml ]]; then
+    install -Dm644 usr/share/metainfo/dev.varve.desktop.metainfo.xml \
+      "${pkgdir}/usr/share/metainfo/dev.varve.desktop.metainfo.xml"
+  fi
+
+  # LICENSE is a Tauri resource next to the ONNX runtime.
+  local _license
+  _license="$(find usr/lib/Varve -maxdepth 2 -type f -name LICENSE 2>/dev/null | head -1)"
+  if [[ -z "${_license}" ]]; then
+    _license="$(find . -maxdepth 3 -type f -name LICENSE 2>/dev/null | head -1)"
+  fi
+  if [[ -n "${_license}" ]]; then
+    install -Dm644 "${_license}" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   fi
 
   # MIME types for .varve and .strata documents, so double-click opens the app.
