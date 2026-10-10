@@ -52,7 +52,12 @@ lrwxrwxrwx 0/0              40 2026-10-09 04:41 squashfs-root/dev.varve.desktop.
   const entries = parseUnsquashfsListing(FAILING_0_5_0);
   assert.equal(entries[0].path, '/');
   assert.equal(entries[0].type, 'dir');
+  assert.equal(entries[0].mode, 'drwx------');
   assert.equal(entries.find((entry) => entry.path === '/AppRun.wrapped')?.mode, '-rwxrwx---');
+  assert.ok(
+    entries.some((entry) => entry.path === '/usr' && entry.type === 'dir'),
+    '0700 directory lines must parse (mode ends with -, not a word character)',
+  );
   const violations = findPermissionViolations(entries);
   const paths = violations.map((item) => item.path).sort();
   assert.deepEqual(paths, [

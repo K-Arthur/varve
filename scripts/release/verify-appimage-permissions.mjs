@@ -21,7 +21,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const MODE_RE = /^([dlbcps-])([r-][w-][xsS-])([r-][w-][xsS-])([r-][w-][xtT-])\b/;
+const MODE_RE = /^([dlbcps-])([r-][w-][xsS-])([r-][w-][xsS-])([r-][w-][xtT-])\s/;
 const TIMESTAMP_RE = /\s(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})\s+(.+)$/;
 
 function parseArgs(argv) {
@@ -50,6 +50,8 @@ function hasRead(triple) {
 
 export function normalizeListingPath(rawPath) {
   let path = rawPath.trim();
+  const arrow = path.indexOf(' -> ');
+  if (arrow >= 0) path = path.slice(0, arrow);
   if (path.startsWith('./')) path = path.slice(2);
   path = path.replace(/\\/g, '/');
   if (path === 'squashfs-root' || path === '.' || path === '' || path === '/') return '/';
