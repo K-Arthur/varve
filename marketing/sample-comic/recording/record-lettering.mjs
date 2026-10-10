@@ -540,12 +540,25 @@ async function followPanel(page, panelIndex) {
   const label = `Panel ${panelIndex + 1}`;
   await filterLayers(page, label);
   await selectLayer(page, new RegExp(`${label}(?:,|$)`, 'i'));
-  await blurChrome(page);
-  await page.keyboard.press('Shift+Digit2');
-  await pause(page, 280);
-  await page.keyboard.press('5');
-  await pause(page, 280);
+  const fit = page.getByRole('button', { name: /fit selection to viewport/i });
+  if (await fit.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await fit.click();
+  } else {
+    await blurChrome(page);
+    await page.keyboard.press('Shift+Digit2');
+  }
+  await pause(page, 320);
   await filterLayers(page, '');
+  const map = await pageScreenMap(page);
+  const mid = localToScreen(map, panelIndex, PANEL_W / 2, PANEL_H / 2);
+  const view = page.viewportSize() ?? { width: 1920, height: 1080 };
+  if (mid.x < 40 || mid.y < 40 || mid.x > view.width - 40 || mid.y > view.height - 40) {
+    await filterLayers(page, label);
+    await selectLayer(page, new RegExp(`${label}(?:,|$)`, 'i'));
+    if (await fit.isVisible({ timeout: 1500 }).catch(() => false)) await fit.click();
+    await pause(page, 280);
+    await filterLayers(page, '');
+  }
 }
 
 async function lockNamedLayers(page, name) {
@@ -670,8 +683,14 @@ async function seatTextInBalloon(page) {
 
 async function placeDialogue(page, placement) {
   await followPanel(page, placement.panel);
-  const map = await pageScreenMap(page);
-  const start = localToScreen(map, placement.panel, placement.localX, placement.localY);
+  let map = await pageScreenMap(page);
+  let start = localToScreen(map, placement.panel, placement.localX, placement.localY);
+  const view = page.viewportSize() ?? { width: 1920, height: 1080 };
+  if (start.x < 20 || start.y < 20 || start.x > view.width - 20 || start.y > view.height - 20) {
+    await followPanel(page, placement.panel);
+    map = await pageScreenMap(page);
+    start = localToScreen(map, placement.panel, placement.localX, placement.localY);
+  }
   const end = localToScreen(
     map,
     placement.panel,
