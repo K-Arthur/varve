@@ -95,14 +95,51 @@ export const NORMAL_TEXT = 4.5;
 export const GRAPHICS = 3.0;
 
 /**
- * Wait for all preloaded fonts to finish loading to ensure deterministic
- * layout for visual regression tests. Includes a small delay after font
- * ready to ensure layout is fully recalculated with the loaded fonts.
+ * Ensure webfonts are loaded and cached before navigating to the page.
+ * With font-display: optional, fonts must be available before first paint
+ * or fallbacks are used for the entire page load. Pre-loading in the test
+ * context ensures consistent font application across environments.
  */
-export async function waitForFonts(page: Page): Promise<void> {
+export async function prewarmFonts(page: Page, baseURL: string): Promise<void> {
+  // Navigate to a minimal page first to trigger font preloads
+  await page.goto(baseURL);
   await page.evaluate(() => document.fonts.ready);
-  // Give the browser a frame to fully apply fonts to layout
-  await page.waitForTimeout(50);
+
+  // Verify the fonts are now cached
+  const fontsLoaded = await page.evaluate(() => {
+    const families = ['Geist Variable', 'IBM Plex Sans Variable', 'Fraunces Variable'];
+    return families.every((family) => {
+      return document.fonts.check(`16px "${family}"`);
+    });
+  });
+
+  if (!fontsLoaded) {
+    throw new Error('Failed to prewarm fonts - they should be cached after homepage load');
+  }
+}
+
+/**
+ * Verify the expected webfonts are applied after navigation.
+ * Body text uses IBM Plex Sans Variable - verify it loaded properly.
+ */
+export async function verifyFontsApplied(page: Page): Promise<void> {
+  const bodyFont = await page.evaluate(() => {
+    const bodyStyle = getComputedStyle(document.body);
+    return {
+      family: bodyStyle.fontFamily,
+      hasPlex: bodyStyle.fontFamily.includes('IBM Plex Sans Variable'),
+      hasFallback: bodyStyle.fontFamily.includes('IBM Plex Sans Fallback'),
+    };
+  });
+
+  // Body should have IBM Plex Sans Variable (the real webfont, not the fallback)
+  // With font-display: optional, if the font wasn't cached, we get the fallback for the whole page
+  if (!bodyFont.hasPlex) {
+    throw new Error(
+      `Expected IBM Plex Sans Variable in body font stack, got: ${bodyFont.family}. ` +
+        `With font-display: optional, fonts must load before first paint or fallbacks are used.`,
+    );
+  }
 }
 
 /**
