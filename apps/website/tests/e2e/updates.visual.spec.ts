@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { prewarmFonts, verifyFontsApplied } from './helpers';
 
 async function expectReleaseSectionGap(page: import('@playwright/test').Page, minimum: number) {
   const spacing = await page.evaluate(() => {
@@ -22,11 +23,19 @@ async function expectReleaseSectionGap(page: import('@playwright/test').Page, mi
 }
 
 test.describe('updates documentation spacing', () => {
-  test('keeps the release platform note separated on desktop', async ({ page }) => {
+  test('keeps the release platform note separated on desktop', async ({ page, baseURL }) => {
     await page.setViewportSize({ width: 1440, height: 960 });
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+
+    // Prewarm fonts so they're cached before navigating to the test page
+    await prewarmFonts(page, baseURL!);
+
     await page.goto('/docs/updates?test-motion=static');
     await expect(page.getByRole('heading', { name: 'Updates', exact: true })).toBeVisible();
+
+    // Verify fonts were applied (with optional, they must be cached before first paint)
+    await verifyFontsApplied(page);
+
     await expectReleaseSectionGap(page, 48);
     await expect(page).toHaveScreenshot('updates-spacing-desktop.png', {
       fullPage: true,
@@ -34,11 +43,19 @@ test.describe('updates documentation spacing', () => {
     });
   });
 
-  test('keeps the release platform note readable on mobile', async ({ page }) => {
+  test('keeps the release platform note readable on mobile', async ({ page, baseURL }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+
+    // Prewarm fonts so they're cached before navigating to the test page
+    await prewarmFonts(page, baseURL!);
+
     await page.goto('/docs/updates?test-motion=static');
     await expect(page.getByRole('heading', { name: 'Updates', exact: true })).toBeVisible();
+
+    // Verify fonts were applied (with optional, they must be cached before first paint)
+    await verifyFontsApplied(page);
+
     await expectReleaseSectionGap(page, 40);
     await expect(page).toHaveScreenshot('updates-spacing-mobile.png', {
       fullPage: true,
