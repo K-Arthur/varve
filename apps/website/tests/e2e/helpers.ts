@@ -26,16 +26,18 @@ export async function dismissAnalyticsBanner(page: Page): Promise<void> {
   }
 
   // Give the analytics init script time to decide whether to show the banner
-  // If it becomes visible within 3 seconds, dismiss it; otherwise it's staying hidden
+  // If it becomes visible within 5 seconds, dismiss it; otherwise it's staying hidden
   const becameVisible = await banner
-    .waitFor({ state: 'visible', timeout: 3000 })
+    .waitFor({ state: 'visible', timeout: 5000 })
     .then(() => true)
     .catch(() => false);
 
   if (becameVisible) {
-    // Click "Not now" to dismiss
-    await banner.getByRole('button', { name: 'Not now' }).click();
-    // Wait for it to be hidden
+    // Wait for the button to be ready and click it
+    const dismissButton = banner.getByRole('button', { name: 'Not now' });
+    await dismissButton.waitFor({ state: 'visible', timeout: 2000 });
+    await dismissButton.click();
+    // Wait for the banner to be hidden
     await banner.waitFor({ state: 'hidden', timeout: 2000 });
   }
 }
