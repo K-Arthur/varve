@@ -114,7 +114,7 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
     expect(meta.title, `${route}: title`).toBeTruthy();
     expect(meta.title.length, `${route}: title length`).toBeLessThanOrEqual(70);
     if (!/\bVarve\b/.test(meta.title)) {
-      expect(meta.title, `${route}: brand suffix`).toMatch(/\| Varve · Free Design Software$/);
+      expect(meta.title, `${route}: brand suffix`).toMatch(/\| Varve$/);
     }
 
     expect(meta.description, `${route}: description`).toBeTruthy();
