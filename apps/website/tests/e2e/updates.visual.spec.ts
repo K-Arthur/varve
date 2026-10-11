@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { prewarmFonts, verifyFontsApplied } from './helpers';
+import { dismissAnalyticsBanner, prewarmFonts, verifyFontsApplied } from './helpers';
 
 async function expectReleaseSectionGap(page: import('@playwright/test').Page, minimum: number) {
   const spacing = await page.evaluate(() => {
@@ -36,6 +36,9 @@ test.describe('updates documentation spacing', () => {
     // Verify fonts were applied (with optional, they must be cached before first paint)
     await verifyFontsApplied(page);
 
+    // Dismiss analytics banner if present (only shown when ANALYTICS_DOMAIN is set)
+    await dismissAnalyticsBanner(page);
+
     await expectReleaseSectionGap(page, 48);
     await expect(page).toHaveScreenshot('updates-spacing-desktop.png', {
       fullPage: true,
@@ -55,6 +58,9 @@ test.describe('updates documentation spacing', () => {
 
     // Verify fonts were applied (with optional, they must be cached before first paint)
     await verifyFontsApplied(page);
+
+    // Dismiss analytics banner if present (only shown when ANALYTICS_DOMAIN is set)
+    await dismissAnalyticsBanner(page);
 
     await expectReleaseSectionGap(page, 40);
     await expect(page).toHaveScreenshot('updates-spacing-mobile.png', {

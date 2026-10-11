@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { dismissAnalyticsBanner } from './helpers';
 
 /**
  * Full-page snapshots of long pages must not race lazy-loaded imagery:
@@ -588,6 +589,7 @@ test('download page dark', async ({ page }) => {
   // Detection adds a recommendation banner after load; wait for the layout to
   // settle before the main-content capture.
   await expect(page.locator('#detection-banner')).toBeVisible();
+  await dismissAnalyticsBanner(page);
   await warmFullPage(page);
   await waitForStableDocument(page);
   await expect(page.locator('#main-content')).toHaveScreenshot('download-dark.png', {
@@ -613,6 +615,7 @@ test('download page linux guidance light', async ({ browser }) => {
     linuxSection.locator('.distro-table').getByText('ChromeOS (Linux development environment)'),
   ).toBeVisible();
   await expect(page.locator('#detection-banner')).toBeVisible();
+  await dismissAnalyticsBanner(page);
   await warmFullPage(page);
   await waitForStableDocument(page);
   const linuxClip = await linuxSection.evaluate((element) => {
@@ -649,6 +652,7 @@ test('workspaces docs page light', async ({ page }) => {
   await seedTheme(page, 'light');
   await page.goto('/docs/workspaces?test-motion=static');
   await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
+  await dismissAnalyticsBanner(page);
   await warmFullPage(page);
   await expect(page.locator('#main-content')).toHaveScreenshot('workspaces-docs-light.png', {
     maxDiffPixelRatio: 0.02,
@@ -661,6 +665,7 @@ test('chromeos docs page light', async ({ page }) => {
   await page.goto('/docs/chromeos-linux?test-motion=static');
   const docsPage = page.locator('.docs-page');
   await expect(page.getByRole('heading', { name: 'Varve on ChromeOS', exact: true })).toBeVisible();
+  await dismissAnalyticsBanner(page);
   await warmFullPage(page);
   await waitForStableDocument(page);
   // Clip to the article in document coordinates. A bare fullPage capture of

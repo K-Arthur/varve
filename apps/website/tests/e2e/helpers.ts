@@ -6,6 +6,42 @@
  */
 import { expect, type Locator, type Page } from '@playwright/test';
 
+/**
+ * Dismiss the analytics consent banner if present.
+ * The banner only appears when ANALYTICS_DOMAIN is set (in deploy workflow).
+ * Call this after navigation to ensure deterministic screenshots.
+ */
+export async function dismissAnalyticsBanner(page: Page): Promise<void> {
+  // Wait for the page's analytics script to initialize
+  await page.waitForLoadState('domcontentloaded');
+  await page.evaluate(() => document.fonts.ready);
+
+  const banner = page.locator('#website-analytics-consent');
+
+  // Wait for the banner element to be in the DOM
+  const bannerExists = await banner.count().then((c) => c > 0);
+  if (!bannerExists) {
+    // Analytics not enabled
+    return;
+  }
+
+  // Give the analytics init script time to decide whether to show the banner
+  // If it becomes visible within 5 seconds, dismiss it; otherwise it's staying hidden
+  const becameVisible = await banner
+    .waitFor({ state: 'visible', timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (becameVisible) {
+    // Wait for the button to be ready and click it
+    const dismissButton = banner.getByRole('button', { name: 'Not now' });
+    await dismissButton.waitFor({ state: 'visible', timeout: 2000 });
+    await dismissButton.click();
+    // Wait for the banner to be hidden
+    await banner.waitFor({ state: 'hidden', timeout: 2000 });
+  }
+}
+
 export function oklchToSrgb(l: number, c: number, h: number): [number, number, number] {
   const hRad = (h * Math.PI) / 180;
   const a = c * Math.cos(hRad);
