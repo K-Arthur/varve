@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { waitForFonts } from './helpers';
 
 async function expectReleaseSectionGap(page: import('@playwright/test').Page, minimum: number) {
   const spacing = await page.evaluate(() => {
@@ -27,6 +28,7 @@ test.describe('updates documentation spacing', () => {
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
     await page.goto('/docs/updates?test-motion=static');
     await expect(page.getByRole('heading', { name: 'Updates', exact: true })).toBeVisible();
+    await waitForFonts(page);
     await expectReleaseSectionGap(page, 48);
     await expect(page).toHaveScreenshot('updates-spacing-desktop.png', {
       fullPage: true,
@@ -39,6 +41,7 @@ test.describe('updates documentation spacing', () => {
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
     await page.goto('/docs/updates?test-motion=static');
     await expect(page.getByRole('heading', { name: 'Updates', exact: true })).toBeVisible();
+    await waitForFonts(page);
     await expectReleaseSectionGap(page, 40);
     await expect(page).toHaveScreenshot('updates-spacing-mobile.png', {
       fullPage: true,

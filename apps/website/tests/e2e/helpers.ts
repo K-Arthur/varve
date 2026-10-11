@@ -95,6 +95,14 @@ export const NORMAL_TEXT = 4.5;
 export const GRAPHICS = 3.0;
 
 /**
+ * Wait for all preloaded fonts to finish loading to ensure deterministic
+ * layout for visual regression tests.
+ */
+export async function waitForFonts(page: Page): Promise<void> {
+  await page.evaluate(() => document.fonts.ready);
+}
+
+/**
  * Manifest screenshots now travel through `<picture>` + `srcset`. HTML
  * `width`/`height` stay the PNG source (CLS reservation). `naturalWidth` is
  * the density-corrected slot size, so it tracks the layout box, not the
