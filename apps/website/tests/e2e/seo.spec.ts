@@ -160,7 +160,7 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
 
     expect(meta.ogUrl, `${route}: og:url`).toBe(meta.canonical);
     expect(meta.ogType, `${route}: og:type`).toBe('website');
-    expect(meta.ogSiteName, `${route}: og:site_name`).toBe('Varve');
+    expect(meta.ogSiteName, `${route}: og:site_name`).toBe('Varve · Free Design Software');
     expect(meta.ogTitle, `${route}: og:title`).toBe(meta.title);
     expect(meta.ogDescription, `${route}: og:description`).toBe(meta.description);
     expect(meta.ogImage, `${route}: og:image`).toBeTruthy();
