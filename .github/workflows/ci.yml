@@ -481,10 +481,15 @@ jobs:
       # root custom domain. The e2e servers mount the project-site build beneath
       # an actual /varve/ path — a server at / alone cannot detect base-path
       # escapes.
+      # Build with ANALYTICS_DOMAIN to match the deploy workflow environment.
       - name: Build project-site mode (base /varve)
         run: pnpm build:website:pages
+        env:
+          ANALYTICS_DOMAIN: varve.studio
       - name: Build custom-domain (root) mode
         run: pnpm build:website
+        env:
+          ANALYTICS_DOMAIN: varve.studio
       - name: Scan website artifacts (secret + canary)
         run: |
           node scripts/secret-scan.mjs --dir apps/website/dist --canary "$VARVE_PRIVATE_TEST_CANARY"

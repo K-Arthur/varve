@@ -6,6 +6,19 @@
  */
 import { expect, type Locator, type Page } from '@playwright/test';
 
+/**
+ * Dismiss the analytics consent banner if present.
+ * The banner only appears when ANALYTICS_DOMAIN is set (in deploy workflow).
+ * Call this after navigation to ensure deterministic screenshots.
+ */
+export async function dismissAnalyticsBanner(page: Page): Promise<void> {
+  const banner = page.locator('#website-analytics-consent');
+  if (await banner.isVisible({ timeout: 100 }).catch(() => false)) {
+    await banner.getByRole('button', { name: 'Not now' }).click();
+    await banner.waitFor({ state: 'hidden', timeout: 1000 });
+  }
+}
+
 export function oklchToSrgb(l: number, c: number, h: number): [number, number, number] {
   const hRad = (h * Math.PI) / 180;
   const a = c * Math.cos(hRad);
