@@ -39,7 +39,8 @@ const brandMarkUrl = siteUrl('/brand/varve-icon.svg');
 
 // Avoid "Features - Varve | Varve" duplication: only append the brand when the
 // page title does not already carry it.
-const pageTitle = /\bVarve\b/.test(title) ? title : `${title} | Varve`;
+const siteName = 'Varve · Free Design Software';
+const pageTitle = /\bVarve\b/.test(title) ? title : `${title} | ${siteName}`;
 
 const sitewideStructuredData: object[] = [
   {
@@ -88,7 +89,7 @@ const sitewideStructuredData: object[] = [
     '@type': 'WebSite',
     '@id': `${siteOriginOf()}#website`,
     url: siteOriginOf(),
-    name: 'Varve',
+    name: siteName,
     description:
       'Varve is a local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print. Free and source-available under FSL-1.1-MIT.',
     publisher: { '@id': `${siteOriginOf()}#organization` },
@@ -364,7 +365,7 @@ const csp = [
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Varve" />
+    <meta property="og:site_name" content={siteName} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />

@@ -114,7 +114,7 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
     expect(meta.title, `${route}: title`).toBeTruthy();
     expect(meta.title.length, `${route}: title length`).toBeLessThanOrEqual(70);
     if (!/\bVarve\b/.test(meta.title)) {
-      expect(meta.title, `${route}: brand suffix`).toMatch(/\| Varve$/);
+      expect(meta.title, `${route}: brand suffix`).toMatch(/\| Varve · Free Design Software$/);
     }
 
     expect(meta.description, `${route}: description`).toBeTruthy();
@@ -160,7 +160,7 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
 
     expect(meta.ogUrl, `${route}: og:url`).toBe(meta.canonical);
     expect(meta.ogType, `${route}: og:type`).toBe('website');
-    expect(meta.ogSiteName, `${route}: og:site_name`).toBe('Varve');
+    expect(meta.ogSiteName, `${route}: og:site_name`).toBe('Varve · Free Design Software');
     expect(meta.ogTitle, `${route}: og:title`).toBe(meta.title);
     expect(meta.ogDescription, `${route}: og:description`).toBe(meta.description);
     expect(meta.ogImage, `${route}: og:image`).toBeTruthy();
