@@ -96,10 +96,13 @@ export const GRAPHICS = 3.0;
 
 /**
  * Wait for all preloaded fonts to finish loading to ensure deterministic
- * layout for visual regression tests.
+ * layout for visual regression tests. Includes a small delay after font
+ * ready to ensure layout is fully recalculated with the loaded fonts.
  */
 export async function waitForFonts(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
+  // Give the browser a frame to fully apply fonts to layout
+  await page.waitForTimeout(50);
 }
 
 /**
