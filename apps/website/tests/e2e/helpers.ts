@@ -12,14 +12,31 @@ import { expect, type Locator, type Page } from '@playwright/test';
  * Call this after navigation to ensure deterministic screenshots.
  */
 export async function dismissAnalyticsBanner(page: Page): Promise<void> {
-  // Wait for the page's analytics script to initialize (runs on DOMContentLoaded)
+  // Wait for the page's analytics script to initialize
+  await page.waitForLoadState('domcontentloaded');
   await page.evaluate(() => document.fonts.ready);
 
   const banner = page.locator('#website-analytics-consent');
-  // Give the analytics init script up to 2 seconds to show the banner
-  if (await banner.isVisible({ timeout: 2000 }).catch(() => false)) {
+
+  // Wait for the banner element to be in the DOM
+  const bannerExists = await banner.count().then((c) => c > 0);
+  if (!bannerExists) {
+    // Analytics not enabled
+    return;
+  }
+
+  // Give the analytics init script time to decide whether to show the banner
+  // If it becomes visible within 3 seconds, dismiss it; otherwise it's staying hidden
+  const becameVisible = await banner
+    .waitFor({ state: 'visible', timeout: 3000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (becameVisible) {
+    // Click "Not now" to dismiss
     await banner.getByRole('button', { name: 'Not now' }).click();
-    await banner.waitFor({ state: 'hidden', timeout: 1000 });
+    // Wait for it to be hidden
+    await banner.waitFor({ state: 'hidden', timeout: 2000 });
   }
 }
 
