@@ -1,0 +1,93 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
+---
+
+<Layout
+  title="Panel Layouts — Varve Docs"
+  description="Draw comic panels, divide a page into panel grids with even gutters, join panels, and set reading order in Varve."
+>
+  <div class="container-custom">
+    <main class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Panel Layouts
+      </nav>
+      <h1 class="site-page-title">Panel Layouts</h1>
+      <p class="docs-intro">
+        Comic panels in Varve are ordinary frames that clip their contents and have a solid border
+        and a white interior. You can draw them one at a time with the Panel tool, or divide a page
+        frame into a grid of panels in one step. There is no separate Comic workspace: the Panel
+        tool is in the Design, Print, and Drawing toolbars.
+      </p>
+
+      <section class="docs-section">
+        <h2>Open the Panel tool</h2>
+        <ul>
+          <li>Press <kbd>Shift</kbd>+<kbd>F</kbd>, or</li>
+          <li>click <strong>Panel</strong> in the toolbar, next to Frame, or</li>
+          <li>choose <strong>Arrange › Align › Panel Layouts…</strong>. This switches to the Panel tool and opens the Inspector's Properties tab.</li>
+        </ul>
+        <p>
+          The <strong>Comic (print)</strong> and <strong>Webtoon (vertical)</strong> workspace layouts
+          start with the Panel tool already selected.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Draw a panel</h2>
+        <ul>
+          <li>Drag on the canvas to draw a panel. Hold <kbd>Shift</kbd> for a square, or <kbd>Alt</kbd> to draw from the centre.</li>
+          <li>Click without dragging to place a 400 × 300 panel.</li>
+          <li>Artwork that the new panel fully covers is moved inside it, so you can sketch first and box it in afterwards.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Divide a page into panels</h2>
+        <ol>
+          <li>With the Panel tool active, select one frame, such as your page.</li>
+          <li>In the Inspector, open <strong>Panel Layouts</strong> and choose a template.</li>
+        </ol>
+        <ul>
+          <li><strong>Splash</strong>: one full-page panel.</li>
+          <li><strong>Two-up</strong>: two panels side by side.</li>
+          <li><strong>Three-tier</strong>: three stacked rows.</li>
+          <li><strong>Four-panel</strong>: a 2 × 2 grid.</li>
+          <li><strong>Six-panel</strong>: three rows of two.</li>
+          <li><strong>Nine-panel</strong>: a 3 × 3 grid.</li>
+          <li><strong>Webtoon stack</strong>: four stacked panels with a much larger vertical gap for phone scrolling.</li>
+        </ul>
+        <p>
+          Gutters are even: each gutter, and the outer margin, is 4% of the frame's width. You can't
+          set the gutter size in the template yet. Move or resize the panels afterwards if you need
+          different spacing. If the frame already has artwork, each new panel gets its own copy of it.
+          When that would use extra memory for raster layers, Varve shows an estimate first and asks
+          you to choose <strong>Divide anyway</strong> or <strong>Cancel</strong>.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Join panels and set reading order</h2>
+        <ul>
+          <li>Select two or more panels and choose <strong>Join selected panels</strong> in the Inspector or <strong>Arrange › Align › Join Panels</strong>. The artwork inside them is kept in place.</li>
+          <li><strong>Arrange › Align › Renumber Panels (Left to Right)</strong> or <strong>(Right to Left)</strong> renames the panels in a frame in reading order. Use right to left for manga.</li>
+        </ul>
+        <p>
+          Panels are still frames. Move, resize, restyle, and export them the way you would any frame.
+          Page and strip sizes come from Frame or New Document presets, not from panel templates.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Current limits</h2>
+        <p>
+          Templates are even grids only. There are no slanted or irregular borders, no adjustable
+          gutter control, and no knife-style panel splitting. Templates are starting points, not
+          publisher-specific guarantees. See <a href={sitePath('/docs/tools/comic-lettering')}>Comic Lettering</a>
+          for balloons and captions.
+        </p>
+      </section>
+    </main>
+  </div>
+</Layout>
