@@ -21,7 +21,7 @@ export function websiteReferrer(referrer: string, origin: string): string {
  * Anything else — including unknown `ref` values — is dropped.
  */
 export const WEBSITE_CAMPAIGN_REF =
-  /^(masto|bsky|yt|reddit|hn|ph|uneed|saashub|x|ig|threads|discord|lnl|press|email|aur|flathub|winget)-[a-z0-9-]{1,24}$/;
+  /^(masto|bsky|yt|reddit|hn|ph|uneed|saashub|x|ig|threads|discord|lnl|press|email|aur|flathub|winget|gh-readme|release-notes|footer|download|header|try)-[a-z0-9-]{1,24}$/;
 
 /** Keep only an allowlisted `ref` campaign tag; drop every other query param. */
 export function websiteCampaignRef(search: string): string | null {
@@ -73,7 +73,8 @@ export class GoatCounterProvider implements AnalyticsProvider {
       event.category === 'website' &&
       (event.name === 'website_page_viewed' ||
         event.name === 'website_download_started' ||
-        event.name === 'browser_demo_desktop_download') &&
+        event.name === 'browser_demo_desktop_download' ||
+        event.name === 'browser_demo_launched') &&
       this.pending.length < 25
     ) {
       this.pending.push(event);
@@ -87,10 +88,13 @@ export class GoatCounterProvider implements AnalyticsProvider {
     for (const event of events) {
       if (!this.options.canSend()) return;
       const pageview = event.name === 'website_page_viewed';
+      const demoLaunch = event.name === 'browser_demo_launched';
       const path = pathWithCampaign(
         pageview
           ? (event.payload as AnalyticsEventMap['website_page_viewed']).route
-          : this.downloadPath(event.payload as AnalyticsEventMap['website_download_started']),
+          : demoLaunch
+            ? this.demoLaunchPath(event.payload as AnalyticsEventMap['browser_demo_launched'])
+            : this.downloadPath(event.payload as AnalyticsEventMap['website_download_started']),
         this.options.search?.() ?? '',
       );
       const url = new URL(this.endpoint);
@@ -138,5 +142,10 @@ export class GoatCounterProvider implements AnalyticsProvider {
       payload.release,
       payload.releaseChannel ?? 'unknown',
     ].join('|');
+  }
+
+  private demoLaunchPath(payload: AnalyticsEventMap['browser_demo_launched']): string {
+    // Demo launch event: entry point is either 'website' or 'direct'
+    return `demo-launch-${payload.entry}`;
   }
 }

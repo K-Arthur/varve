@@ -25,27 +25,29 @@
 > are verified separately; check the download guidance for the chosen build.
 
 <p align="center">
-  <a href="https://varve.studio/download"><strong>Download Varve</strong></a> ·
-  <a href="https://varve.studio"><strong>Website</strong></a> ·
-  <a href="https://varve.studio/docs"><strong>Docs</strong></a> ·
-  <a href="https://varve.studio/about/how-its-built"><strong>How it's built</strong></a> ·
+  <a href="https://varve.studio/try/?ref=gh-readme-try"><img src="https://img.shields.io/badge/Try-Browser-3b82f6?style=flat&logo=webassembly&logoColor=white" alt="Try in Browser"></a>
+  <a href="https://varve.studio/download?ref=gh-readme-download"><img src="https://img.shields.io/badge/Download-Latest-00c853?style=flat&logo=download&logoColor=white" alt="Download Latest"></a>
+  <a href="https://github.com/K-Arthur/varve/discussions"><img src="https://img.shields.io/badge/Feedback-Discussions-orange?style=flat&logo=github&logoColor=white" alt="Feedback"></a>
+</p>
+
+<p align="center">
+  <a href="https://varve.studio?ref=gh-readme-home"><strong>Website</strong></a> ·
+  <a href="https://varve.studio/docs?ref=gh-readme-docs"><strong>Docs</strong></a> ·
+  <a href="https://varve.studio/about/how-its-built?ref=gh-readme-about"><strong>How it's built</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/releases"><strong>Releases</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a> ·
   <a href="https://github.com/sponsors/K-Arthur"><strong>Sponsor</strong></a>
 </p>
 
-**For designers, illustrators, and print professionals** who want a local-first
-alternative to subscription design tools. Built with a shared Rust rendering
-engine, Varve runs natively on Linux, macOS, and Windows — and compiles to
-WASM for the browser. No account, no forced cloud sync, no feature paywall.
+**Design, illustrate, and publish — locally, without subscriptions.** Vector graphics, typography, layout, motion, and print production in one application. Free under FSL-1.1-MIT (converts to MIT after 2 years), runs on Linux, macOS, and Windows, with an experimental browser build.
 
 <p align="center">
-  <a href="https://varve.studio/product">
+  <a href="https://varve.studio/product?ref=gh-readme-hero">
     <img src="docs/screenshots/product/workspace-light.png#gh-light-mode-only" alt="The Varve workspace: a poster document on the canvas with the layers panel on the left and the properties inspector on the right" width="820">
     <img src="docs/screenshots/product/workspace-dark.png#gh-dark-mode-only" alt="The same Varve poster document with the application in dark theme" width="820">
   </a>
 </p>
-<p align="center"><sub><a href="https://varve.studio/product">Watch the 15-second deterministic editing workflow</a> — select a headline, edit a Bézier path, and open export.</sub></p>
+<p align="center"><sub><a href="https://varve.studio/product?ref=gh-readme-video">Watch the 15-second deterministic editing workflow</a> — select a headline, edit a Bézier path, and open export.</sub></p>
 
 ## What works today
 
@@ -157,7 +159,7 @@ product page.
 
 ## Download
 
-Get application installers from the [Varve download page](https://varve.studio/download/)
+Get application installers from the [Varve download page](https://varve.studio/download?ref=gh-readme-download-section)
 or the [Varve v0.5.0 release](https://github.com/K-Arthur/varve/releases/tag/v0.5.0).
 Optional AI models are published as separate releases.
 
@@ -264,7 +266,7 @@ paths with hardware-dependent coverage and Canvas2D fallback. Start with the
 [ADR-0001](docs/adr/0001-native-render-in-tauri-webview.md) for the
 rationale and [docs/architecture/render-pipeline.md](docs/architecture/render-pipeline.md)
 for the full pipeline. A bounded browser demo is hosted at
-[varve.studio/try](https://varve.studio/try/) with honest capability
+[varve.studio/try](https://varve.studio/try/?ref=gh-readme-try-section) with honest capability
 messaging; the full product path is the native desktop application.
 
 | Package | Purpose |
@@ -393,11 +395,11 @@ the document format can still change — see
 <summary><strong>Does Varve work in a browser?</strong></summary>
 <br>
 An experimental browser build is available at
-<a href="https://varve.studio/try/">varve.studio/try</a> — no download
+<a href="https://varve.studio/try/?ref=gh-readme-faq">varve.studio/try</a> — no download
 required. It runs the editor on the WASM engine with honest capability messaging
 about what the browser build can and cannot do; it can also be installed as a
 web app. The full product experience is the native desktop application. On a
-Chromebook, see <a href="https://varve.studio/docs/chromebook">Varve on
+Chromebook, see <a href="https://varve.studio/docs/chromebook?ref=gh-readme-faq">Varve on
 Chromebook</a> for the browser, installed-web-app, and ChromeOS Linux routes.
 </details>
 
