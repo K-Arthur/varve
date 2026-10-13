@@ -54,7 +54,7 @@ export function FirstRunOverlay({ onDismiss }: FirstRunOverlayProps) {
   const steps: Array<{
     title: string;
     description: string;
-    icon: 'Sparkles' | 'Keyboard' | 'CircleHelp';
+    icon: 'Sparkles' | 'Keyboard' | 'CircleQuestionMark';
   }> = [
     {
       title: 'Welcome to Varve',
@@ -69,7 +69,7 @@ export function FirstRunOverlay({ onDismiss }: FirstRunOverlayProps) {
     {
       title: 'Get Help Anytime',
       description: 'Press F1 for help, or visit the Start Here guide for a quick walkthrough.',
-      icon: 'CircleHelp',
+      icon: 'CircleQuestionMark',
     },
   ];
 
