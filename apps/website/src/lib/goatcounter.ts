@@ -74,8 +74,7 @@ export class GoatCounterProvider implements AnalyticsProvider {
       (event.name === 'website_page_viewed' ||
         event.name === 'website_download_started' ||
         event.name === 'browser_demo_desktop_download' ||
-        event.name === 'browser_demo_launched' ||
-        event.name === 'browser_demo_usage_time') &&
+        event.name === 'browser_demo_launched') &&
       this.pending.length < 25
     ) {
       this.pending.push(event);
