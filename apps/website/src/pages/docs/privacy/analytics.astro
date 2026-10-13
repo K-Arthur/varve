@@ -23,6 +23,8 @@ import { sitePath } from '../../../lib/siteUrl';
         <tbody>
           <tr><td>website_page_viewed</td><td>normalized route</td><td>Understand which documentation and product pages are useful.</td><td>emitted</td></tr>
           <tr><td>website_download_started</td><td>release, platform, architecture, package type, release channel</td><td>Count installer-link clicks by route and package; not successful downloads or installations.</td><td>sent as website_download_clicked</td></tr>
+          <tr><td>browser_demo_launched</td><td>entry source</td><td>Count browser demo launches by entry point (website link or direct visit).</td><td>sent as demo-launch-{entry}</td></tr>
+          <tr><td>browser_demo_usage_time</td><td>time bucket (lt1m, 1-5m, 5-15m, 15-30m, 30m-plus)</td><td>Understand browser demo engagement duration. Counts only active time (tab visible, not idle &gt;60s). One bucketed event per session on page unload.</td><td>sent as demo-time-{bucket}</td></tr>
           <tr><td>website_outbound_clicked</td><td>destination category</td><td>Legacy schema category.</td><td>not sent by this website provider</td></tr>
           <tr><td>website_contact_clicked</td><td>channel category</td><td>Legacy schema category.</td><td>not sent by this website provider</td></tr>
         </tbody>
@@ -43,7 +45,6 @@ import { sitePath } from '../../../lib/siteUrl';
           <tr><td>feature_used</td><td>closed feature category</td><td>Prioritize features with meaningful adoption.</td><td>separate application configuration</td></tr>
           <tr><td>export_completed / export_failed</td><td>format and coarse duration or error category</td><td>Find export reliability and performance problems.</td><td>separate application configuration</td></tr>
           <tr><td>renderer_fallback</td><td>from, to, reason</td><td>Find platform-specific renderer fallback issues.</td><td>separate application configuration</td></tr>
-          <tr><td>browser_demo_launched</td><td>entry source</td><td>Legacy usage-consent category.</td><td>not sent by this website provider</td></tr>
           <tr><td>browser_demo_desktop_download</td><td>release, platform, architecture, package type</td><td>Count installer-link clicks on the website demo route.</td><td>website click only; not product conversion</td></tr>
         </tbody>
       </table>
@@ -71,6 +72,14 @@ import { sitePath } from '../../../lib/siteUrl';
         all query strings except an allowlisted first-party campaign tag; some sections share
         the home category, so that category is not a literal homepage count. Referrers are
         reduced to site origins.
+      </p>
+      <p>
+        <strong>Browser demo usage time:</strong> The <code>/try/</code> browser demo tracks
+        active usage time (tab visible, not idle &gt;60s) and sends one bucketed event per
+        session on page unload via <code>navigator.sendBeacon</code>. Tracking respects the same
+        consent gate (Global Privacy Control, Do Not Track, or explicit localStorage consent). No
+        session IDs, device fingerprints, or exact timestamps are collected. The five time buckets
+        are: less than 1 minute, 1–5 minutes, 5–15 minutes, 15–30 minutes, and 30+ minutes.
       </p>
       <p><a href={sitePath('/about/privacy')}>Read the full privacy policy</a>.</p>
     </article>
