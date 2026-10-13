@@ -23,8 +23,8 @@ import { sitePath } from '../../../lib/siteUrl';
         <tbody>
           <tr><td>website_page_viewed</td><td>normalized route</td><td>Understand which documentation and product pages are useful.</td><td>emitted</td></tr>
           <tr><td>website_download_started</td><td>release, platform, architecture, package type, release channel</td><td>Count installer-link clicks by route and package; not successful downloads or installations.</td><td>sent as website_download_clicked</td></tr>
-          <tr><td>browser_demo_launched</td><td>entry source</td><td>Count browser demo launches by entry point (website link or direct visit).</td><td>sent as demo-launch-{entry}</td></tr>
-          <tr><td>browser_demo_usage_time</td><td>time bucket (lt1m, 1-5m, 5-15m, 15-30m, 30m-plus)</td><td>Understand browser demo engagement duration. Counts only active time (tab visible, not idle &gt;60s). One bucketed event per session on page unload.</td><td>sent as demo-time-{bucket}</td></tr>
+          <tr><td>browser_demo_launched</td><td>entry source</td><td>Count browser demo launches by entry point (website link or direct visit).</td><td>sent as demo-launch-[entry]</td></tr>
+          <tr><td>browser_demo_usage_time</td><td>time bucket (lt1m, 1-5m, 5-15m, 15-30m, 30m-plus)</td><td>Understand browser demo engagement duration. Counts only active time (tab visible, not idle &gt;60s). One bucketed event per session on page unload.</td><td>sent as demo-time-[bucket]</td></tr>
           <tr><td>website_outbound_clicked</td><td>destination category</td><td>Legacy schema category.</td><td>not sent by this website provider</td></tr>
           <tr><td>website_contact_clicked</td><td>channel category</td><td>Legacy schema category.</td><td>not sent by this website provider</td></tr>
         </tbody>
