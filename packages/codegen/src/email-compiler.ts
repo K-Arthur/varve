@@ -499,7 +499,7 @@ function compileStyles(
     if (typo.fontWeight && typo.fontWeight !== 400) styles['font-weight'] = String(typo.fontWeight);
     if (typo.lineHeight && typo.lineHeight !== 1.4) styles['line-height'] = String(typo.lineHeight);
     if (typo.letterSpacing) styles['letter-spacing'] = `${typo.letterSpacing}px`;
-    if (typo.textAlign && typo.textAlign !== 'left') styles['text-align'] = typo.textAlign;
+    if (typo.textAlign) styles['text-align'] = typo.textAlign;
     if (typo.textTransform && typo.textTransform !== 'none')
       styles['text-transform'] = typo.textTransform;
     if (typo.decoration && typo.decoration !== 'none') styles['text-decoration'] = typo.decoration;

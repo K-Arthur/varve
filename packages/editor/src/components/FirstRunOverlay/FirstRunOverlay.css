@@ -11,13 +11,13 @@
 .first-run-backdrop {
   position: absolute;
   inset: 0;
-  background: var(--overlay-backdrop);
+  background: var(--elevation-scrim);
   backdrop-filter: blur(4px);
 }
 
 .first-run-content {
   position: relative;
-  background: var(--surface-elevated);
+  background: var(--color-surface-raised);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-floating);
   box-shadow: var(--shadow-xl);
@@ -45,8 +45,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--size-close-affordance-box); /* audit-interface-sizing: allow overlay close button */
-  height: var(--size-close-affordance-box); /* audit-interface-sizing: allow overlay close button */
+  width: var(--component-default-height); /* audit-interface-sizing: allow overlay close button */
+  height: var(--component-default-height); /* audit-interface-sizing: allow overlay close button */
   padding: 0;
   background: none;
   border: none;
@@ -57,7 +57,7 @@
 }
 
 .first-run-close:hover {
-  background: var(--surface-hover);
+  background: var(--color-surface-hover);
   color: var(--text-primary);
 }
 
@@ -117,7 +117,7 @@
 
 .first-run-link:hover {
   color: var(--text-link-hover);
-  background: var(--surface-hover);
+  background: var(--color-surface-hover);
 }
 
 .first-run-footer {
@@ -175,7 +175,7 @@
 }
 
 .first-run-button--secondary:hover {
-  background: var(--surface-hover);
+  background: var(--color-surface-hover);
   color: var(--text-primary);
 }
 
@@ -185,7 +185,7 @@
 }
 
 .first-run-button--primary:hover {
-  background: var(--accent-hover);
+  background: var(--color-accent-hover);
 }
 
 .first-run-button:focus-visible {

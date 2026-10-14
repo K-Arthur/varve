@@ -403,6 +403,120 @@ describe('email output', () => {
     );
   });
 
+  it('keeps an auto-detected button frame label and link in HTML and plain text', () => {
+    const ir = fixture({
+      nodes: [
+        {
+          id: 'button',
+          sourceNodeId: 'button-frame',
+          kind: 'button',
+          name: 'CTA',
+          children: [
+            {
+              id: 'button-label',
+              sourceNodeId: 'button-label',
+              kind: 'text',
+              name: 'Label',
+              children: [],
+              styles: {},
+              content: { type: 'text', text: 'Shop now' },
+              compatibility: 'native',
+              link: { kind: 'web', url: 'https://shop.example' },
+            },
+          ],
+          styles: { 'background-color': '#ffffff', color: '#111111' },
+          compatibility: 'converted',
+        },
+      ],
+    });
+
+    const output = emitEmailHtml(ir);
+    expect(output.html).toContain('>Shop now</a>');
+    expect(output.html).not.toContain('>Click</');
+    expect(output.html).toContain('color: #111111');
+    expect(output.html).not.toContain('background-color: #111111; color: #111111');
+    expect(emitEmailPlainText({ ...ir, plainText: '' })).toContain('Shop now');
+    expect(emitEmailPlainText({ ...ir, plainText: '' })).toContain('https://shop.example');
+  });
+
+  it('emits left alignment explicitly for linked and unlinked live text', () => {
+    const node = compilerNode({
+      appearance: {
+        ...compilerNode().appearance,
+        typography: { ...compilerNode().appearance.typography, textAlign: 'left' },
+      },
+    });
+    const designIr = {
+      version: '2.1.0',
+      metadata: {},
+      nodes: { [node.id]: node },
+      rootIds: [node.id],
+      tokens: {},
+      breakpoints: [],
+      components: {},
+      unsupportedFeatures: [],
+      fidelityWarnings: [],
+      htmlHints: {},
+    } as unknown as IRDocument;
+    const result = compileEmail(
+      {
+        emailProfile: {
+          version: 1,
+          language: 'en',
+          direction: 'ltr',
+          contentWidth: 600,
+          mobileBreakpoint: 480,
+          compatibilityProfile: 'modern',
+          provider: 'generic',
+        },
+      } as never,
+      designIr,
+      { profile: 'modern', provider: 'generic' },
+    );
+
+    expect(emitEmailHtml(result.ir).html).toContain('text-align: left');
+  });
+
+  it('preserves designed text colour on whole-node links', () => {
+    const ir = fixture({
+      nodes: [
+        {
+          id: 'linked-copy',
+          sourceNodeId: 'linked-copy',
+          kind: 'paragraph',
+          name: 'Linked copy',
+          children: [],
+          styles: { color: '#7252a3' },
+          content: { type: 'text', text: 'Read this' },
+          link: { kind: 'web', url: 'https://example.com' },
+          compatibility: 'native',
+        },
+      ],
+    });
+
+    expect(emitEmailHtml(ir).html).toContain('style="color: inherit; text-decoration: none;"');
+    expect(emitEmailHtml(ir).html).toContain('color: #7252a3');
+  });
+
+  it('does not report a rasterization warning when no raster fallback is emitted', () => {
+    const ir = fixture({
+      nodes: [
+        {
+          id: 'vector-copy',
+          sourceNodeId: 'vector-copy',
+          kind: 'paragraph',
+          name: 'Live copy',
+          children: [],
+          styles: {},
+          content: { type: 'text', text: 'Still live' },
+          compatibility: 'rasterized',
+        },
+      ],
+    });
+
+    expect(runEmailPreflight(ir).some((item) => item.code === 'RASTERIZED_NODE')).toBe(false);
+  });
+
   it('returns deterministic source mappings into the final HTML', () => {
     const ir = fixture({
       nodes: [

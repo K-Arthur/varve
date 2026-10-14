@@ -22,9 +22,11 @@ function appendNode(lines: string[], node: EmailIrNode, depth: number): void {
     if (alt) lines.push(`${indent}[Image: ${alt}]`);
     if (node.image?.link) lines.push(`${indent}${node.image.link.url}`);
   } else if (node.kind === 'button') {
-    const value = textFromNode(node, false);
+    const value = buttonLabel(node);
     if (value) lines.push(`${indent}${value}`);
-    if (node.link) lines.push(`${indent}${node.link.url}`, '');
+    const link = node.link ?? firstDescendantLink(node);
+    if (link) lines.push(`${indent}${link.url}`, '');
+    return;
   } else if (node.kind === 'divider') {
     lines.push(`${indent}--------------------`);
   } else if (node.kind !== 'custom-html' && node.kind !== 'spacer') {
@@ -33,6 +35,26 @@ function appendNode(lines: string[], node: EmailIrNode, depth: number): void {
   }
   for (const child of node.children)
     appendNode(lines, child, depth + (node.kind === 'section' ? 0 : 1));
+}
+
+function buttonLabel(node: EmailIrNode): string {
+  if (node.content?.text) return node.content.text;
+  const labels: string[] = [];
+  const visit = (child: EmailIrNode): void => {
+    if (child.content?.text) labels.push(child.content.text);
+    else for (const nested of child.children) visit(nested);
+  };
+  for (const child of node.children) visit(child);
+  return labels.join(' ').trim();
+}
+
+function firstDescendantLink(node: EmailIrNode): EmailIrNode['link'] {
+  for (const child of node.children) {
+    if (child.link) return child.link;
+    const nested = firstDescendantLink(child);
+    if (nested) return nested;
+  }
+  return undefined;
 }
 
 function textFromNode(node: EmailIrNode, includeNodeLink = true): string {

@@ -375,7 +375,7 @@ function inspectNode(
       });
     }
   }
-  if (node.compatibility === 'rasterized') {
+  if (node.compatibility === 'rasterized' && node.rasterFallback) {
     diagnostics.push({
       severity: node.kind === 'heading' || node.kind === 'button' ? 'error' : 'warning',
       code: 'RASTERIZED_NODE',

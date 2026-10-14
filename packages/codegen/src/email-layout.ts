@@ -72,15 +72,29 @@ function normalizeNode(
   for (const band of bands) {
     const only = band[0] as EmailIrNode;
     if (band.length === 1) {
-      rebuilt.push(normalizeNode(only, innerWidth, warnings));
+      const normalizedChild = normalizeNode(only, innerWidth, warnings);
+      const leftInset = Math.max(0, only.geometry?.x ?? 0);
+      rebuilt.push(
+        leftInset > 0
+          ? {
+              ...normalizedChild,
+              styles: { ...normalizedChild.styles, 'margin-left': `${leftInset}px` },
+            }
+          : normalizedChild,
+      );
       continue;
     }
 
-    const widths = resolveColumnWidths(band, innerWidth);
+    const leftInset = Math.max(0, band[0]?.geometry?.x ?? 0);
+    const rowWidth = Math.max(MIN_COLUMN_WIDTH * band.length, innerWidth - leftInset);
+    const widths = resolveColumnWidths(band, rowWidth);
     const columns = band.map((child, index) =>
       toColumn(normalizeNode(child, widths[index] as number, warnings), widths[index] as number),
     );
-    rebuilt.push(makeRow(node, columns, innerWidth));
+    const row = makeRow(node, columns, rowWidth);
+    rebuilt.push(
+      leftInset > 0 ? { ...row, styles: { ...row.styles, 'margin-left': `${leftInset}px` } } : row,
+    );
   }
 
   return { ...node, children: rebuilt };
@@ -193,6 +207,16 @@ function carriesMeaning(node: EmailIrNode): boolean {
  * to the whole. A row whose cells do not add up leaves a gap in Outlook.
  */
 function resolveColumnWidths(band: EmailIrNode[], innerWidth: number): number[] {
+  const xPositions = band.map((child) => child.geometry?.x);
+  if (xPositions.every((x): x is number => x !== undefined)) {
+    const firstX = xPositions[0] ?? 0;
+    const widths = xPositions.map((x, index) => {
+      const nextX = xPositions[index + 1];
+      return nextX === undefined ? innerWidth - (x - firstX) : nextX - x;
+    });
+    if (widths.every((width) => width >= MIN_COLUMN_WIDTH)) return widths;
+  }
+
   const designWidths = band.map((child) => child.geometry?.width ?? child.width ?? 0);
   const total = designWidths.reduce((sum, width) => sum + width, 0);
 

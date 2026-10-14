@@ -26,6 +26,15 @@ export function EmailPreviewPanel() {
         previewVariables: true,
       })
     : canonical;
+  const previewHtml = preview
+    ? preview.ir.assets.reduce((html, asset) => {
+        if (!asset.dataUrl || asset.remoteUrl) return html;
+        return html.replaceAll(
+          `src="assets/${asset.filename}"`,
+          `src="${asset.dataUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`,
+        );
+      }, preview.output.html)
+    : '';
 
   return (
     <section className="email-preview-panel" aria-labelledby="email-preview-heading">
@@ -65,7 +74,7 @@ export function EmailPreviewPanel() {
           <iframe
             title="Email browser preview"
             sandbox=""
-            srcDoc={preview.output.html}
+            srcDoc={previewHtml}
             className="email-panel__preview"
           />
         </div>
