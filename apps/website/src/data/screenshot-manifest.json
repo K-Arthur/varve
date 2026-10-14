@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "note": "GENERATED FILE — reviewed mixed-source assembly; no new capture. Top-level identity records the assembly revision and input digest. Per-scene producer provenance remains authoritative for the pixels.",
-  "generatedAt": "2026-10-05T02:14:35.171Z",
+  "generatedAt": "2026-10-14T23:19:49.907Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -2774,18 +2774,113 @@
           "sha256": "075ca4a15612ab6547d1ccb3c17a3f0f3fe25e3b117fab9b9e32022e68b8b48d"
         }
       ]
+    },
+    "email-workspace": {
+      "file": "email-workspace-light.png",
+      "alt": "The Varve Email workspace showing the Layers panel, a coffee store email on the canvas, the Email Inspector, and the Preview dock.",
+      "caption": "Keep email artwork, inspection, and preview together in one workspace.",
+      "feature": "email",
+      "theme": "light",
+      "status": "captured",
+      "width": 1440,
+      "height": 900,
+      "sha256": "898b2de106438fad8e0f458086661aa13214fa065e98dcf3421ecbf08d98cae7",
+      "kind": "full",
+      "scale": 1,
+      "provenanceUnknown": false,
+      "provenance": {
+        "sourceRevision": "bc9adfc71e781d9b4eb83dc114469f4867416635",
+        "sourceArchive": "email-short-v7-store-shots.tgz",
+        "sourceArchiveSha256": "0fd7835c632d37c88ea54f9084f17d5a53ba3e541ab48d1e711eb60224234c00",
+        "runtime": "reviewed archive still, resized to 1440x900, status warning count covered, optimized to a 256-color PNG palette"
+      },
+      "variants": [
+        {
+          "file": "email-workspace-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "8e1a95f35ad9379caadc2bc0a81e1014f464680e906dae89b37e3dbf0f348aa4"
+        },
+        {
+          "file": "email-workspace-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "5d381df9463a8b6921fabbc92049f9fee1917df70a6441ecd8b735ec3eb542ec"
+        },
+        {
+          "file": "email-workspace-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "3f2449fa0ba13b6d9c04ace21df0e89bec9a2e87618e1ddbceae54cca96f9049"
+        },
+        {
+          "file": "email-workspace-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "22468169c21e9420827008057c61ed823c70062f99a13c063a8fcd998c2cfb76"
+        }
+      ]
+    },
+    "email-output": {
+      "file": "email-output-light.png",
+      "alt": "The Varve Email workspace showing generated HTML and plain text in the Email Output panel beneath the coffee store email canvas.",
+      "caption": "Review generated HTML and plain text alongside the email canvas.",
+      "feature": "email",
+      "theme": "light",
+      "status": "captured",
+      "width": 1440,
+      "height": 900,
+      "sha256": "5fcdc0238ae51d4375fe1d65ccaf56ae080f092878e93970d421dabe129fb35d",
+      "kind": "full",
+      "scale": 1,
+      "provenanceUnknown": false,
+      "provenance": {
+        "sourceRevision": "bc9adfc71e781d9b4eb83dc114469f4867416635",
+        "sourceArchive": "email-short-v7-store-shots.tgz",
+        "sourceArchiveSha256": "0fd7835c632d37c88ea54f9084f17d5a53ba3e541ab48d1e711eb60224234c00",
+        "runtime": "reviewed archive still, resized to 1440x900, status warning count covered, optimized to a 256-color PNG palette"
+      },
+      "variants": [
+        {
+          "file": "email-output-light-720.webp",
+          "width": 720,
+          "height": 450,
+          "sha256": "28080fa47863d7b45bb8f49cbd672c774329bcd314c84436d6d6cf355cc986ff"
+        },
+        {
+          "file": "email-output-light-720.avif",
+          "width": 720,
+          "height": 450,
+          "sha256": "4ebcf06e376d91157c8e5101dcafede2beba57ad5e7052fb2a6cd11e1a677462"
+        },
+        {
+          "file": "email-output-light-1440.webp",
+          "width": 1440,
+          "height": 900,
+          "sha256": "80cb09275b954d2e0d6ae8c6276dccba884859a9f1072fd173cf15a614be7e15"
+        },
+        {
+          "file": "email-output-light-1440.avif",
+          "width": 1440,
+          "height": 900,
+          "sha256": "8a9ed6386fdd50a9fb7a7e68e702d6191e541c08a0684591ca11125dcbd855c2"
+        }
+      ]
     }
   },
   "provenance": {
     "kind": "reviewed-mixed-source-assembly",
-    "runtime": "metadata-only reviewed assembly; no new capture",
+    "runtime": "reviewed external archive import",
     "assemblyRevision": "4f8af5b095667142c112b08e75f8a97019401d72",
     "assemblySourceDigest": "e079f01cc4c786060d19036da9dde9277ea874256ce7d787b7c476959d911d5a",
     "assemblySourceDirty": false,
     "assembledAt": "2026-10-05T02:14:35.171Z",
     "reviewManifestSha256": "c5c64540bbd742112b14063562d2ca135e4084fd38127b472a8c8685e50946ae",
     "reviewedAgainst": "eb4a21fac750962f3b9985637211819f4f3fae3ca8d61bec970cf2df7e62d207",
-    "promotedSceneIDs": ["comic-lettering", "patterns"],
+    "promotedSceneIDs": [
+      "comic-lettering",
+      "patterns"
+    ],
     "capturedSourceRevisions": [
       "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
       "247ad330ef53d46f35dfc95a7d87525b88f2b21b",
@@ -2801,7 +2896,8 @@
       "Playwright 1.62.1 / chromium 151.0.7922.34"
     ],
     "provenanceUnknownSceneIDs": [],
-    "sceneIdentitySha256": "faf08c031fba432b3cf804a9c1c565ecc43a8a2b7dfd3f158dccd10d5152f5f6"
+    "sceneIdentitySha256": "faf08c031fba432b3cf804a9c1c565ecc43a8a2b7dfd3f158dccd10d5152f5f6",
+    "importedFromCommit": "bc9adfc71e781d9b4eb83dc114469f4867416635"
   },
   "sourceRevision": "4f8af5b095667142c112b08e75f8a97019401d72",
   "sourceDigest": "e079f01cc4c786060d19036da9dde9277ea874256ce7d787b7c476959d911d5a",
