@@ -1,0 +1,1745 @@
+{
+  "method": "DOM getBoundingClientRect() x deviceScaleFactor(2) => screenshot pixels. Canvas-drawn blocks are not DOM; their boxes are measured from the canvas element rect (DOM) plus document geometry x zoom, and cross-checked against the selection overlay; preview blocks are measured from DOM inside the preview iframe.",
+  "deviceScaleFactor": 2,
+  "viewport": {
+    "width": 1920,
+    "height": 1200
+  },
+  "shots": {
+    "01-workspace-full.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 1798,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 1796,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 1719,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 1719,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 1422
+      },
+      "blocks": {
+        "Email": {
+          "x": 1507,
+          "y": 375,
+          "w": 742,
+          "h": 1132
+        },
+        "Header logo": {
+          "x": 1556,
+          "y": 407,
+          "w": 200,
+          "h": 74
+        },
+        "Hero image": {
+          "x": 1507,
+          "y": 513,
+          "w": 742,
+          "h": 464
+        },
+        "Heading": {
+          "x": 1556,
+          "y": 1022,
+          "w": 643,
+          "h": 51
+        },
+        "Body": {
+          "x": 1556,
+          "y": 1091,
+          "w": 643,
+          "h": 95
+        },
+        "CTA button": {
+          "x": 1556,
+          "y": 1239,
+          "w": 287,
+          "h": 67
+        },
+        "CTA label": {
+          "x": 1556,
+          "y": 1259,
+          "w": 287,
+          "h": 27
+        },
+        "Footer": {
+          "x": 1507,
+          "y": 1358,
+          "w": 742,
+          "h": 148
+        },
+        "Footer text": {
+          "x": 1556,
+          "y": 1390,
+          "w": 643,
+          "h": 48
+        }
+      }
+    },
+    "02-canvas-crop.png": {
+      "clipInViewportPx": {
+        "x": 1467,
+        "y": 295,
+        "w": 822,
+        "h": 1252
+      },
+      "blocks": {
+        "Email": {
+          "x": 40,
+          "y": 80,
+          "w": 742,
+          "h": 1132
+        },
+        "Header logo": {
+          "x": 89,
+          "y": 112,
+          "w": 200,
+          "h": 74
+        },
+        "Hero image": {
+          "x": 40,
+          "y": 218,
+          "w": 742,
+          "h": 464
+        },
+        "Heading": {
+          "x": 89,
+          "y": 727,
+          "w": 643,
+          "h": 51
+        },
+        "Body": {
+          "x": 89,
+          "y": 796,
+          "w": 643,
+          "h": 95
+        },
+        "CTA button": {
+          "x": 89,
+          "y": 944,
+          "w": 287,
+          "h": 67
+        },
+        "CTA label": {
+          "x": 89,
+          "y": 964,
+          "w": 287,
+          "h": 27
+        },
+        "Footer": {
+          "x": 40,
+          "y": 1063,
+          "w": 742,
+          "h": 148
+        },
+        "Footer text": {
+          "x": 89,
+          "y": 1095,
+          "w": 643,
+          "h": 48
+        }
+      }
+    },
+    "03-selected-header-logo.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 1798,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 1796,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 1719,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 1719,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 1422
+      },
+      "selected": "Header logo",
+      "blocks": {
+        "Email": {
+          "x": 1507,
+          "y": 375,
+          "w": 742,
+          "h": 1132
+        },
+        "Header logo": {
+          "x": 1556,
+          "y": 407,
+          "w": 200,
+          "h": 74
+        },
+        "Hero image": {
+          "x": 1507,
+          "y": 513,
+          "w": 742,
+          "h": 464
+        },
+        "Heading": {
+          "x": 1556,
+          "y": 1022,
+          "w": 643,
+          "h": 51
+        },
+        "Body": {
+          "x": 1556,
+          "y": 1091,
+          "w": 643,
+          "h": 95
+        },
+        "CTA button": {
+          "x": 1556,
+          "y": 1239,
+          "w": 287,
+          "h": 67
+        },
+        "CTA label": {
+          "x": 1556,
+          "y": 1259,
+          "w": 287,
+          "h": 27
+        },
+        "Footer": {
+          "x": 1507,
+          "y": 1358,
+          "w": 742,
+          "h": 148
+        },
+        "Footer text": {
+          "x": 1556,
+          "y": 1390,
+          "w": 643,
+          "h": 48
+        }
+      },
+      "layersRow": {
+        "x": 6,
+        "y": 1645,
+        "w": 826,
+        "h": 79
+      },
+      "semanticTypeControl": {
+        "x": 2980,
+        "y": 1855,
+        "w": 776,
+        "h": 64
+      }
+    },
+    "04-selected-hero-image.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 1798,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 1796,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 1719,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 1719,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 1422
+      },
+      "selected": "Hero image",
+      "blocks": {
+        "Email": {
+          "x": 1507,
+          "y": 375,
+          "w": 742,
+          "h": 1132
+        },
+        "Header logo": {
+          "x": 1556,
+          "y": 407,
+          "w": 200,
+          "h": 74
+        },
+        "Hero image": {
+          "x": 1507,
+          "y": 513,
+          "w": 742,
+          "h": 464
+        },
+        "Heading": {
+          "x": 1556,
+          "y": 1022,
+          "w": 643,
+          "h": 51
+        },
+        "Body": {
+          "x": 1556,
+          "y": 1091,
+          "w": 643,
+          "h": 95
+        },
+        "CTA button": {
+          "x": 1556,
+          "y": 1239,
+          "w": 287,
+          "h": 67
+        },
+        "CTA label": {
+          "x": 1556,
+          "y": 1259,
+          "w": 287,
+          "h": 27
+        },
+        "Footer": {
+          "x": 1507,
+          "y": 1358,
+          "w": 742,
+          "h": 148
+        },
+        "Footer text": {
+          "x": 1556,
+          "y": 1390,
+          "w": 643,
+          "h": 48
+        }
+      },
+      "layersRow": {
+        "x": 6,
+        "y": 1567,
+        "w": 826,
+        "h": 79
+      },
+      "semanticTypeControl": {
+        "x": 2980,
+        "y": 1855,
+        "w": 776,
+        "h": 64
+      }
+    },
+    "05-selected-heading.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 1798,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 1796,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 1719,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 1719,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 1422
+      },
+      "selected": "Heading",
+      "blocks": {
+        "Email": {
+          "x": 1507,
+          "y": 375,
+          "w": 742,
+          "h": 1132
+        },
+        "Header logo": {
+          "x": 1556,
+          "y": 407,
+          "w": 200,
+          "h": 74
+        },
+        "Hero image": {
+          "x": 1507,
+          "y": 513,
+          "w": 742,
+          "h": 464
+        },
+        "Heading": {
+          "x": 1556,
+          "y": 1022,
+          "w": 643,
+          "h": 51
+        },
+        "Body": {
+          "x": 1556,
+          "y": 1091,
+          "w": 643,
+          "h": 95
+        },
+        "CTA button": {
+          "x": 1556,
+          "y": 1239,
+          "w": 287,
+          "h": 67
+        },
+        "CTA label": {
+          "x": 1556,
+          "y": 1259,
+          "w": 287,
+          "h": 27
+        },
+        "Footer": {
+          "x": 1507,
+          "y": 1358,
+          "w": 742,
+          "h": 148
+        },
+        "Footer text": {
+          "x": 1556,
+          "y": 1390,
+          "w": 643,
+          "h": 48
+        }
+      },
+      "layersRow": {
+        "x": 6,
+        "y": 1489,
+        "w": 826,
+        "h": 79
+      },
+      "semanticTypeControl": {
+        "x": 2980,
+        "y": 1855,
+        "w": 776,
+        "h": 64
+      }
+    },
+    "06-selected-body.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 1798,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 1796,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 1719,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 1719,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 1422
+      },
+      "selected": "Body",
+      "blocks": {
+        "Email": {
+          "x": 1507,
+          "y": 375,
+          "w": 742,
+          "h": 1132
+        },
+        "Header logo": {
+          "x": 1556,
+          "y": 407,
+          "w": 200,
+          "h": 74
+        },
+        "Hero image": {
+          "x": 1507,
+          "y": 513,
+          "w": 742,
+          "h": 464
+        },
+        "Heading": {
+          "x": 1556,
+          "y": 1022,
+          "w": 643,
+          "h": 51
+        },
+        "Body": {
+          "x": 1556,
+          "y": 1091,
+          "w": 643,
+          "h": 95
+        },
+        "CTA button": {
+          "x": 1556,
+          "y": 1239,
+          "w": 287,
+          "h": 67
+        },
+        "CTA label": {
+          "x": 1556,
+          "y": 1259,
+          "w": 287,
+          "h": 27
+        },
+        "Footer": {
+          "x": 1507,
+          "y": 1358,
+          "w": 742,
+          "h": 148
+        },
+        "Footer text": {
+          "x": 1556,
+          "y": 1390,
+          "w": 643,
+          "h": 48
+        }
+      },
+      "layersRow": {
+        "x": 6,
+        "y": 1411,
+        "w": 826,
+        "h": 79
+      },
+      "semanticTypeControl": {
+        "x": 2980,
+        "y": 1855,
+        "w": 776,
+        "h": 64
+      }
+    },
+    "07-selected-cta-button.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 1798,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 1796,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 1719,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 1719,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 1422
+      },
+      "selected": "CTA button",
+      "blocks": {
+        "Email": {
+          "x": 1507,
+          "y": 375,
+          "w": 742,
+          "h": 1132
+        },
+        "Header logo": {
+          "x": 1556,
+          "y": 407,
+          "w": 200,
+          "h": 74
+        },
+        "Hero image": {
+          "x": 1507,
+          "y": 513,
+          "w": 742,
+          "h": 464
+        },
+        "Heading": {
+          "x": 1556,
+          "y": 1022,
+          "w": 643,
+          "h": 51
+        },
+        "Body": {
+          "x": 1556,
+          "y": 1091,
+          "w": 643,
+          "h": 95
+        },
+        "CTA button": {
+          "x": 1556,
+          "y": 1239,
+          "w": 287,
+          "h": 67
+        },
+        "CTA label": {
+          "x": 1556,
+          "y": 1259,
+          "w": 287,
+          "h": 27
+        },
+        "Footer": {
+          "x": 1507,
+          "y": 1358,
+          "w": 742,
+          "h": 148
+        },
+        "Footer text": {
+          "x": 1556,
+          "y": 1390,
+          "w": 643,
+          "h": 48
+        }
+      },
+      "layersRow": {
+        "x": 6,
+        "y": 1255,
+        "w": 826,
+        "h": 79
+      },
+      "semanticTypeControl": {
+        "x": 2980,
+        "y": 1855,
+        "w": 776,
+        "h": 64
+      }
+    },
+    "08-selected-cta-label.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 1798,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 1796,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 1719,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 1719,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 1422
+      },
+      "selected": "CTA label",
+      "blocks": {
+        "Email": {
+          "x": 1507,
+          "y": 375,
+          "w": 742,
+          "h": 1132
+        },
+        "Header logo": {
+          "x": 1556,
+          "y": 407,
+          "w": 200,
+          "h": 74
+        },
+        "Hero image": {
+          "x": 1507,
+          "y": 513,
+          "w": 742,
+          "h": 464
+        },
+        "Heading": {
+          "x": 1556,
+          "y": 1022,
+          "w": 643,
+          "h": 51
+        },
+        "Body": {
+          "x": 1556,
+          "y": 1091,
+          "w": 643,
+          "h": 95
+        },
+        "CTA button": {
+          "x": 1556,
+          "y": 1239,
+          "w": 287,
+          "h": 67
+        },
+        "CTA label": {
+          "x": 1556,
+          "y": 1259,
+          "w": 287,
+          "h": 27
+        },
+        "Footer": {
+          "x": 1507,
+          "y": 1358,
+          "w": 742,
+          "h": 148
+        },
+        "Footer text": {
+          "x": 1556,
+          "y": 1390,
+          "w": 643,
+          "h": 48
+        }
+      },
+      "layersRow": {
+        "x": 6,
+        "y": 1333,
+        "w": 826,
+        "h": 79
+      },
+      "semanticTypeControl": {
+        "x": 2980,
+        "y": 1855,
+        "w": 776,
+        "h": 64
+      }
+    },
+    "09-selected-footer.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 1798,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 1796,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 1719,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 1719,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 1422
+      },
+      "selected": "Footer",
+      "blocks": {
+        "Email": {
+          "x": 1507,
+          "y": 375,
+          "w": 742,
+          "h": 1132
+        },
+        "Header logo": {
+          "x": 1556,
+          "y": 407,
+          "w": 200,
+          "h": 74
+        },
+        "Hero image": {
+          "x": 1507,
+          "y": 513,
+          "w": 742,
+          "h": 464
+        },
+        "Heading": {
+          "x": 1556,
+          "y": 1022,
+          "w": 643,
+          "h": 51
+        },
+        "Body": {
+          "x": 1556,
+          "y": 1091,
+          "w": 643,
+          "h": 95
+        },
+        "CTA button": {
+          "x": 1556,
+          "y": 1239,
+          "w": 287,
+          "h": 67
+        },
+        "CTA label": {
+          "x": 1556,
+          "y": 1259,
+          "w": 287,
+          "h": 27
+        },
+        "Footer": {
+          "x": 1507,
+          "y": 1358,
+          "w": 742,
+          "h": 148
+        },
+        "Footer text": {
+          "x": 1556,
+          "y": 1390,
+          "w": 643,
+          "h": 48
+        }
+      },
+      "layersRow": {
+        "x": 6,
+        "y": 1099,
+        "w": 826,
+        "h": 79
+      },
+      "semanticTypeControl": {
+        "x": 2980,
+        "y": 1855,
+        "w": 776,
+        "h": 64
+      }
+    },
+    "10-selected-footer-text.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 1798,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 1796,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 1719,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 1719,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 1422
+      },
+      "selected": "Footer text",
+      "blocks": {
+        "Email": {
+          "x": 1507,
+          "y": 375,
+          "w": 742,
+          "h": 1132
+        },
+        "Header logo": {
+          "x": 1556,
+          "y": 407,
+          "w": 200,
+          "h": 74
+        },
+        "Hero image": {
+          "x": 1507,
+          "y": 513,
+          "w": 742,
+          "h": 464
+        },
+        "Heading": {
+          "x": 1556,
+          "y": 1022,
+          "w": 643,
+          "h": 51
+        },
+        "Body": {
+          "x": 1556,
+          "y": 1091,
+          "w": 643,
+          "h": 95
+        },
+        "CTA button": {
+          "x": 1556,
+          "y": 1239,
+          "w": 287,
+          "h": 67
+        },
+        "CTA label": {
+          "x": 1556,
+          "y": 1259,
+          "w": 287,
+          "h": 27
+        },
+        "Footer": {
+          "x": 1507,
+          "y": 1358,
+          "w": 742,
+          "h": 148
+        },
+        "Footer text": {
+          "x": 1556,
+          "y": 1390,
+          "w": 643,
+          "h": 48
+        }
+      },
+      "layersRow": {
+        "x": 6,
+        "y": 1177,
+        "w": 826,
+        "h": 79
+      },
+      "semanticTypeControl": {
+        "x": 2980,
+        "y": 1855,
+        "w": 776,
+        "h": 64
+      }
+    },
+    "11-preview-desktop.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 809,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 807,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 730,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 730,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 629,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 629,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 629,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 434
+      },
+      "preview": {
+        "imagesLoaded": [
+          "Header logo:1080",
+          "Hero image:1440",
+          "Header logo:1080",
+          "Hero image:1440"
+        ],
+        "logo": {
+          "x": 1278,
+          "y": 1113,
+          "w": 324,
+          "h": 120
+        },
+        "hero": {
+          "x": 1278,
+          "y": 1233,
+          "w": 1200,
+          "h": 750
+        },
+        "heading": {
+          "x": 1278,
+          "y": 2039,
+          "w": 1200,
+          "h": 82
+        },
+        "body": {
+          "x": 1278,
+          "y": 2177,
+          "w": 1200,
+          "h": 153
+        },
+        "cta": {
+          "x": 1278,
+          "y": 2364,
+          "w": 174,
+          "h": 88
+        },
+        "footer": {
+          "x": 1278,
+          "y": 2478,
+          "w": 1200,
+          "h": 78
+        },
+        "iframe": {
+          "x": 872.34375,
+          "y": 1112.65625,
+          "w": 2011.5625,
+          "h": 1147.78125
+        }
+      }
+    },
+    "12-preview-mobile.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 807,
+        "w": 132,
+        "h": 62
+      },
+      "mobileButton": {
+        "x": 2789,
+        "y": 809,
+        "w": 110,
+        "h": 58
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 730,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 730,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 629,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 629,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 629,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 295,
+        "w": 2067,
+        "h": 434
+      },
+      "preview": {
+        "imagesLoaded": [
+          "Header logo:1080",
+          "Hero image:1440",
+          "Header logo:1080",
+          "Hero image:1440"
+        ],
+        "logo": {
+          "x": 1477,
+          "y": 1113,
+          "w": 324,
+          "h": 120
+        },
+        "hero": {
+          "x": 1477,
+          "y": 1233,
+          "w": 1200,
+          "h": 750
+        },
+        "heading": {
+          "x": 1477,
+          "y": 2039,
+          "w": 1200,
+          "h": 82
+        },
+        "body": {
+          "x": 1477,
+          "y": 2177,
+          "w": 1200,
+          "h": 153
+        },
+        "cta": {
+          "x": 1477,
+          "y": 2364,
+          "w": 174,
+          "h": 88
+        },
+        "footer": {
+          "x": 1477,
+          "y": 2478,
+          "w": 1200,
+          "h": 78
+        },
+        "iframe": {
+          "x": 1476.90625,
+          "y": 1112.65625,
+          "w": 802.4375,
+          "h": 1147.78125
+        }
+      }
+    },
+    "bug-duplicate-email-content-in-preview.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 807,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 805,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 728,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 728,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 293,
+        "w": 2067,
+        "h": 434
+      },
+      "headingCount": 2
+    },
+    "13-html-output.png": {
+      "desktopButton": null,
+      "mobileButton": null,
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 728,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 728,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 293,
+        "w": 2067,
+        "h": 434
+      },
+      "outputPanel": {
+        "x": 845,
+        "y": 790,
+        "w": 2067,
+        "h": 1496
+      },
+      "htmlEditor": {
+        "x": 868,
+        "y": 914,
+        "w": 2021,
+        "h": 721
+      },
+      "plainText": {
+        "x": 868,
+        "y": 1648,
+        "w": 2021,
+        "h": 893
+      },
+      "preflightPanel": {
+        "x": 868,
+        "y": 2916,
+        "w": 2021,
+        "h": 337
+      },
+      "copyHtmlButton": {
+        "x": 2833,
+        "y": 828,
+        "w": 56,
+        "h": 58
+      },
+      "exportHtmlButton": {
+        "x": 868,
+        "y": 3267,
+        "w": 410,
+        "h": 58
+      },
+      "exportZipButton": {
+        "x": 1284,
+        "y": 3265,
+        "w": 282,
+        "h": 62
+      }
+    },
+    "14-plain-text-output.png": {
+      "desktopButton": null,
+      "mobileButton": null,
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 728,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 728,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 293,
+        "w": 2067,
+        "h": 434
+      },
+      "outputPanel": {
+        "x": 845,
+        "y": 790,
+        "w": 2067,
+        "h": 1496
+      },
+      "htmlEditor": {
+        "x": 868,
+        "y": 72,
+        "w": 2021,
+        "h": 721
+      },
+      "plainText": {
+        "x": 868,
+        "y": 806,
+        "w": 2021,
+        "h": 893
+      },
+      "preflightPanel": {
+        "x": 868,
+        "y": 2074,
+        "w": 2021,
+        "h": 337
+      },
+      "copyHtmlButton": {
+        "x": 2833,
+        "y": -14,
+        "w": 56,
+        "h": 58
+      },
+      "exportHtmlButton": {
+        "x": 868,
+        "y": 2425,
+        "w": 410,
+        "h": 58
+      },
+      "exportZipButton": {
+        "x": 1284,
+        "y": 2423,
+        "w": 282,
+        "h": 62
+      }
+    },
+    "15-preflight-results.png": {
+      "desktopButton": null,
+      "mobileButton": null,
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 728,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 728,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 627,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 293,
+        "w": 2067,
+        "h": 434
+      },
+      "outputPanel": {
+        "x": 845,
+        "y": 790,
+        "w": 2067,
+        "h": 1496
+      },
+      "htmlEditor": {
+        "x": 868,
+        "y": -150,
+        "w": 2021,
+        "h": 721
+      },
+      "plainText": {
+        "x": 868,
+        "y": 584,
+        "w": 2021,
+        "h": 893
+      },
+      "preflightPanel": {
+        "x": 868,
+        "y": 1852,
+        "w": 2021,
+        "h": 337
+      },
+      "copyHtmlButton": {
+        "x": 2833,
+        "y": -236,
+        "w": 56,
+        "h": 58
+      },
+      "exportHtmlButton": {
+        "x": 868,
+        "y": 2203,
+        "w": 410,
+        "h": 58
+      },
+      "exportZipButton": {
+        "x": 1284,
+        "y": 2201,
+        "w": 282,
+        "h": 62
+      }
+    },
+    "00-block-inserting-ui-empty-state.png": {
+      "emptyStateCard": {
+        "x": 1639,
+        "y": 815,
+        "w": 479,
+        "h": 335
+      },
+      "quickInsertFrame": {
+        "x": 204,
+        "y": 106,
+        "w": 182,
+        "h": 64
+      },
+      "quickInsertRect": {
+        "x": 392,
+        "y": 106,
+        "w": 162,
+        "h": 64
+      },
+      "quickInsertText": {
+        "x": 561,
+        "y": 106,
+        "w": 154,
+        "h": 64
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1617,
+        "w": 64,
+        "h": 64
+      },
+      "shapesMenu": {
+        "x": 1811,
+        "y": 1617,
+        "w": 48,
+        "h": 64
+      },
+      "enableTemplate": null
+    },
+    "16-block-inserting-ui.png": {
+      "desktopButton": {
+        "x": 2651,
+        "y": 1797,
+        "w": 128,
+        "h": 58
+      },
+      "mobileButton": {
+        "x": 2785,
+        "y": 1795,
+        "w": 114,
+        "h": 62
+      },
+      "emailPreviewTab": {
+        "x": 847,
+        "y": 1718,
+        "w": 224,
+        "h": 60
+      },
+      "emailOutputTab": {
+        "x": 1072,
+        "y": 1718,
+        "w": 210,
+        "h": 60
+      },
+      "toolbarFrame": {
+        "x": 1670,
+        "y": 1616,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarRectangle": {
+        "x": 1740,
+        "y": 1616,
+        "w": 64,
+        "h": 64
+      },
+      "toolbarText": {
+        "x": 1865,
+        "y": 1616,
+        "w": 64,
+        "h": 64
+      },
+      "canvas": {
+        "x": 845,
+        "y": 293,
+        "w": 2067,
+        "h": 1423
+      },
+      "statusPreflightButton": {
+        "x": 166,
+        "y": 2347,
+        "w": 68,
+        "h": 48
+      },
+      "quickInsertFrame": null,
+      "quickInsertRect": null,
+      "quickInsertText": null,
+      "shapesMenu": {
+        "x": 1811,
+        "y": 1616,
+        "w": 48,
+        "h": 64
+      }
+    }
+  }
+}

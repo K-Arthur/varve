@@ -1,0 +1,8 @@
+{
+  "note": "Hand-measured boxes from render5.py MEASURED (source-pixel coords x0,y0,x1,y1 in 01-workspace-full.png)",
+  "01-workspace-full.png": {
+    "emailWorkspaceButton": [3506, 18, 3663, 73],
+    "layersList": [10, 1030, 830, 1712],
+    "docOverview": [16, 330, 824, 760]
+  }
+}

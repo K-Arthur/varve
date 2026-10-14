@@ -1,0 +1,10 @@
+What if designing an email... cost you nothing?
+Varve has a whole workspace, just for email.
+Build it from real blocks: logo, hero, heading, button.
+Preview the finished email, right in the app.
+Run compatibility checks, before you export.
+Then get the HTML, and a plain-text version too.
+Every block stays in the same Varve document.
+And core editing stays local, on your machine.
+It's free. And your work stays yours.
+Subscribe, and try it at varve dot studio.
