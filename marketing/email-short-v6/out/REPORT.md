@@ -1,36 +1,44 @@
-# Varve email workspace Short v6 — render report
+# Hollowpine Coffee Roasters — v7 render report
 
 ## Deliverables
 
-- `varve-email-short-v6.mp4` — H.264 video and AAC audio, 1080×1920, 30 fps, 34.60 s, 68,755,598 bytes (65.6 MiB), below the 90 MB limit.
-- Six 1080×1920 RGB stills, `01-opening.png` through `06-plain-text.png`.
+- `v7.mp4` — H.264/AAC, 1080×1920, 30 fps, 34.60 s, 58,664,289 bytes (56.0 MiB), below the 90 MB limit.
+- Six v7 review stills, `v7-01-opening.png` through `v7-06-document.png`.
 
-## Render checks
+## Source and bug exclusions
 
-- The revised highlight pass uses a crisp 3 px blue rounded selection box, four small white corner handles, and a dark blue label chip. The screenshot outside the measured target is dimmed; no glow or feathered outline is used.
-- All 15 focus holds below were reviewed from the final encoded video. The logo at 8.36 s and CTA button at 9.86 s were inspected enlarged; both land on the named item with the box, handles, and chip visible.
-- Every focus box was checked against its source bbox after applying the scene crop and scale. Targets are fully visible at their hold frames; the full email-preview iframe is 99.8% visible because the source capture clips two pixels at its lower edge.
-- Camera moves use eased interpolation, generally 0.4–0.6 s, with focus holds around 0.8–1.2 s. The visual changes follow the voiceover's short feature beats.
-- Caption and callout layout is horizontally centred. Caption overlays stay within the specified x≤930, y=290–1440 safe area. The desktop preview is used; the mobile preview is never opened.
-- The original AAC audio stream was copied without re-encoding; its compressed-stream MD5 matches the prior render. FFmpeg `ebur128` measured integrated loudness **−14.0 LUFS**, true peak **−3.5 dBFS**. Music remains mixed quietly under the voice and fades at the end.
-- Full decode completed successfully: 1,038 video frames, 34.60 s.
+- V7 uses Hollowpine Coffee Roasters “Ember Ridge” store shots and their measured targets from `shots-store/bboxes.json`.
+- The mobile preview was never shown. Preview/output captures with the documented duplicate email, text alignment, CTA-label, plain-text URL, or preflight defects were not used. The compatibility scene uses only a crop of the “Compatibility” heading within the measured preflight panel, excluding its warning rows and mismatched counts.
+- The narration and word timing are unchanged from v6. Captions retain the existing wording, use 90 px bold text with a dark backing and blue keyword boxes, and move to a clear position above or below the UI.
 
-## Focus-to-voice review
+## Frame-by-frame checks
 
-| Voice cue | Focused item | Hold check |
+- All 1,038 frames were checked against the projected screenshot-card bounds and focused-item/label-chip bounds. Caption intersections: **0 with UI cards; 0 with selection boxes or chips**. A 12 px clearance margin was included when choosing caption positions.
+- Caption safe-zone failures: **0**. Every caption stays within y=290–1440 and x=150–930, centered at x=540. Maximum caption-centre error: 0 px.
+- Screenshot cards remain horizontally centred; maximum measured centre error: less than 0.001 px.
+- Focus targets use store-shot bounding boxes transformed through each animated crop and camera scale. Hold frames were reviewed from the final encoded video:
+
+| Voice cue | Focus target | Reviewed frame |
 | --- | --- | ---: |
-| “workspace” | Email workspace card | 4.38 s |
-| “email” | Email workspace button | 5.60 s |
-| “blocks” | Email block | 7.48 s |
-| “logo” | Header logo | 8.36 s |
-| “hero” | Hero image | 8.94 s |
-| “heading” | Heading | 9.44 s |
-| “button” | CTA button | 9.86 s |
-| “Preview” | Email Preview tab | 10.76 s |
-| “email” | Finished email preview | 11.50 s |
-| “compatibility” | Preflight compatibility panel | 14.04 s |
-| “export” | Export HTML control | 15.85 s |
-| “HTML” | HTML output editor | 17.58 s |
-| “plain-text” | Plain-text output | 18.82 s |
-| “block” | Email layers list | 21.06 s |
-| “document” | Document overview | 22.82 s |
+| “workspace” | Email block in the workspace | 4.55 s |
+| “email” | Email workspace button | 5.75 s |
+| “blocks” | Email content layer list | 7.50 s |
+| “logo” | Hollowpine header logo | 8.36 s |
+| “hero” | Ember Ridge hero image | 8.80 s |
+| “heading” | Email heading | 9.30 s |
+| “button” | “Shop the blend” CTA button | 9.75 s |
+| “Preview” | Email Preview tab | 10.65 s |
+| “email” | Finished Hollowpine email | 11.50 s |
+| “compatibility” | Compatibility heading | 14.10 s |
+| “export” | Export HTML, text, and manifest button | 16.00 s |
+| “HTML” | Export HTML, text, and manifest button | 17.40 s |
+| “plain-text” | Export HTML, text, and manifest button | 18.80 s |
+| “block” | Email content layer list | 20.95 s |
+| “document” | Varve document overview | 22.75 s |
+| “local” | Email block in the workspace | 25.00 s |
+
+## Audio and decode
+
+- The existing AAC stream was copied without re-encoding; its compressed-stream MD5 matches v6 (`c86c32bb162ee36d49ad13bd55447f1e`).
+- FFmpeg `ebur128` measured integrated loudness **−14.0 LUFS**, true peak **−3.5 dBFS**.
+- Full decode passed: **1,038 frames**, 34.60 s, 1080×1920 at 30 fps.
