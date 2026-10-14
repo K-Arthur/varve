@@ -95,30 +95,26 @@ def place(cv,img,shp,cx,cy,yaw,pitch,z,scale,op,blur=False):
 def spotlight(img,box,amt=1.0,label=''):
     if amt<=0.01: return img
     img=img.convert('RGBA'); x0,y0,x1,y1=map(int,box); w,h=img.size
-    # Dim the screenshot outside the exact measured target, preserving its pixels inside.
-    shade=Image.new('RGBA',(w,h),(5,8,16,int(132*amt)))
+    # Keep the exact measured target bright; lower the surrounding UI so it reads as context.
+    shade=Image.new('RGBA',(w,h),(5,8,16,int(190*amt)))
     mask=Image.new('L',(w,h),0); ImageDraw.Draw(mask).rounded_rectangle((x0,y0,x1,y1),radius=8,fill=int(255*amt))
-    shade.putalpha(Image.eval(mask,lambda v: int(132*amt*(255-v)/255)))
+    shade.putalpha(Image.eval(mask,lambda v: int(190*amt*(255-v)/255)))
     out=Image.alpha_composite(img,shade); d=ImageDraw.Draw(out)
-    # Thin selection outline sits directly on the bbox; no blur or glow.
-    d.rounded_rectangle((x0,y0,x1,y1),radius=8,outline=(73,153,255,int(255*amt)),width=4)
+    # Crisp blue selection box with small white corner handles; no blur or glow.
+    blue=(59,130,246,int(255*amt)); white=(245,248,255,int(255*amt))
+    d.rounded_rectangle((x0,y0,x1,y1),radius=7,outline=blue,width=3)
+    hs=9
+    for hx,hy in ((x0,y0),(x1,y0),(x1,y1),(x0,y1)):
+        d.rectangle((hx-hs//2,hy-hs//2,hx+hs//2,hy+hs//2),fill=white,outline=blue,width=2)
     if label:
-        f=ImageFont.truetype(FONT,20); tw=f.getlength(label); th=25; pad=10
+        f=ImageFont.truetype(FONT,20); tw=f.getlength(label); th=24; pad=10
         cw=int(tw+2*pad); ch=th+8
         tx=max(6,min(w-cw-6,x0)); ty=y0-ch-7
         if ty<6: ty=min(h-ch-6,y1+7)
         alpha=int(245*amt)
-        d.rounded_rectangle((tx,ty,tx+cw,ty+ch),radius=9,fill=(16,35,62,alpha),outline=(73,153,255,alpha),width=2)
+        d.rounded_rectangle((tx,ty,tx+cw,ty+ch),radius=7,fill=(13,27,46,alpha),outline=(59,130,246,alpha),width=1)
         d.text((tx+pad,ty+4),label,font=f,fill=(240,247,255,alpha))
     return out
-
-def glow(img,box,amt,col=BLUE,r=18):
-    if amt<=0.01: return img
-    img=img.copy(); x0,y0,x1,y1=box; ov=Image.new('RGBA',img.size,(0,0,0,0)); d=ImageDraw.Draw(ov)
-    for i,a in [(26,40),(18,80),(11,140),(5,210)]:
-        d.rounded_rectangle((x0-i,y0-i,x1+i,y1+i),r+i,outline=col+(int(a*amt),),width=9)
-    d.rounded_rectangle((x0,y0,x1,y1),r,outline=col+(int(255*amt),),width=9,fill=col+(int(40*amt),))
-    return Image.alpha_composite(img,ov)
 # ---------- background
 def mkbg():
     y,x=np.mgrid[0:OH,0:OW].astype(np.float32)
