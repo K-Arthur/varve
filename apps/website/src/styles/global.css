@@ -151,6 +151,9 @@
     "IBM Plex Sans Variable", "IBM Plex Sans", "IBM Plex Sans Fallback", ui-sans-serif, system-ui,
     sans-serif;
   --font-editorial: "Fraunces Variable", "Fraunces", "Fraunces Fallback", ui-serif, Georgia, serif;
+  /* Skip optional system monos (Cascadia / SF Mono / JetBrains) so checksum
+     blocks wrap the same on ubuntu-latest CI and developer machines. */
+  --font-mono: ui-monospace, Consolas, monospace;
 }
 
 @tailwind base;

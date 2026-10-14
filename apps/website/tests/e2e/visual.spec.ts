@@ -124,7 +124,10 @@ async function articleClip(page: import('@playwright/test').Page, selector: stri
  * after hiding Cascadia / JetBrains Mono / SF Mono. Those families sit in
  * `--font-mono` before generic monospace and are absent on CI, so code
  * blocks wrap differently if they stay visible.
- *   FONTCONFIG_FILE=<reject extra mono dirs> pnpm test:website:e2e -- --update-snapshots
+ *   playwright.website.config.ts sets FONTCONFIG_FILE to fonts.conf so
+ *   Cascadia / JetBrains / SF Mono cannot shrink checksum wrap vs CI.
+ *   Download-dark must be taken from ubuntu-latest (or that fontconfig).
+ *   FONTCONFIG_FILE=apps/website/tests/e2e/fonts.conf pnpm test:website:e2e -- --update-snapshots
  *
  * Determinism: every snapshot runs with reduced motion emulated and the
  * design field renders its static seeded frame, so no animation can smear
