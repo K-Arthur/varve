@@ -371,7 +371,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
       {release.hasRelease && release.integrity === 'verified' && (
         <>
-          <div class="primary-download-section primary-download-hidden" id="primary-download-section" aria-hidden="true">
+          <div class="primary-download-section" id="primary-download-section" hidden>
             <p class="primary-download-title"><strong>Recommended for your system</strong></p>
             <p class="primary-download-detected" id="primary-download-detected">Detected platform will appear here</p>
             <div class="primary-download-actions">
@@ -1087,10 +1087,6 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     min-height: 193px;
   }
 
-  .primary-download-section.primary-download-hidden {
-    opacity: 0;
-    pointer-events: none;
-  }
 
   .primary-download-title {
     font-size: 1.125rem;
@@ -1150,9 +1146,6 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
       min-height: 213px;
     }
 
-    .primary-download-section.primary-download-hidden {
-      min-height: 213px;
-    }
 
     .primary-download-actions {
       flex-direction: column;
@@ -2237,9 +2230,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     const archText = detection.arch === 'arm64' ? ' (ARM64)' : detection.arch === 'x64' ? ' (x86_64)' : '';
     primaryDetected.textContent = `Detected: ${platformName}${archText}`;
 
-    // Show primary section (removes hidden class and aria-hidden)
-    primarySection.classList.remove('primary-download-hidden');
-    primarySection.removeAttribute('aria-hidden');
+    // Show primary section (removes hidden attribute)
+    primarySection.removeAttribute('hidden');
   }
 
   setupPrimaryDownload();
