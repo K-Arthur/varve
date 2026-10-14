@@ -1,34 +1,22 @@
 import { Icon } from '@varve/ui';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import {
+  getLocalStorage,
+  markFirstRunOverlayDismissed,
+  readFirstRunOverlayVisibility,
+} from './firstRunOverlayState';
 import './FirstRunOverlay.css';
-
-const FIRST_RUN_KEY = 'varve:first-run-overlay:dismissed';
 
 interface FirstRunOverlayProps {
   onDismiss?: () => void;
 }
 
 export function FirstRunOverlay({ onDismiss }: FirstRunOverlayProps) {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(() => readFirstRunOverlayVisibility(getLocalStorage()));
   const [currentStep, setCurrentStep] = useState(0);
 
-  useEffect(() => {
-    try {
-      const dismissed = localStorage.getItem(FIRST_RUN_KEY);
-      if (!dismissed) {
-        setVisible(true);
-      }
-    } catch {
-      // Storage unavailable, don't show overlay
-    }
-  }, []);
-
   const handleDismiss = () => {
-    try {
-      localStorage.setItem(FIRST_RUN_KEY, 'true');
-    } catch {
-      // Storage unavailable, dismiss anyway
-    }
+    markFirstRunOverlayDismissed();
     setVisible(false);
     onDismiss?.();
   };

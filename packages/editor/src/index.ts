@@ -33,6 +33,12 @@ export {
   setCapabilityRestrictions,
 } from './capabilities/restrictions';
 export { ErrorBoundary } from './components/ErrorBoundary';
+// Onboarding state — exposed so a host can declare first-run already handled
+// (the browser demo explains itself through its own banner).
+export {
+  FIRST_RUN_OVERLAY_DISMISSED_KEY,
+  markFirstRunOverlayDismissed,
+} from './components/FirstRunOverlay/firstRunOverlayState';
 export { restoreStoredFonts } from './components/FontBrowser/restoreStoredFonts';
 export { SettingsProvider } from './components/Settings/SettingsContext';
 export type { SettingsDialogProps } from './components/Settings/SettingsDialog';
@@ -66,8 +72,6 @@ export {
   setLifecycleFinalizeHandler,
 } from './lifecycle';
 export { TabletBackDismiss } from './navigation/TabletBackDismiss';
-// Onboarding state — exposed so a host can declare first-run already handled
-// (the browser demo explains itself through its own banner).
 export { TIPS } from './onboard/DidYouKnow/tips';
 export { workspaceTips } from './onboard/DidYouKnow/workspaceTips';
 export { MICRO_HINTS } from './onboard/MicroHints/microHintsData';

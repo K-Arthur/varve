@@ -1,5 +1,37 @@
 import type { Page } from '@playwright/test';
 
+const FIRST_RUN_OVERLAY_FORCE_KEY = 'varve:first-run-overlay:force';
+
+/**
+ * Close the first-run overlay when it is on the page.
+ *
+ * Coverage specs set `varve:first-run-overlay:force` and must keep it.
+ * Automation otherwise skips the overlay, so this is a no-op on a typical
+ * Playwright profile and does not wait when the node is absent.
+ */
+export async function dismissFirstRunOverlayIfPresent(
+  page: Page,
+): Promise<'absent' | 'dismissed' | 'forced'> {
+  const overlay = page.locator('.first-run-overlay');
+  if ((await overlay.count()) === 0) return 'absent';
+  const forced = await page.evaluate(
+    (key) => localStorage.getItem(key) === '1',
+    FIRST_RUN_OVERLAY_FORCE_KEY,
+  );
+  if (forced) return 'forced';
+  const close = overlay.getByRole('button', { name: 'Close' });
+  if (await close.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await close.click({ timeout: 5000 });
+  } else {
+    await overlay
+      .locator('.first-run-backdrop')
+      .click({ timeout: 5000 })
+      .catch(() => undefined);
+  }
+  await overlay.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
+  return 'dismissed';
+}
+
 /** Navigate to a clean editor, deterministically dismissing the crash
  *  recovery dialog that a previously killed run can leave behind. An optional
  *  `search` is appended to the initial URL (e.g. `?perf=1` to install the
@@ -40,21 +72,24 @@ export async function navigateToCleanEditor(page: Page, search = ''): Promise<vo
     .getByRole('button', { name: /^create design$/i })
     .click({ timeout: 30000 });
   await page.locator('.layers-panel').waitFor({ timeout: 150000 });
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const openDialogs = page.locator('dialog[open]');
-    if ((await openDialogs.count()) === 0) break;
-    const close = openDialogs.last().getByRole('button', { name: /close/i }).first();
-    if (await close.isVisible({ timeout: 500 }).catch(() => false)) {
-      await close.click({ timeout: 2000 }).catch(() => undefined);
+  const overlayState = await dismissFirstRunOverlayIfPresent(page);
+  if (overlayState !== 'forced') {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const openDialogs = page.locator('dialog[open]');
+      if ((await openDialogs.count()) === 0) break;
+      const close = openDialogs.last().getByRole('button', { name: /close/i }).first();
+      if (await close.isVisible({ timeout: 500 }).catch(() => false)) {
+        await close.click({ timeout: 2000 }).catch(() => undefined);
+      }
     }
-  }
 
-  // Keep visual and interaction fixtures free of the in-editor onboarding
-  // checklist. It is not a dialog, so the startup dialog loop above cannot
-  // dismiss it and it otherwise obscures the Layers panel screenshots.
-  const onboardingDismiss = page.locator('.onboarding-checklist__dismiss');
-  if (await onboardingDismiss.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await onboardingDismiss.click({ timeout: 5000 });
+    // Keep visual and interaction fixtures free of the in-editor onboarding
+    // checklist. It is not a dialog, so the startup dialog loop above cannot
+    // dismiss it and it otherwise obscures the Layers panel screenshots.
+    const onboardingDismiss = page.locator('.onboarding-checklist__dismiss');
+    if (await onboardingDismiss.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await onboardingDismiss.click({ timeout: 5000 });
+    }
   }
 
   // Browser boot starts with a synchronous memory facade, then swaps to the
