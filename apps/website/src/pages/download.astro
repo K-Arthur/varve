@@ -371,9 +371,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
       {release.hasRelease && release.integrity === 'verified' && (
         <>
-          <div class="primary-download-section primary-download-hidden" id="primary-download-section">
+          <div class="primary-download-section primary-download-hidden" id="primary-download-section" aria-hidden="true">
             <h2 class="primary-download-title">Download Varve <span class="version-badge">{release.version}</span></h2>
-            <p class="primary-download-detected" id="primary-download-detected"></p>
+            <p class="primary-download-detected" id="primary-download-detected">Detected platform will appear here</p>
             <div class="primary-download-actions">
               <a
                 href="#"
@@ -2251,8 +2251,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     const archText = detection.arch === 'arm64' ? ' (ARM64)' : detection.arch === 'x64' ? ' (x86_64)' : '';
     primaryDetected.textContent = `Detected: ${platformName}${archText}`;
 
-    // Show primary section (removes hidden class)
+    // Show primary section (removes hidden class and aria-hidden)
     primarySection.classList.remove('primary-download-hidden');
+    primarySection.removeAttribute('aria-hidden');
   }
 
   setupPrimaryDownload();
