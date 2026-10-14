@@ -28,6 +28,11 @@ def word_time(prefix,after=0):
         if w[1]>=after and w[0].strip('.,?-').lower().startswith(prefix.lower()): return w[1]
     raise KeyError(prefix)
 
+def word_interval(prefix,after=0):
+    for w in TOK:
+        if w[1]>=after and w[0].strip('.,?-').lower().startswith(prefix.lower()): return w[1],w[2]
+    raise KeyError(prefix)
+
 caps=[]; k=0; lag=0.02
 for phrase,n,keys in CH:
     words=phrase.split(' '); toks=TOK[k:k+n]; k+=n
@@ -106,8 +111,14 @@ email_boxes={
 workspace_email=source_box('01-workspace-full.png','blocks.Email')
 add_view('email_full',STORE/'02-canvas-crop.png',(0,0,692,1252),620,1190,
          [(0,346,626,652),(DUR,346,626,652)],email_boxes)
-add_view('email_focus',STORE/'02-canvas-crop.png',(0,0,692,1252),760,470,
-         [(7.75,346,220,540),(8.06,346,220,540),(8.64,346,370,692),(9.14,346,680,692),(9.56,200,790,450),(10.35,346,626,692)],email_boxes)
+add_view('email_logo',STORE/'02-canvas-crop.png',(0,0,692,1252),760,470,
+         [(0,176,128,190),(DUR,176,128,190)],{'logo':email_boxes['logo']})
+add_view('email_hero',STORE/'02-canvas-crop.png',(0,0,692,1252),760,470,
+         [(0,346,369.5,612),(DUR,346,369.5,612)],{'hero':email_boxes['hero']})
+add_view('email_heading',STORE/'02-canvas-crop.png',(0,0,692,1252),760,470,
+         [(0,346,607,570),(DUR,346,607,570)],{'heading':email_boxes['heading']})
+add_view('email_cta',STORE/'02-canvas-crop.png',(0,0,692,1252),760,470,
+         [(0,199.5,780.5,330),(DUR,199.5,780.5,330)],{'button':email_boxes['button']})
 add_view('workspace',STORE/'01-workspace-full.png',(845,295,2912,1717),760,780,
          [(3.15,1878,1006,1387),(4.9,1878,1006,1387)],
          {'email':workspace_email})
@@ -148,7 +159,11 @@ SC=[
  (3.15,4.90,'workspace',540,980,0.90),
  (4.90,6.40,'email_button',540,980,1.00),
  (6.40,7.75,'layers',540,1030,0.80),
- (7.75,10.35,'email_focus',540,980,0.96),
+ (7.75,8.06,'email_full',540,1040,0.64),
+ (8.06,8.64,'email_logo',540,980,0.96),
+ (8.64,9.14,'email_hero',540,980,0.96),
+ (9.14,9.56,'email_heading',540,980,0.96),
+ (9.56,10.35,'email_cta',540,980,0.96),
  (10.35,11.05,'preview_tab',540,980,1.00),
  (11.05,11.90,'email_full',540,1030,0.62),
  (11.90,13.40,'workspace',540,980,0.88),
@@ -162,21 +177,24 @@ SC=[
  (29.45,DUR,'email_full',540,1040,0.64),
 ]
 FOCUS={
- 'workspace':[(word_time('workspace'),'email')],
- 'email_button':[(word_time('email',4.9),'emailbtn')],
- 'layers':[(word_time('blocks'),'layer_rows')],
- 'email_focus':[(word_time('logo'),'logo'),(word_time('hero'),'hero'),(word_time('heading'),'heading'),(word_time('button'),'button')],
- 'preview_tab':[(word_time('preview'),'preview_tab')],
- 'email_full':[(word_time('email',11.0),'email')],
- 'workspace_local':[(word_time('local'),'email')],
- 'compat':[(word_time('compatibility'),'compatibility')],
- 'export':[(word_time('export'),'export_button'),(word_time('HTML'),'export_button'),(word_time('plain'),'export_button')],
- 'layers_end':[(word_time('block',20.0),'layer_rows')],
- 'doc':[(word_time('document'),'document')],
+ 'workspace':[(word_interval('workspace'),'email')],
+ 'email_button':[(word_interval('email',4.9),'emailbtn')],
+ 'layers':[(word_interval('blocks'),'layer_rows')],
+ 'email_logo':[(word_interval('logo'),'logo')],
+ 'email_hero':[(word_interval('hero'),'hero')],
+ 'email_heading':[(word_interval('heading'),'heading')],
+ 'email_cta':[(word_interval('button'),'button')],
+ 'preview_tab':[(word_interval('preview'),'preview_tab')],
+ 'email_full':[(word_interval('email',11.0),'email')],
+ 'workspace_local':[(word_interval('local'),'email')],
+ 'compat':[(word_interval('compatibility'),'compatibility')],
+ 'export':[(word_interval('export'),'export_button'),(word_interval('HTML'),'export_button'),(word_interval('plain'),'export_button')],
+ 'layers_end':[(word_interval('block',20.0),'layer_rows')],
+ 'doc':[(word_interval('document'),'document')],
 }
 LABELS={'email':'Email blocks','emailbtn':'Email workspace','layer_rows':'Email content blocks',
         'logo':'Hollowpine logo','hero':'Ember Ridge hero image','heading':'Email heading',
-        'button':'CTA button','preview_tab':'Email Preview','compatibility':'Compatibility checks',
+        'button':'CTA button','preview_tab':'','compatibility':'Compatibility checks',
         'export_button':'Export HTML, text, and manifest','document':'Varve document'}
 
 def overlap(a,b):
@@ -240,24 +258,33 @@ def transform_rect(H,box):
 def frame(n,measure=False):
     t=n/FPS; cv=bg(t); cards=[]; card_scenes=[]; focus_rects=[]; focus_records=[]; centers=[]
     for s,e,key,cx,cy,base_scale in SC:
-        if not (s-0.01<=t<e+0.3): continue
-        lt=max(0,t-s); progress=lt/max(0.001,e-s); out=eio((t-e)/0.3) if t>e else 0
+        outdur=(0.01 if key in ('email_logo','email_hero','email_heading','email_cta') or
+                (key=='email_full' and abs(e-8.06)<0.001) else 0.3)
+        if not (s-0.01<=t<e+outdur): continue
+        lt=max(0,t-s); progress=lt/max(0.001,e-s); out=eio((t-e)/outdur) if t>e else 0
         asset=AS[key]; img,BX=asset['vp'].render(t); sh=asset['shadow']; amount=0; selected=[]
         cues=FOCUS.get(key,[])
-        for j,(ft,bname) in enumerate(cues):
-            nx=cues[j+1][0] if j+1<len(cues) else e+0.45
-            hold=max(0.10,min(0.85,nx-ft-0.42))
-            amt=bump(t,ft-0.08,0.42,hold,0.32)
+        for j,((ft,ft_end),bname) in enumerate(cues):
+            nx=cues[j+1][0][0] if j+1<len(cues) else e
+            # Keep each target tied to its spoken word. Short, smooth selection
+            # ramps avoid leaving the previous item selected under the next cue.
+            up=min(0.14,max(0.09,(ft_end-ft)*0.35)); down=0.12
+            until=e if key in ('email_logo','email_hero','email_heading','email_cta') else min(nx,ft_end+0.10)
+            hold=max(0.07,min(0.85,until-ft-up))
+            amt=bump(t,ft,up,hold,down)
             if amt<=0 or bname not in BX: continue
             label=LABELS[bname]; img=spotlight(img,BX[bname],amt,label); amount=max(amount,amt); selected.append((bname,amt,label,ft))
-        k=spring(lt,11,0.55); yaw=2*math.sin(lt*0.8+s*0.7); pitch=1.2*math.sin(lt*0.7+s)
+        k=(eio(lt/0.12) if key in ('email_logo','email_hero','email_heading','email_cta')
+           else spring(lt,11,0.55))
+        yaw=2*math.sin(lt*0.8+s*0.7); pitch=1.2*math.sin(lt*0.7+s)
         # Exiting cards drift down so the upper safe-zone caption lane stays clear.
         x=cx; y=cy+(1-k)*145-18*progress+out*220; z=(1-k)*420-55*progress+out*260
         scale=base_scale*(1+0.025*progress)*(1+0.035*amount)
         q0=project(x,y,img.width,img.height,math.radians(yaw),math.radians(pitch),z,scale)
         x-=(min(p[0] for p in q0)+max(p[0] for p in q0))/2-x
         q=project(x,y,img.width,img.height,math.radians(yaw),math.radians(pitch),z,scale)
-        place(cv,img,sh,x,y,math.radians(yaw),math.radians(pitch),z,scale,min(1,eio(lt/0.24))*(1-out))
+        indur=0.12 if key in ('email_logo','email_hero','email_heading','email_cta') else 0.24
+        place(cv,img,sh,x,y,math.radians(yaw),math.radians(pitch),z,scale,min(1,eio(lt/indur))*(1-out))
         Hm=np.array([[1,0,0],[0,1,0],[0,0,1]],dtype=float)
         coeff=H.coeffs([(0,0),(img.width,0),(img.width,img.height),(0,img.height)],q)
         Hm=np.array([[coeff[0],coeff[1],coeff[2]],[coeff[3],coeff[4],coeff[5]],[coeff[6],coeff[7],1]],dtype=float)
@@ -266,10 +293,11 @@ def frame(n,measure=False):
         for bname,amt,label,ft in selected:
             box=BX[bname]; screen=transform_rect(Hm,box); focus_rects.append(screen)
             # Match the helper's label chip geometry so caption collisions include the chip.
-            f=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',20)
-            cw=int(f.getlength(label)+20); ch=32; tx=max(6,min(img.width-cw-6,int(box[0]))); ty=int(box[1])-ch-7
-            if ty<6: ty=min(img.height-ch-6,int(box[3])+7)
-            focus_rects.append(transform_rect(Hm,(tx,ty,tx+cw,ty+ch)))
+            if label:
+                f=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',20)
+                cw=int(f.getlength(label)+20); ch=32; tx=max(6,min(img.width-cw-6,int(box[0]))); ty=int(box[1])-ch-7
+                if ty<6: ty=min(img.height-ch-6,int(box[3])+7)
+                focus_rects.append(transform_rect(Hm,(tx,ty,tx+cw,ty+ch)))
             focus_records.append({'scene':key,'item':bname,'label':label,'cue':ft,'source_box':box,'screen_box':screen,'amount':amt})
     capbox,capok=caption(cv,t,cards,focus_rects)
     meta={'t':t,'caption':capbox,'caption_ok':capok,'cards':cards,'card_scenes':card_scenes,
