@@ -8,7 +8,7 @@ import { deserializeIR, sceneToIR, serializeIR } from './ir-converter';
 
 describe('sceneToIR', () => {
   it('converts a simple document to IR', () => {
-    const doc = createDocument('Test Document');
+    const doc = createDocument('Test Document', true);
     const frame = makeFrameNode('frame1', { name: 'Main Frame' });
     const text = makeTextNode('text1', 'Hello World', { fontSize: 16, fontFamily: 'Inter' });
 
@@ -31,7 +31,7 @@ describe('sceneToIR', () => {
   });
 
   it('infers semantic roles from node names', () => {
-    const doc = createDocument('Test');
+    const doc = createDocument('Test', true);
     const button = makeFrameNode('btn1', { name: 'Submit Button' });
     const nav = makeFrameNode('nav1', { name: 'Navigation' });
 
@@ -57,7 +57,7 @@ describe('sceneToIR', () => {
   });
 
   it('generates accessibility metadata', () => {
-    const doc = createDocument('Test');
+    const doc = createDocument('Test', true);
     const button = makeFrameNode('btn1', { name: 'Submit Button' });
 
     const docWithNodes = {
@@ -78,7 +78,7 @@ describe('sceneToIR', () => {
   });
 
   it('preserves node hierarchy', () => {
-    const doc = createDocument('Test');
+    const doc = createDocument('Test', true);
     const parent = makeFrameNode('parent1', { name: 'Parent' });
     const child1 = makeTextNode('child1', 'Child 1', { fontSize: 16 });
     const child2 = makeTextNode('child2', 'Child 2', { fontSize: 16 });
@@ -103,8 +103,35 @@ describe('sceneToIR', () => {
     expect(parentNode?.children[1]?.metadata.sourceNodeId).toBe('child2');
   });
 
+  it('converts only the active page roots when legacy rootChildren includes other pages', () => {
+    const active = makeFrameNode('active-frame', { name: 'Active email' });
+    const inactive = makeFrameNode('inactive-frame', { name: 'Other page email' });
+    const pageRoot = makeFrameNode('page-content', { children: [active.id] });
+    const otherPageRoot = makeFrameNode('other-page-content', { children: [inactive.id] });
+    const doc = {
+      ...createDocument('Paged email'),
+      activePageId: 'page-active',
+      pages: [
+        { id: 'page-active', contentRoot: pageRoot.id },
+        { id: 'page-other', contentRoot: otherPageRoot.id },
+      ],
+      nodes: {
+        [active.id]: active,
+        [inactive.id]: inactive,
+        [pageRoot.id]: pageRoot,
+        [otherPageRoot.id]: otherPageRoot,
+      },
+      rootChildren: [pageRoot.id, otherPageRoot.id],
+    };
+
+    const ir = sceneToIR(doc as never);
+
+    expect(ir.rootIds).toHaveLength(1);
+    expect(ir.nodes[ir.rootIds[0] as string]?.metadata.sourceNodeId).toBe(active.id);
+  });
+
   it('converts text nodes with typography', () => {
-    const doc = createDocument('Test');
+    const doc = createDocument('Test', true);
     const text = makeTextNode('text1', 'Hello World', {
       fontSize: 24,
       fontFamily: 'Inter',
@@ -130,7 +157,7 @@ describe('sceneToIR', () => {
 
 describe('serializeIR / deserializeIR', () => {
   it('serializes and deserializes IR correctly', () => {
-    const doc = createDocument('Test');
+    const doc = createDocument('Test', true);
     const frame = makeFrameNode('frame1', { name: 'Main Frame' });
 
     const docWithNodes = {
@@ -150,7 +177,7 @@ describe('serializeIR / deserializeIR', () => {
   });
 
   it('produces valid JSON', () => {
-    const doc = createDocument('Test');
+    const doc = createDocument('Test', true);
     const frame = makeFrameNode('frame1', { name: 'Main Frame' });
 
     const docWithNodes = {
@@ -168,7 +195,7 @@ describe('serializeIR / deserializeIR', () => {
 
 describe('IR validation', () => {
   it('validates IR structure', () => {
-    const doc = createDocument('Test');
+    const doc = createDocument('Test', true);
     const frame = makeFrameNode('frame1', { name: 'Main Frame' });
 
     const docWithNodes = {
