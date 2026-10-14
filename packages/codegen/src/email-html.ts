@@ -161,7 +161,7 @@ export function emitEmailHtml(
           <tr>
           <td>
           <![endif]-->
-          <div class="email-container" style="max-width: ${settings.contentWidth}px; margin: 0 auto; ${settings.contentBackground ? `background-color: ${escapeHtml(settings.contentBackground)};` : ''}">
+          <div class="email-container" style="width: 100%; max-width: ${settings.contentWidth}px; margin: 0 auto; ${settings.contentBackground ? `background-color: ${escapeHtml(settings.contentBackground)};` : ''}">
             ${inlinedBody.html}
           </div>
           <!--[if mso]>
@@ -544,8 +544,8 @@ function emitButton(
 ): string {
   const pad = indent.repeat(depth);
   const innerPad = indent.repeat(depth + 1);
-  const text = node.content?.text ?? 'Click';
-  const link = node.link;
+  const text = buttonLabel(node) || 'Click';
+  const link = node.link ?? firstDescendantLink(node);
 
   // Button as table for Outlook compatibility
   const bgColor = node.styles['background-color'] ?? '#000000';
@@ -575,6 +575,26 @@ ${innerPad}${indent}${indent}<span style="color: ${escapeHtml(textColor)}; text-
 ${innerPad}${indent}</td>
 ${innerPad}</tr>
 ${pad}</table>`;
+}
+
+function buttonLabel(node: EmailIrNode): string {
+  if (node.content?.text) return node.content.text;
+  const labels: string[] = [];
+  const visit = (child: EmailIrNode): void => {
+    if (child.content?.text) labels.push(child.content.text);
+    else for (const nested of child.children) visit(nested);
+  };
+  for (const child of node.children) visit(child);
+  return labels.join(' ').trim();
+}
+
+function firstDescendantLink(node: EmailIrNode): EmailIrLink | undefined {
+  for (const child of node.children) {
+    if (child.link) return child.link;
+    const nested = firstDescendantLink(child);
+    if (nested) return nested;
+  }
+  return undefined;
 }
 
 function emitDivider(node: EmailIrNode, indent: string, depth: number): string {
@@ -677,7 +697,7 @@ function buildBaseCss(
   return [
     `${indent}/* Base styles */`,
     `${indent}body { background-color: #f4f4f4; }`,
-    `${indent}.email-container { max-width: ${settings.contentWidth}px; margin: 0 auto; ${settings.contentBackground ? `background-color: ${settings.contentBackground};` : ''} }`,
+    `${indent}.email-container { width: 100%; max-width: ${settings.contentWidth}px; margin: 0 auto; ${settings.contentBackground ? `background-color: ${settings.contentBackground};` : ''} }`,
   ].join('\n');
 }
 
@@ -807,7 +827,7 @@ function safeLinkOpen(
     });
     return '';
   }
-  const style = includeDefaultStyle ? ' style="text-decoration: none;"' : '';
+  const style = includeDefaultStyle ? ' style="color: inherit; text-decoration: none;"' : '';
   return `<a href="${escapeAttr(result.value)}"${link.target ? ` target="${escapeHtml(link.target)}"` : ''}${link.title ? ` title="${escapeHtml(link.title)}"` : ''}${style}>`;
 }
 

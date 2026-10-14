@@ -257,6 +257,43 @@ describe('email layout inference', () => {
     const output = emitEmailHtml(compile(root).ir);
     expect(output.html).toContain('class="stack-column"');
     expect(output.css).toMatch(/\.stack-column[\s\S]*display:\s*block\s*!important/);
+    expect(output.css).toContain('width: 100%');
+    expect(output.css).toContain('max-width: 600px');
+    expect(output.html).toContain('email-container" style="width: 100%; max-width: 600px');
+  });
+
+  it('keeps product caption columns aligned to the image columns', () => {
+    const root = boxAt(
+      'products',
+      { x: 0, y: 0, width: 600, height: 400 },
+      {
+        children: [
+          boxAt('image-a', { x: 0, y: 0, width: 220, height: 150 }),
+          boxAt('image-b', { x: 300, y: 0, width: 280, height: 150 }),
+          textAt('caption-a', 'First product', { x: 0, y: 170, width: 260, height: 40 }),
+          textAt('caption-b', 'Second product', { x: 300, y: 170, width: 240, height: 40 }),
+        ],
+      },
+    );
+
+    const { ir } = compile(root);
+    const rows = ir.nodes[0]?.children.filter((child) => child.kind === 'row') ?? [];
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.children.map((column) => column.width)).toEqual([300, 300]);
+    expect(rows[1]?.children.map((column) => column.width)).toEqual([300, 300]);
+  });
+
+  it('preserves a designed left inset on a single positioned block', () => {
+    const root = boxAt(
+      'root',
+      { x: 0, y: 0, width: 600, height: 100 },
+      {
+        children: [textAt('inset-copy', 'Inset copy', { x: 40, y: 0, width: 500, height: 40 })],
+      },
+    );
+
+    const html = emitEmailHtml(compile(root).ir).html;
+    expect(html).toContain('margin-left: 40px');
   });
 
   it('reports overlapping live text as an error rather than silently reordering it', () => {

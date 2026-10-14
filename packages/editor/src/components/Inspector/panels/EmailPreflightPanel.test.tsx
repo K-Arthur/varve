@@ -34,6 +34,21 @@ describe('EmailPreflightPanel', () => {
     );
   });
 
+  it('keeps the summary count equal to the visible findings list', () => {
+    render(
+      <EmailPreflightPanel
+        diagnostics={[
+          diagnostic({ severity: 'error', category: 'link' }),
+          diagnostic({ severity: 'warning', category: 'accessibility', code: 'ALT' }),
+          diagnostic({ severity: 'warning', category: 'layout', code: 'WIDTH' }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId('email-preflight-summary')).toHaveTextContent('1 error, 2 warnings');
+    expect(document.querySelectorAll('.email-preflight__items > li')).toHaveLength(3);
+  });
+
   it('says so plainly when nothing is wrong, without overclaiming client support', () => {
     render(<EmailPreflightPanel diagnostics={[]} />);
 
