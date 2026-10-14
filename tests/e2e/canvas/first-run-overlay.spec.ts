@@ -48,7 +48,23 @@ test.describe('first-run overlay', () => {
       .poll(() => page.evaluate((key) => localStorage.getItem(key), DISMISSED_KEY))
       .toBe('true');
 
+    // Reloading an in-editor session returns to Home (unclean-startup
+    // recovery). Re-open the same file: the overlay must stay gone even
+    // though the force key is still set.
     await page.reload({ timeout: 120000, waitUntil: 'domcontentloaded' });
+    const recovery = page.locator('dialog[open]').filter({
+      hasText: /closed unexpectedly|recover your documents/i,
+    });
+    if ((await recovery.count()) > 0) {
+      await recovery
+        .getByRole('button', { name: /review my documents/i })
+        .first()
+        .click({ timeout: 5000 })
+        .catch(() => undefined);
+    }
+    const recent = page.getByRole('gridcell').first();
+    await recent.waitFor({ state: 'visible', timeout: 60000 });
+    await recent.dblclick({ timeout: 15000 });
     await page.locator('.editor-shell').waitFor({ state: 'visible', timeout: 60000 });
     await expect(page.locator('.first-run-overlay')).toHaveCount(0);
   });
