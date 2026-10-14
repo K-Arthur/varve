@@ -1,0 +1,137 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import '../../styles/docs-prose.css';
+---
+
+<Layout
+  title="Start Here — Varve Docs"
+  description="Get started with Varve in 5 quick steps: install, launch, create your first poster, and export."
+>
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Start Here
+      </nav>
+
+      <h1 class="site-page-title">Start Here</h1>
+      <p class="docs-intro">
+        Your first poster in under 5 minutes. Install Varve, create a design, and export it.
+      </p>
+
+      <section class="docs-section">
+        <h2>1. Install Varve</h2>
+        <p>
+          <a href={sitePath('/download?ref=docs-start-install')}>Download the installer</a> for your
+          operating system. The download page auto-detects your platform and shows you the recommended
+          package.
+        </p>
+        <ul>
+          <li><strong>Linux:</strong> AppImage (universal), .deb (Debian/Ubuntu), or .rpm (Fedora)</li>
+          <li><strong>macOS:</strong> .dmg for Apple Silicon (macOS 13+)</li>
+          <li><strong>Windows:</strong> .exe installer for Windows 10 (1809+) or 11</li>
+        </ul>
+        <p>
+          Or <a href={sitePath('/try/?ref=docs-start-try')}>try Varve in your browser</a> right now —
+          no install required. The browser build is experimental but works for most tasks.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>2. Launch the App</h2>
+        <p>
+          On first launch, Varve shows the home screen. Click <strong>New</strong> to create your
+          first document.
+        </p>
+        <p>
+          Choose <strong>Blank Canvas</strong>, enter a name like "My First Poster", set the size
+          to 1080 × 1920 pixels (portrait poster), and click <strong>Create</strong>.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>3. Add Content</h2>
+        <p>Add a background, headline, and image to your poster:</p>
+        <ol>
+          <li>
+            <strong>Background:</strong> Press <kbd>R</kbd> for the Rectangle tool. Drag across the
+            canvas to fill it. In the Inspector on the right, choose a fill color.
+          </li>
+          <li>
+            <strong>Headline:</strong> Press <kbd>T</kbd> for Text. Click near the top and type your
+            headline. Select the text, then use the Inspector to change the font, size, and weight.
+          </li>
+          <li>
+            <strong>Image (optional):</strong> Drag an image file from your desktop onto the canvas.
+            Resize and position it with the Select tool (<kbd>V</kbd>).
+          </li>
+        </ol>
+        <p>
+          Use the Layers panel on the left to rename layers, reorder them, or adjust visibility.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>4. Save Your Work</h2>
+        <p>
+          Press <kbd>Ctrl+S</kbd> (Windows/Linux) or <kbd>Cmd+S</kbd> (macOS) to save. Choose a
+          location and file name. Your document is saved as a <code>.varve</code> file.
+        </p>
+        <p>
+          Varve files are local — no account, no cloud sync. Keep backups of anything important.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>5. Export</h2>
+        <p>
+          Ready to share? Click the <strong>Export</strong> button in the top toolbar, or press{' '}
+          <kbd>Ctrl+Shift+E</kbd> / <kbd>Cmd+Shift+E</kbd>.
+        </p>
+        <p>Choose a format:</p>
+        <ul>
+          <li><strong>PNG</strong> — Best for web, social media, or presentations</li>
+          <li><strong>SVG</strong> — Scalable vector for further editing or web use</li>
+          <li><strong>PDF</strong> — For print or archival</li>
+          <li><strong>WebP</strong> — Smaller file size for modern web use</li>
+        </ul>
+        <p>
+          Pick your size and quality, then click <strong>Export</strong>. Varve saves the file where
+          you choose.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>What's Next?</h2>
+        <p>Now that you've made your first poster, explore more:</p>
+        <ul>
+          <li>
+            <a href={sitePath('/docs/getting-started?ref=docs-start-next')}>Getting Started Guide</a> —
+            Detailed walkthrough of the interface and tools
+          </li>
+          <li>
+            <a href={sitePath('/docs/getting-started/first-project?ref=docs-start-next')}>
+              Your First Project
+            </a> — Step-by-step tutorial with shapes, text, and effects
+          </li>
+          <li>
+            <a href={sitePath('/docs/keyboard-shortcuts?ref=docs-start-next')}>Keyboard Shortcuts</a> —
+            Speed up your workflow
+          </li>
+          <li>
+            <a href={sitePath('/docs/workspaces?ref=docs-start-next')}>Workspaces</a> — Switch between
+            Design, Print, Draw, Photo, Motion, and Email modes
+          </li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Need Help?</h2>
+        <p>
+          Stuck? Check the <a href={sitePath('/support?ref=docs-start-support')}>support page</a> or
+          ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.
+        </p>
+      </section>
+    </div>
+  </div>
+</Layout>

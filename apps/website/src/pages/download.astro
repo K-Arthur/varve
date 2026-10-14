@@ -371,6 +371,31 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
       {release.hasRelease && release.integrity === 'verified' && (
         <>
+          <div class="primary-download-section primary-download-hidden" id="primary-download-section">
+            <p class="primary-download-title"><strong>Recommended for your system</strong></p>
+            <p class="primary-download-detected" id="primary-download-detected">Detected platform will appear here</p>
+            <div class="primary-download-actions">
+              <a
+                href="#"
+                id="primary-download-button"
+                class="primary-download-button"
+                download
+                data-analytics-download="true"
+              >
+                Download
+              </a>
+              <a
+                href={sitePath('/try/?ref=download-primary')}
+                class="primary-try-link"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-analytics-demo-launch
+              >
+                Try in browser first
+              </a>
+            </div>
+          </div>
+
           <div class="try-browser-banner">
             <p>
               <strong>Or try it right now</strong> — no download required.
@@ -379,7 +404,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               <a href={sitePath('/docs/browser-demo')}>browser guide</a>.
             </p>
             <a
-              href={sitePath('/try/')}
+              href={sitePath('/try/?ref=download-banner')}
               class="try-browser-link"
               target="_blank"
               rel="noopener noreferrer"
@@ -389,7 +414,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
             </a>
           </div>
 
-          <div class="quick-download">
+          <div class="quick-download" id="quick-download">
             <div class="quick-download-header">
               <h2 class="quick-download-title">
                 Varve <span class="version-badge">{release.version}</span>
@@ -1050,6 +1075,92 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     color: var(--text-secondary);
     margin-bottom: 2.5rem;
     max-width: 52ch;
+  }
+
+  .primary-download-section {
+    background: linear-gradient(135deg, var(--surface-accent-soft) 0%, var(--surface-card) 100%);
+    border: 2px solid var(--border-accent);
+    border-radius: var(--website-radius-card);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+    min-height: 193px;
+  }
+
+  /* Stay in flow so first paint and detection share one height (CLS).
+     visibility:hidden keeps the reserved box out of the a11y tree without
+     aria-hidden on a laid-out element. */
+  .primary-download-section.primary-download-hidden {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .primary-download-title {
+    font-size: 1.125rem;
+    margin: 0 0 0.5rem;
+    color: var(--text-primary);
+  }
+
+  .primary-download-detected {
+    color: var(--text-secondary);
+    font-size: var(--type-interface-control-size);
+    margin: 0 0 1.5rem;
+  }
+
+  .primary-download-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .primary-download-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.875rem 2rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-on-accent);
+    background: var(--accent-primary);
+    border: none;
+    border-radius: var(--website-radius-control);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--duration-quick) var(--ease-default);
+    min-width: 200px;
+  }
+
+  .primary-download-button:hover {
+    background: color-mix(in oklab, var(--accent-primary) 90%, white);
+  }
+
+  .primary-try-link {
+    color: var(--text-link);
+    text-decoration: underline;
+    font-size: var(--type-interface-control-size);
+    text-underline-offset: 2px;
+  }
+
+  .primary-try-link:hover {
+    color: var(--text-link-hover);
+  }
+
+  @media (max-width: 720px) {
+    .primary-download-section {
+      padding: 1.5rem 1rem;
+      min-height: 213px;
+    }
+
+    .primary-download-actions {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .primary-download-button {
+      width: 100%;
+    }
   }
 
   .device-route-notice {
@@ -2073,6 +2184,62 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     uaDataMobile: (navigator as Navigator & { userAgentData?: { mobile?: boolean } })
       .userAgentData?.mobile,
   });
+
+  // Primary download section: show detected OS with primary download button
+  function setupPrimaryDownload() {
+    const primarySection = document.getElementById('primary-download-section');
+    const primaryButton = document.getElementById('primary-download-button') as HTMLAnchorElement;
+    const primaryDetected = document.getElementById('primary-download-detected');
+
+    if (!primarySection || !primaryButton || !primaryDetected) return;
+
+    // Don't show primary download for bots, mobile, ChromeOS, or unknown platforms
+    if (detection.bot || detection.mobile || detection.chromeos || detection.platform === 'unknown' || detection.reducedUa) {
+      return;
+    }
+
+    // Find the primary artifact for the detected platform
+    const platformColumns = document.querySelectorAll<HTMLElement>('.quick-download-col');
+    let primaryArtifact: HTMLElement | null = null;
+    let platformName = '';
+
+    for (const column of platformColumns) {
+      const platformId = column.getAttribute('data-platform-col');
+      if (platformId === detection.platform) {
+        platformName = platformId === 'linux' ? 'Linux' : platformId === 'macos' ? 'macOS' : 'Windows';
+        // Find the first architecture row (already ordered by recommendation)
+        const firstArch = column.querySelector<HTMLElement>('.quick-architecture');
+        if (firstArch) {
+          const primaryBtn = firstArch.querySelector<HTMLAnchorElement>('.quick-download-btn');
+          if (primaryBtn) {
+            primaryArtifact = primaryBtn;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!primaryArtifact) return;
+
+    // Copy attributes from the primary artifact button
+    primaryButton.href = (primaryArtifact as HTMLAnchorElement).href;
+    primaryButton.setAttribute('data-analytics-platform', primaryArtifact.getAttribute('data-analytics-platform') || '');
+    primaryButton.setAttribute('data-analytics-architecture', primaryArtifact.getAttribute('data-analytics-architecture') || '');
+    primaryButton.setAttribute('data-analytics-package-type', primaryArtifact.getAttribute('data-analytics-package-type') || '');
+    primaryButton.setAttribute('data-analytics-release', primaryArtifact.getAttribute('data-analytics-release') || '');
+    primaryButton.setAttribute('data-analytics-release-channel', primaryArtifact.getAttribute('data-analytics-release-channel') || '');
+
+    const size = primaryArtifact.textContent?.match(/\(([\d.]+\s*(?:MB|GB))\)/)?.[1] || '';
+    primaryButton.textContent = size ? `Download ${size}` : 'Download';
+
+    // Set detected text with architecture if available
+    const archText = detection.arch === 'arm64' ? ' (ARM64)' : detection.arch === 'x64' ? ' (x86_64)' : '';
+    primaryDetected.textContent = `Detected: ${platformName}${archText}`;
+
+    primarySection.classList.remove('primary-download-hidden');
+  }
+
+  setupPrimaryDownload();
 
   // The device-route notice is server-rendered and visible for everyone, so
   // touch, Chromebook, reduced-UA and no-JS visitors always see the browser

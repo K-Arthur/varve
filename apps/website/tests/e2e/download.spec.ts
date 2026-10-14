@@ -77,6 +77,46 @@ test('Linux x86_64 visitor gets a labeled recommendation, not a claim', async ({
   await context.close();
 });
 
+test('detected desktop OS gets a primary download action above the full grid', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ userAgent: LINUX_X64_UA });
+  const page = await context.newPage();
+  await openDownload(page);
+
+  const primary = page.locator('#primary-download-section');
+  await expect(primary).toBeVisible();
+  await expect(primary).not.toHaveClass(/primary-download-hidden/);
+  await expect(page.locator('#primary-download-detected')).toContainText('Linux');
+  await expect(page.locator('#primary-download-button')).toHaveAttribute(
+    'href',
+    /github\.com\/K-Arthur\/varve\/releases\/download\//,
+  );
+  await expect(page.locator('#quick-download')).toBeVisible();
+  await expect(page.locator('.quick-download-col')).toHaveCount(3);
+  await expect(page.locator('#detection-banner')).toBeVisible();
+  await expect(
+    page.locator('.quick-download-col[data-platform-col="linux"] .recommend-chip'),
+  ).toBeVisible();
+
+  await context.close();
+});
+
+test('bot visitors keep the reserved primary slot without a fake recommendation', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ userAgent: BOT_UA });
+  const page = await context.newPage();
+  await openDownload(page);
+
+  await expect(page.locator('#primary-download-section')).toHaveClass(/primary-download-hidden/);
+  await expect(page.locator('#primary-download-button')).toHaveAttribute('href', '#');
+  await expect(page.locator('#quick-download')).toBeVisible();
+  await expect(page.locator('.quick-download-col')).toHaveCount(3);
+
+  await context.close();
+});
+
 test('Linux ARM64 device gets the ARM64 build promoted first', async ({ browser }) => {
   const context = await browser.newContext({ userAgent: LINUX_ARM64_UA });
   const page = await context.newPage();

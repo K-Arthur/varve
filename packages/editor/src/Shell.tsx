@@ -33,6 +33,7 @@ import { CodePanel } from './components/CodePanel/CodePanel';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ContentAwareFillDialog } from './components/ContentAwareFill';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { FirstRunOverlay } from './components/FirstRunOverlay';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { MissingFontController } from './components/FontBrowser/MissingFontController';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -1132,6 +1133,9 @@ function ShellInner({
 
         {/* Onboarding: welcome, tour, checklist, tips */}
         <OnboardingLayer ref={onboardingLayerRef} platform={platform} onBackToHome={onBackToHome} />
+
+        {/* First-run overlay: 3-step tips shown once */}
+        <FirstRunOverlay />
 
         {/* Recovery dialog + termination lifecycle (unsaved-work guard) */}
         <LifecycleProvider onBackToHome={onBackToHome} />

@@ -22,6 +22,7 @@ import { suppressFirstRunOnboarding } from './demo/demoOnboarding';
 import { installDemoServiceWorker } from './demo/demoServiceWorker';
 import { installFrameGuard } from './demo/frameGuard';
 import { installStaleAssetGuard } from './demo/staleAssetGuard';
+import { createUsageTimeTracker } from './demoUsageTime';
 import { initCspDiagnostics } from './security/cspDiagnostics';
 import { dismissBootFallback } from './startup/revealMainWindow';
 
@@ -102,6 +103,9 @@ async function bootstrap() {
     // showing then retracting them.
     applyDemoCapabilities(demo);
     suppressFirstRunOnboarding();
+    // Start privacy-first usage time tracking (requires consent, respects DNT/GPC)
+    const usageTracker = createUsageTimeTracker();
+    usageTracker.start();
   }
 
   createRoot(root).render(

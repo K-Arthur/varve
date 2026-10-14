@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { assertCanvasGesture, type CanvasPoint } from './helpers/canvasGesture';
+import { dismissFirstRunOverlayIfPresent } from './helpers/nav';
 
 /** Click the visible label rather than the clipped native checkbox input. */
 export async function setVisibleCheckbox(control: Locator, checked: boolean): Promise<void> {
@@ -120,56 +121,59 @@ export async function navigateToEditor(
     await editorShell.waitFor({ state: 'visible', timeout: 30000 });
   }
 
-  // Startup state can restore more than one modal (for example Settings over
-  // the first-run welcome dialog). Clicking either close button is then
-  // intercepted by the other dialog. Canvas tests do not exercise onboarding,
-  // so close the stacked startup dialogs deterministically.
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const openDialogs = page.locator('dialog[open]');
-    const count = await openDialogs.count();
-    if (count === 0) break;
-    const topmost = openDialogs.last();
-    const close = topmost.getByRole('button', { name: /close/i }).first();
-    if (await close.isVisible({ timeout: 500 }).catch(() => false)) {
-      await close.click({ force: true });
+  const overlayState = await dismissFirstRunOverlayIfPresent(page);
+  if (overlayState !== 'forced') {
+    // Startup state can restore more than one modal (for example Settings over
+    // the first-run welcome dialog). Clicking either close button is then
+    // intercepted by the other dialog. Canvas tests do not exercise onboarding,
+    // so close the stacked startup dialogs deterministically.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const openDialogs = page.locator('dialog[open]');
+      const count = await openDialogs.count();
+      if (count === 0) break;
+      const topmost = openDialogs.last();
+      const close = topmost.getByRole('button', { name: /close/i }).first();
+      if (await close.isVisible({ timeout: 500 }).catch(() => false)) {
+        await close.click({ force: true });
+      } else {
+        await page.keyboard.press('Escape');
+      }
+      await page.waitForTimeout(50);
+    }
+
+    // Dismiss "Welcome to Varve" modal on first launch
+    const blankCanvas = page.getByRole('dialog').getByRole('button', { name: /^blank canvas$/i });
+    if (await blankCanvas.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await blankCanvas.click({ timeout: 5000 });
     } else {
-      await page.keyboard.press('Escape');
+      const close = page
+        .getByRole('dialog')
+        .getByRole('button', { name: /close|get started/i })
+        .first();
+      if (await close.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await close.click({ timeout: 5000 });
+      }
     }
-    await page.waitForTimeout(50);
-  }
 
-  // Dismiss "Welcome to Varve" modal on first launch
-  const blankCanvas = page.getByRole('dialog').getByRole('button', { name: /^blank canvas$/i });
-  if (await blankCanvas.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await blankCanvas.click({ timeout: 5000 });
-  } else {
-    const close = page
-      .getByRole('dialog')
-      .getByRole('button', { name: /close|get started/i })
-      .first();
-    if (await close.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await close.click({ timeout: 5000 });
+    // Dismiss the in-editor onboarding checklist panel if present.
+    const dismiss = page.locator('.onboarding-checklist__dismiss');
+    if (await dismiss.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await dismiss.click({ timeout: 5000 });
     }
-  }
 
-  // Dismiss the in-editor onboarding checklist panel if present.
-  const dismiss = page.locator('.onboarding-checklist__dismiss');
-  if (await dismiss.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await dismiss.click({ timeout: 5000 });
-  }
-
-  // Some modal state updates settle one render after the onboarding close.
-  // Leave canvas workflows with no modal intercepting input.
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const openDialogs = page.locator('dialog[open]');
-    if ((await openDialogs.count()) === 0) break;
-    const close = openDialogs.last().getByRole('button', { name: /close/i }).first();
-    if (await close.isVisible({ timeout: 500 }).catch(() => false)) {
-      await close.click({ force: true });
-    } else {
-      await page.keyboard.press('Escape');
+    // Some modal state updates settle one render after the onboarding close.
+    // Leave canvas workflows with no modal intercepting input.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const openDialogs = page.locator('dialog[open]');
+      if ((await openDialogs.count()) === 0) break;
+      const close = openDialogs.last().getByRole('button', { name: /close/i }).first();
+      if (await close.isVisible({ timeout: 500 }).catch(() => false)) {
+        await close.click({ force: true });
+      } else {
+        await page.keyboard.press('Escape');
+      }
+      await page.waitForTimeout(50);
     }
-    await page.waitForTimeout(50);
   }
 
   // The shell mounts before CanvasArea and LayersPanel have completed their

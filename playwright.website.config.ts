@@ -1,6 +1,13 @@
+import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 import { resolveRunOutput } from './scripts/quality/playwright-run-output.mjs';
 import { websiteE2ePorts } from './scripts/website/e2e-ports.cjs';
+
+// Match ubuntu-latest: hide optional mono families that wrap checksums
+// differently from CI (see apps/website/tests/e2e/fonts.conf).
+if (!process.env.FONTCONFIG_FILE) {
+  process.env.FONTCONFIG_FILE = path.resolve('apps/website/tests/e2e/fonts.conf');
+}
 
 /**
  * Website E2E configuration.
