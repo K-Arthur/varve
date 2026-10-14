@@ -19,7 +19,7 @@
   position: relative;
   background: var(--surface-elevated);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-floating);
   box-shadow: var(--shadow-xl);
   width: 100%;
   max-width: 480px;
@@ -50,7 +50,7 @@
   padding: 0;
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   color: var(--text-muted);
   cursor: pointer;
   transition: all var(--duration-quick) var(--ease-default);
@@ -111,7 +111,7 @@
   color: var(--text-link);
   text-decoration: underline;
   text-underline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   transition: all var(--duration-quick) var(--ease-default);
 }
 
@@ -164,7 +164,7 @@
   font-size: var(--type-interface-readout-size); /* audit-interface-sizing: allow button text */
   font-weight: 500;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control-compact);
   cursor: pointer;
   transition: all var(--duration-quick) var(--ease-default);
 }

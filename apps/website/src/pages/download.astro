@@ -371,31 +371,30 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
       {release.hasRelease && release.integrity === 'verified' && (
         <>
-          <div class="download-layout-container">
-            <div class="primary-download-section" id="primary-download-section" hidden>
-              <p class="primary-download-title"><strong>Recommended for your system</strong></p>
-              <p class="primary-download-detected" id="primary-download-detected">Detected platform will appear here</p>
-              <div class="primary-download-actions">
-                <a
-                  href="#"
-                  id="primary-download-button"
-                  class="primary-download-button"
-                  download
-                  data-analytics-download="true"
-                >
-                  Download
-                </a>
-                <a
-                  href={sitePath('/try/?ref=download-primary')}
-                  class="primary-try-link"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-analytics-demo-launch
-                >
-                  Try in browser first
-                </a>
-              </div>
+          <div class="primary-download-section primary-download-hidden" id="primary-download-section">
+            <p class="primary-download-title"><strong>Recommended for your system</strong></p>
+            <p class="primary-download-detected" id="primary-download-detected">Detected platform will appear here</p>
+            <div class="primary-download-actions">
+              <a
+                href="#"
+                id="primary-download-button"
+                class="primary-download-button"
+                download
+                data-analytics-download="true"
+              >
+                Download
+              </a>
+              <a
+                href={sitePath('/try/?ref=download-primary')}
+                class="primary-try-link"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-analytics-demo-launch
+              >
+                Try in browser first
+              </a>
             </div>
+          </div>
 
           <div class="try-browser-banner">
             <p>
@@ -415,7 +414,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
             </a>
           </div>
 
-            <div class="quick-download" id="quick-download">
+          <div class="quick-download" id="quick-download">
             <div class="quick-download-header">
               <h2 class="quick-download-title">
                 Varve <span class="version-badge">{release.version}</span>
@@ -502,7 +501,6 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 </div>
               ))}
             </div>
-          </div>
           </div>
 
           <div class="prerelease-notice">
@@ -1079,34 +1077,23 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     max-width: 52ch;
   }
 
-  .download-layout-container {
-    position: relative;
-    padding-top: calc(193px + 2rem);
-  }
-
   .primary-download-section {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
     background: linear-gradient(135deg, var(--surface-accent-soft) 0%, var(--surface-card) 100%);
     border: 2px solid var(--border-accent);
     border-radius: var(--website-radius-card);
     padding: 2rem;
+    margin-bottom: 2rem;
     text-align: center;
     min-height: 193px;
-    z-index: 2;
   }
 
-  .primary-download-section[hidden] {
-    display: none;
+  /* Stay in flow so first paint and detection share one height (CLS).
+     visibility:hidden keeps the reserved box out of the a11y tree without
+     aria-hidden on a laid-out element. */
+  .primary-download-section.primary-download-hidden {
+    visibility: hidden;
+    pointer-events: none;
   }
-
-  .quick-download {
-    position: relative;
-    z-index: 1;
-  }
-
 
   .primary-download-title {
     font-size: 1.125rem;
@@ -1161,10 +1148,6 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   }
 
   @media (max-width: 720px) {
-    .download-layout-container {
-      padding-top: calc(213px + 2rem);
-    }
-
     .primary-download-section {
       padding: 1.5rem 1rem;
       min-height: 213px;
@@ -2253,8 +2236,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     const archText = detection.arch === 'arm64' ? ' (ARM64)' : detection.arch === 'x64' ? ' (x86_64)' : '';
     primaryDetected.textContent = `Detected: ${platformName}${archText}`;
 
-    // Show primary section (removes hidden attribute)
-    primarySection.removeAttribute('hidden');
+    primarySection.classList.remove('primary-download-hidden');
   }
 
   setupPrimaryDownload();
