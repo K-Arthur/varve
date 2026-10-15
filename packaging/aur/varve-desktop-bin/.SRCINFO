@@ -1,6 +1,6 @@
 pkgbase = varve-desktop-bin
 	pkgdesc = Local-first design suite for vector, layout, typography, motion and print
-	pkgver = 0.5.0
+	pkgver = 0.5.1
 	pkgrel = 1
 	url = https://github.com/K-Arthur/varve
 	arch = x86_64
