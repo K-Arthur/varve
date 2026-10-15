@@ -2877,10 +2877,7 @@
     "assembledAt": "2026-10-05T02:14:35.171Z",
     "reviewManifestSha256": "c5c64540bbd742112b14063562d2ca135e4084fd38127b472a8c8685e50946ae",
     "reviewedAgainst": "eb4a21fac750962f3b9985637211819f4f3fae3ca8d61bec970cf2df7e62d207",
-    "promotedSceneIDs": [
-      "comic-lettering",
-      "patterns"
-    ],
+    "promotedSceneIDs": ["comic-lettering", "patterns"],
     "capturedSourceRevisions": [
       "10ebb7d96c87b4e8d7470803bcab2ff9be55cebf",
       "247ad330ef53d46f35dfc95a7d87525b88f2b21b",

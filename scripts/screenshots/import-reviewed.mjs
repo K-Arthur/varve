@@ -101,7 +101,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const specFlag = process.argv.indexOf('--archive-spec');
   if (specFlag >= 0) {
     const specPath = process.argv[specFlag + 1];
-    if (!specPath || specPath.startsWith('--')) throw new Error('--archive-spec requires a JSON file');
+    if (!specPath || specPath.startsWith('--'))
+      throw new Error('--archive-spec requires a JSON file');
     importReviewedArchiveScenes(specPath);
   }
 }
