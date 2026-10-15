@@ -1,0 +1,57 @@
+[
+  {
+    "recording": "rewrite",
+    "event": "selected editable balloon",
+    "seconds": 0.3899531364440918
+  },
+  {
+    "recording": "rewrite",
+    "event": "rewrite starts",
+    "seconds": 2.2639529705047607
+  },
+  {
+    "recording": "rewrite",
+    "event": "rewrite complete",
+    "seconds": 6.324953079223633
+  },
+  {
+    "recording": "rewrite",
+    "event": "committed same text node",
+    "seconds": 7.304953098297119
+  },
+  {
+    "recording": "grow-and-fit",
+    "event": "longer line starts",
+    "seconds": 1.3775970935821533
+  },
+  {
+    "recording": "grow-and-fit",
+    "event": "longer line complete",
+    "seconds": 7.286597013473511
+  },
+  {
+    "recording": "grow-and-fit",
+    "event": "fit command visible",
+    "seconds": 8.098597049713135
+  },
+  {
+    "recording": "grow-and-fit",
+    "event": "balloon fitted",
+    "seconds": 8.372596979141235
+  },
+  {
+    "recording": "types",
+    "event": "Speech",
+    "seconds": 0.3876631259918213
+  },
+  {
+    "recording": "types",
+    "event": "Thought",
+    "seconds": 2.03566312789917
+  },
+  {
+    "recording": "types",
+    "event": "Shout",
+    "seconds": 3.6716630458831787
+  }
+]
