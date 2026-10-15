@@ -1,0 +1,20 @@
+Female AI voice direction: warm, conversational, steady; no sales emphasis.
+73 words. Read against the 32-second silent picture. Do not bake into video.
+
+00:00–00:03
+Give your comic a voice.
+
+00:03–00:09
+In Varve, dialogue stays editable inside the balloon. Change the words as your scene develops.
+
+00:09–00:15
+When a line gets longer, fit the balloon around the text and give it room.
+
+00:15–00:22
+Select the balloon to adjust its position and size in the Inspector. The text stays part of the design.
+
+00:22–00:29
+Bring speech, thoughts, and shouts together on the finished page.
+
+00:29–00:32
+What would your comic say? Follow for Varve drops.
