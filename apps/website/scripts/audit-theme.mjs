@@ -10,6 +10,7 @@
  *   node scripts/audit-theme.mjs [--base http://localhost:4321/varve] [--route /docs]
  */
 import { chromium } from 'playwright';
+import { SHOW_SUPPORT_PROJECT } from '../src/config/features.js';
 
 const base =
   process.env.BASE ??
@@ -48,7 +49,7 @@ const routes = [
   '/support/known-issues',
   '/support/report-issue',
   '/support/troubleshooting',
-  '/support-project',
+  ...(SHOW_SUPPORT_PROJECT ? ['/support-project'] : []),
   '/contribute',
   '/contribute/guidelines',
   '/learn',

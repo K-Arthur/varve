@@ -2,6 +2,7 @@
 import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import { SHOW_SUPPORT_PROJECT } from '../../config/features.js';
 ---
 
 <Layout title="Community" description="Connect with the Varve community through GitHub Discussions, issue reports, cross-platform testing, documentation, and workflow feedback.">
@@ -48,9 +49,9 @@ import { sitePath } from '../../lib/siteUrl';
 
       <section class="community-section">
         <h2>Support</h2>
-        <p>Support the project financially or through practical non-financial contributions:</p>
+        <p>{SHOW_SUPPORT_PROJECT ? 'Support the project financially or through practical non-financial contributions:' : 'Support the project through practical contributions:'}</p>
         <ul>
-          <li><a href={sitePath('/support-project')}>Financial Support</a> - GitHub Sponsors</li>
+          {SHOW_SUPPORT_PROJECT && <li><a href={sitePath('/support-project')}>Financial Support</a> - GitHub Sponsors</li>}
           <li><a href={sitePath('/contribute')}>Non-Financial Contribution</a> - Bugs, testing, docs, workflows, and design feedback</li>
         </ul>
       </section>

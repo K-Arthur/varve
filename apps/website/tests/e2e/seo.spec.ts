@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { SHOW_SUPPORT_PROJECT } from '../../src/config/features.js';
 
 /**
  * SEO / discovery contract for every rendered page, in both deployment modes.
@@ -59,6 +60,7 @@ const SITEMAP_EXCLUDED = [
   '/windows',
   '/mac',
   '/install',
+  ...(!SHOW_SUPPORT_PROJECT ? ['/support-project'] : []),
 ];
 
 test('every page emits complete, consistent head metadata', async ({ page }) => {
@@ -122,6 +124,12 @@ test('every page emits complete, consistent head metadata', async ({ page }) => 
       throw new Error(`${route}: description is missing`);
     }
     expect(meta.description.length, `${route}: description length`).toBeLessThanOrEqual(320);
+
+    if (route === '/support-project' && !SHOW_SUPPORT_PROJECT) {
+      expect(meta.robots, `${route}: robots`).toBe('noindex, nofollow');
+      expect(meta.canonical, `${route}: canonical`).toBeNull();
+      continue;
+    }
 
     expect(meta.robots, `${route}: robots`).toBe('index, follow');
     expect(meta.canonical, `${route}: canonical`).not.toBeNull();
@@ -239,7 +247,10 @@ test('sitemap.xml enumerates every real page and excludes 404/alias/demo routes'
   const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)]
     .map((m) => m[1])
     .filter((url): url is string => typeof url === 'string');
-  expect(urls.length, 'sitemap has entries').toBeGreaterThanOrEqual(ROUTES.length);
+  const expectedRoutes = ROUTES.filter(
+    (route) => route !== '/support-project' || SHOW_SUPPORT_PROJECT,
+  );
+  expect(urls.length, 'sitemap has entries').toBeGreaterThanOrEqual(expectedRoutes.length);
 
   for (const url of urls) {
     const u = new URL(url);
@@ -250,7 +261,7 @@ test('sitemap.xml enumerates every real page and excludes 404/alias/demo routes'
   // with /varve. Sitemap entries may or may not have trailing slashes, so
   // match on the normalized (stripped) path suffix.
   const sitemapPaths = urls.map((u) => new URL(u).pathname);
-  for (const route of ROUTES) {
+  for (const route of expectedRoutes) {
     const r = route.replace(/\/+$/, '') || '/';
     let found = false;
     for (const p of sitemapPaths) {
