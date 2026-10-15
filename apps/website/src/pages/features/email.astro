@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import FeatureVisual from '../../components/FeatureVisual.astro';
 ---
 
 <Layout
@@ -18,6 +19,7 @@ import { sitePath } from '../../lib/siteUrl';
         checks. Those constraints give it a dedicated workspace while keeping its artwork in the
         same Varve document model.
       </p>
+      <FeatureVisual scene="email-workspace" />
       <p>
         The workspace opens on Email authoring. Email Preview and Email Output are separate dock
         panels beneath the canvas, grouped as tabs with Preview selected. Output includes generated
@@ -32,6 +34,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li>Preview responsive layouts in Varve's browser renderer and run email compatibility checks before export.</li>
           <li>Review generated HTML and plain text separately from custom HTML/CSS and authored source.</li>
         </ul>
+        <FeatureVisual scene="email-output" />
         <p>
           Sample personalization values are for preview only; they are not silently inserted into
           exported content. Switching to Email does not convert existing artwork or enable an email
