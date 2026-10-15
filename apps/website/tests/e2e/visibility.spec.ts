@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { contrastRatio, parseColor } from './helpers';
 import { SHOW_SUPPORT_PROJECT } from '../../src/config/features.js';
+import { contrastRatio, parseColor } from './helpers';
 
 /**
  * Route-wide computed-style visibility audit.

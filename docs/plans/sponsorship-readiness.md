@@ -1,17 +1,21 @@
 # Sponsorship Surface Readiness
 
-Status: ready for human activation. This document records the current state
-of the sponsorship surface, the copy that is live, the constraints the
-project has set on sponsor relationships, and the remaining manual steps.
+Status: public website surface hidden until funding channels are ready.
+Set `SHOW_SUPPORT_PROJECT = true` in `apps/website/src/config/features.js`
+to restore the page, FAQ item, footer/about/community links, privacy
+disclosure, and README sponsor CTA. `.github/FUNDING.yml` is unchanged.
+This document records the current state of the sponsorship surface, the
+copy that is kept in source, the constraints the project has set on
+sponsor relationships, and the remaining manual steps.
 
-## Current state (verified 2026-08-18)
+## Current state (verified 2026-10-15)
 
 | Surface | Status | Location |
 |---|---|---|
 | `.github/FUNDING.yml` | Configured | `github: K-Arthur` only |
-| Sponsorship page | Live, 4 tiers | `apps/website/src/pages/support-project.astro` |
-| Sponsor CTA in README | Live | Sponsor badge + link in the links bar (`README.md`) |
-| Sponsor link in footer | Live | `apps/website/src/components/SiteFooter.astro` -> `/support-project` |
+| Sponsorship page | Hidden (`SHOW_SUPPORT_PROJECT = false`); 4 tiers remain in source | `apps/website/src/pages/support-project.astro` |
+| Sponsor CTA in README | Hidden (commented; restore with the flag) | Sponsor badge + link in the links bar (`README.md`) |
+| Sponsor link in footer | Hidden behind `SHOW_SUPPORT_PROJECT` | `apps/website/src/components/SiteFooter.astro` -> `/support-project` |
 | Release-note recognition | Documented | Tier description: name/linked listed in release notes (with permission) |
 | Use-of-funds transparency | Documented | "What Support Enables" section + Transparency section on support page |
 | GitHub Sponsors profile | Manual | https://github.com/sponsors/K-Arthur — must be activated by the account owner |

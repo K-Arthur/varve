@@ -201,7 +201,7 @@ const breadcrumbSchema = {
           </div>
         </details>
 
-        {SHOW_SUPPORT_PROJECT && <details class="faq-item">
+        <details class="faq-item">
           <summary class="faq-item__question">
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -211,7 +211,7 @@ const breadcrumbSchema = {
           <div class="faq-item__answer">
             <p>Yes. Core editing works fully offline with no account required. Optional network features — model downloads, additional font downloads, update checks, and user-configured cloud providers — are each explicit and user-controlled. See the <a href={sitePath('/about/privacy')}>privacy policy</a> for details. In the browser demo, offline operation requires one complete online visit first.</p>
           </div>
-        </details>}
+        </details>
 
         <details class="faq-item">
           <summary class="faq-item__question">
@@ -400,7 +400,7 @@ const breadcrumbSchema = {
           </div>
         </details>
 
-        <details class="faq-item">
+        {SHOW_SUPPORT_PROJECT && <details class="faq-item">
           <summary class="faq-item__question">
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -410,7 +410,7 @@ const breadcrumbSchema = {
           <div class="faq-item__answer">
             <p>Varve accepts financial support via GitHub Sponsors. See the <a href={sitePath('/support-project')}>Support Project</a> page for sponsorship tiers and what support enables.</p>
           </div>
-        </details>
+        </details>}
       </div>
 
       <div class="faq-cta">
