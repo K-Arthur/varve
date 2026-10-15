@@ -300,7 +300,7 @@ Varve is in **public beta**. The latest published application release is
 `v0.5.0`, published on 2026-10-09 after the tagged candidate passed the
 release and publication gates. Published installers cover Linux, macOS
 (Apple Silicon), and Windows. This checkout
-targets source version `<!-- VARVE_VERSION -->0.5.0<!-- /VARVE_VERSION -->`.
+targets source version `<!-- VARVE_VERSION -->0.5.1<!-- /VARVE_VERSION -->`.
 Versioning follows [SemVer](https://semver.org/); release notes are kept in
 [CHANGELOG.md](CHANGELOG.md). Published v0.2.1 used document schema 2.21; this
 source tree writes schema 2.33, including a migration that removes the

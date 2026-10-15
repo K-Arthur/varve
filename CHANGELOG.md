@@ -40,7 +40,7 @@ notes.
   the switch is off. Larger models still download only when requested.
 - **Linux packaging** — AUR `varve-desktop-bin` is ready for the v0.5.0
   dual-arch AppImages (checksums, MetaInfo, MIME types, license files,
-  aarch64). AppStream/Flathub metadata lives in the desktop linux tree.
+  aarch64). AppStream metadata lives in the desktop linux tree.
   This landed after the v0.5.0 tag.
 
 ### Changed

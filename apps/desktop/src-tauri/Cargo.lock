@@ -6799,7 +6799,7 @@ dependencies = [
 
 [[package]]
 name = "varve-accel"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "pollster",
  "serde",
@@ -6810,7 +6810,7 @@ dependencies = [
 
 [[package]]
 name = "varve-bgremove"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "base64 0.23.1",
  "dirs-next",
@@ -6823,7 +6823,7 @@ dependencies = [
 
 [[package]]
 name = "varve-bridge"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6832,7 +6832,7 @@ dependencies = [
 
 [[package]]
 name = "varve-colour"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6843,7 +6843,7 @@ dependencies = [
 
 [[package]]
 name = "varve-core"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "kurbo",
  "serde",
@@ -6852,7 +6852,7 @@ dependencies = [
 
 [[package]]
 name = "varve-desktop"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "arboard",
  "base64 0.23.1",
@@ -6895,7 +6895,7 @@ dependencies = [
 
 [[package]]
 name = "varve-effects"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -6903,7 +6903,7 @@ dependencies = [
 
 [[package]]
 name = "varve-engine"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "kurbo",
  "serde",
@@ -6913,7 +6913,7 @@ dependencies = [
 
 [[package]]
 name = "varve-media"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "base64 0.23.1",
  "gif",
@@ -6924,7 +6924,7 @@ dependencies = [
 
 [[package]]
 name = "varve-print"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "ab_glyph",
  "base64 0.23.1",
@@ -6940,7 +6940,7 @@ dependencies = [
 
 [[package]]
 name = "varve-sync"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "chrono",
  "rusqlite",
@@ -6948,7 +6948,7 @@ dependencies = [
 
 [[package]]
 name = "varve-trace"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "rayon",
  "serde",
@@ -6957,7 +6957,7 @@ dependencies = [
 
 [[package]]
 name = "varve-upscale"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "dirs-next",
  "image",
