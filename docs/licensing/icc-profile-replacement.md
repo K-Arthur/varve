@@ -48,7 +48,11 @@ The AGPL-3.0-or-later license text can be found at:
 - **File:** `icc-profiles-basiccolor-printing2009/default_profiles/printing/ISOcoated_v2_bas.ICC`
 - **Profile name:** ISO Coated v2 (basICColor)
 - **Standard:** FOGRA39, ISO 12647-2:2004/Amd 1
-- **Copyright:** Copyright (c) 2006-2007 Color Solutions, All Rights Reserved; Copyright (c) 2007-2010 basICColor GmbH
+- **Copyright (verified):**
+  - ICC `cprt` tag: Copyright (c) 2006-2007 Color Solutions, All Rights Reserved
+  - COPYING / LICENSE-ZLIB-bICC: Copyright (c) 2007-2010, basICColor GmbH
+  - Debian `debian/copyright` Files stanza for
+    `icc-profiles-basiccolor-printing2009/*`: 2005-2011 Kai-Uwe Behrmann
 - **License:** Zlib
 - **License reference:** https://opensource.org/licenses/Zlib
 - **Technical details:** Full bidirectional CMYK↔RGB conversion with A2B0/A2B1/A2B2 (perceptual/relative/saturation) and B2A0/B2A1/B2A2 transforms
@@ -92,9 +96,12 @@ If you are using Varve v0.1.0 through v0.5.0:
 
 ## Technical Details of the Replacement
 
-### Deduplication
+### Copies, not a symlink
 
-The duplicate copies in `crates/varve-print/profiles/` were removed and replaced with a symbolic link to `crates/varve-colour/profiles/`, eliminating redundancy and ensuring both crates use identical profile data.
+`crates/varve-colour/profiles/` and `crates/varve-print/profiles/` each hold
+regular files `sRGB.icc` and `default_cmyk.icc`. The pairs are byte-identical;
+they are not a symbolic link. `varve-colour` embeds its copies with
+`include_bytes!`. Keep the trees in sync when replacing a profile.
 
 ### Validation
 

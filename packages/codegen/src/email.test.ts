@@ -1,4 +1,13 @@
-import { addChild, addNode, createDocument, makeFrameNode, makeTextNode } from '@varve/scene';
+import {
+  addChild,
+  addNode,
+  addPage,
+  createDocument,
+  DEFAULT_EMAIL_PROFILE,
+  DEFAULT_EMAIL_SEMANTIC_MAP,
+  makeFrameNode,
+  makeTextNode,
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { compileEmail } from './email-compiler';
 import { inlineEmailCss } from './email-css';
@@ -377,6 +386,46 @@ describe('email output', () => {
     expect(result.diagnostics.some((diagnostic) => diagnostic.code === 'MISSING_IMAGE_ALT')).toBe(
       false,
     );
+  });
+
+  it('emits each email page section once in the HTML, even when inactive descendants leak into rootChildren', () => {
+    let doc = createDocument('paged-email-sections');
+    const activePage = doc.pages?.[0];
+    if (!activePage) throw new Error('Expected an initial page');
+
+    const hero = makeFrameNode('hero-section', { name: 'Hero section', w: 600, h: 80 });
+    const heroCopy = makeTextNode('hero-copy', 'AUDIT-HERO-TOKEN-7f3a');
+    const footer = makeFrameNode('footer-section', { name: 'Footer section', w: 600, h: 80 });
+    const footerCopy = makeTextNode('footer-copy', 'AUDIT-FOOTER-TOKEN-9c2b');
+    doc = addChild(doc, activePage.contentRoot, hero);
+    doc = addChild(doc, hero.id, heroCopy);
+    doc = addChild(doc, activePage.contentRoot, footer);
+    doc = addChild(doc, footer.id, footerCopy);
+
+    doc = addPage(doc, { name: 'Page 2' });
+    const inactivePage = doc.pages?.find((page) => page.id !== activePage.id);
+    if (!inactivePage) throw new Error('Expected a second page');
+    const other = makeFrameNode('other-section', { name: 'Other section', w: 600, h: 80 });
+    const otherCopy = makeTextNode('other-copy', 'AUDIT-INACTIVE-TOKEN-4d1e');
+    doc = addChild(doc, inactivePage.contentRoot, other);
+    doc = addChild(doc, other.id, otherCopy);
+    doc = {
+      ...doc,
+      rootChildren: [...new Set([...doc.rootChildren, other.id, otherCopy.id])],
+      emailProfile: DEFAULT_EMAIL_PROFILE,
+      emailSemantics: DEFAULT_EMAIL_SEMANTIC_MAP,
+    };
+
+    const result = compileEmail(doc, sceneToIR(doc), {
+      profile: 'modern',
+      provider: 'generic',
+    });
+    const html = emitEmailHtml(result.ir).html;
+    const count = (token: string) => html.split(token).length - 1;
+
+    expect(count('AUDIT-HERO-TOKEN-7f3a')).toBe(1);
+    expect(count('AUDIT-FOOTER-TOKEN-9c2b')).toBe(1);
+    expect(count('AUDIT-INACTIVE-TOKEN-4d1e')).toBe(0);
   });
 
   it('emits safe linked content and plain text', () => {

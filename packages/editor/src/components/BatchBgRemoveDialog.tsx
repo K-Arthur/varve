@@ -632,6 +632,12 @@ export function BatchBgRemoveDialog({
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+function thumbnailHeight(w: number, h: number, size = 28): number {
+  if (!(w > 0) || !Number.isFinite(w) || !Number.isFinite(h) || h < 0) return size;
+  const next = (size / w) * h;
+  return Number.isFinite(next) ? next : size;
+}
+
 function Thumbnail({ src, w, h }: { src: string; w: number; h: number }) {
   return (
     <img
@@ -639,7 +645,7 @@ function Thumbnail({ src, w, h }: { src: string; w: number; h: number }) {
       src={src}
       alt=""
       width={28}
-      height={(28 / w) * h}
+      height={thumbnailHeight(w, h)}
       loading="lazy"
     />
   );

@@ -94,6 +94,21 @@ describe('SettingsDialog', () => {
     ).toBe(1.5);
   });
 
+  it('toggles the AI features switch without crashing and persists it', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="ai" />);
+    const toggle = document.getElementById('ai-features-toggle') as HTMLInputElement;
+    expect(toggle).toBeTruthy();
+    expect(toggle.checked).toBe(true);
+
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(false);
+    expect(loadSettings().ai.enabled).toBe(false);
+
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(true);
+    expect(loadSettings().ai.enabled).toBe(true);
+  });
+
   it('closes on close button', () => {
     const onClose = vi.fn();
     renderWithProvider(<SettingsDialog open={true} onClose={onClose} />);

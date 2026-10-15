@@ -5,7 +5,8 @@
 # dependency entirely, and lets pacman own every installed file so uninstall is
 # clean — none of which an AppImage wrapper script provides.
 #
-# NOTE: `sha256sums` must be updated on every release. Get the value from the
+# NOTE: `sha256sums_x86_64` and `sha256sums_aarch64` must be updated on every
+# release. Get the values from the
 # published SHA256SUMS.txt, which the release pipeline generates:
 #   curl -sL https://github.com/K-Arthur/varve/releases/download/v$pkgver/SHA256SUMS.txt
 

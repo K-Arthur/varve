@@ -826,7 +826,7 @@ function ShellInner({
             {editor.state.timelinePanelVisible &&
             !distractionFreeMode &&
             !isDetached('timeline') ? (
-              <ErrorBoundary>
+              <ErrorBoundary resetKey={editor.state.document.id}>
                 <TimelinePanel
                   timelines={editor.state.document.timelines ?? {}}
                   activeTimelineId={editor.state.motion.activeTimelineId}
@@ -948,7 +948,7 @@ function ShellInner({
             role={dockGeometry.tabPanelA11y.history ? 'tabpanel' : 'group'}
             {...getDockPanelA11yProps(dockGeometry.tabPanelA11y.history)}
           >
-            <ErrorBoundary>
+            <ErrorBoundary resetKey={editor.state.document.id}>
               <HistoryPanel />
             </ErrorBoundary>
           </section>
