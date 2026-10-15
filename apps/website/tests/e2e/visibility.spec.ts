@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { contrastRatio, parseColor } from './helpers';
+import { SHOW_SUPPORT_PROJECT } from '../../src/config/features.js';
 
 /**
  * Route-wide computed-style visibility audit.
@@ -38,7 +39,7 @@ const ROUTES = [
   '/releases',
   '/learn',
   '/learn/tutorials',
-  '/support-project',
+  ...(SHOW_SUPPORT_PROJECT ? ['/support-project'] : []),
   '/404',
 ];
 
