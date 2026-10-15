@@ -5,9 +5,10 @@ This file contains attribution and licence information for third-party
 software distributed with or used by Varve. The full standard licence texts
 used by redistributed dependencies and assets are included in
 THIRD_PARTY_LICENSES/ (SPDX License List v3.29.0). The BSD-2-Clause file uses
-the upstream rav1e text so its required copyright notice is present. Varve's
-FSL-1.1-MIT text is in LICENSE; project-specific attribution and copyright
-notices are listed below.
+the upstream rav1e text so its required copyright notice is present. The Zlib
+file uses the basICColor GmbH COPYING notice from Debian icc-profiles-free so
+that required copyright notice is present. Varve's FSL-1.1-MIT text is in
+LICENSE; project-specific attribution and copyright notices are listed below.
 
 -----------------------------------------------------------------------------
 Runtime Dependencies (npm)
@@ -201,14 +202,22 @@ sRGB ICC Profile (CC0-1.0)
   Bundled in: crates/varve-colour/profiles/sRGB.icc
 
 ISO Coated v2 CMYK Profile (Zlib)
-  Source: basICColor printing profiles (icc-profiles-free, Debian)
+  Source: basICColor printing profiles (icc-profiles-free, Debian salsa)
   Copyright (c) 2006-2007 Color Solutions, All Rights Reserved
-  Copyright (c) 2007-2010 basICColor GmbH
+    (ICC profile cprt tag)
+  Copyright (c) 2007-2010, basICColor GmbH
+    (icc-profiles-basiccolor-printing2009/COPYING and
+    default_profiles/printing/LICENSE-ZLIB-bICC)
+  Copyright: 2005-2011 Kai-Uwe Behrmann
+    (Debian debian/copyright Files stanza for
+    icc-profiles-basiccolor-printing2009/*)
   Profile: ISOcoated_v2_bas.ICC (FOGRA39, ISO 12647-2:2004/Amd 1)
   Licensed under Zlib License.
   Bundled in: crates/varve-colour/profiles/default_cmyk.icc
+  (identical regular-file copy in crates/varve-print/profiles/)
   Reference: https://salsa.debian.org/debian/icc-profiles-free
   Full license text: THIRD_PARTY_LICENSES/Zlib.txt
+    (verbatim COPYING from the salsa source above)
 
   Prior to version 0.5.1, Varve bundled Artifex Software ICC profiles
   (Copyright 2011, AGPL-3.0-or-later). These have been replaced with

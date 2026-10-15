@@ -10,6 +10,79 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
+## [0.5.1] - 2026-10-15
+
+Patch over public-beta 0.5.0. The document schema is still 2.33. This
+release replaces the bundled ICC profiles, adds AI disclosure controls,
+fixes crash-screen false positives and email export/preview bugs, and
+records Generative Edit, which shipped in 0.5.0 but was missing from those
+notes.
+
+### Added
+
+- **Generative Edit** — Select one image and reconstruct painted pixels
+  (Fill), rebuild a painted object's background without deleting the layer
+  (Remove / Generative Subtract), or add pixels beyond the current bounds
+  (Expand). Draft Fill/Remove uses PatchMatch with no model download;
+  higher quality uses an optional local LaMa inpainting model. Desktop
+  Expand has limited Linux x86_64 photo review; browser Expand needs LaMa,
+  and Fast/PatchMatch Expand stays disabled after visible edge striping.
+  Replace and prompt-conditioned Fill/Expand remain gated until a local
+  model passes qualification. Accepting writes one undoable transaction
+  and keeps an immutable source snapshot. Open it from the image
+  inspector, Crop & Bounds, the Layers or canvas context menu,
+  Object → Generative Edit…, or the command palette.
+- **AI transparency controls** — Settings → AI features is on by default
+  (`Ctrl+Alt+Shift+A` toggles it). Layers mark AI-edited nodes; the
+  Inspector shows AI Edit History; export can attach disclosure metadata
+  (PNG/JPEG XMP, PDF XMP, SVG `<metadata>`; WebP warns because canvas
+  encode cannot carry XMP). Existing AI-edited layers stay editable when
+  the switch is off. Larger models still download only when requested.
+- **Linux packaging** — AUR `varve-desktop-bin` is ready for the v0.5.0
+  dual-arch AppImages (checksums, MetaInfo, MIME types, license files,
+  aarch64). AppStream/Flathub metadata lives in the desktop linux tree.
+  This landed after the v0.5.0 tag.
+
+### Changed
+
+- **ICC profiles** — Bundled sRGB is Compact ICC Profiles sRGB-v4
+  (CC0-1.0, 480 bytes). Bundled CMYK is ISOcoated_v2_bas.ICC (FOGRA39 /
+  ISO 12647-2:2004, Zlib via Debian icc-profiles-free / basICColor).
+  v0.1.0–v0.5.0 shipped Artifex Ghostscript profiles under
+  AGPL-3.0-or-later.
+- **macOS Gatekeeper** — Browser-downloaded `.app` bundles are ad-hoc
+  signed so Gatekeeper no longer reports them as damaged with no Open
+  Anyway path. They remain unsigned for trust labels; not Developer ID
+  or notarized.
+- **Linux AppImage and AUR** — Packed AppImage directories and launchers
+  are world-readable so AppImageHub and firejail mounts can run the
+  image. The AUR `varve-desktop-bin` package resets extract modes instead
+  of copying `0700` trees into pacman.
+
+### Fixed
+
+- **Crash screen false positives** — Recovered WebGL context loss,
+  aborted jobs, and other diagnostics no longer open "Varve closed
+  unexpectedly".
+- **Document switch** — Error boundaries reset on file change, so a bad
+  render does not stick across documents. Opening a file no longer hides
+  the Layers panel. Malformed text nodes are coerced on load instead of
+  crashing the canvas.
+- **Comic balloons** — Speech, thought, and shout balloons appear in
+  Quick Actions and the command palette.
+- **Email workspace** — Preview and HTML/plain-text export: no duplicate
+  output roots, inline preview assets when no base URL is set, button
+  labels from child text, fluid containers for mobile preview, inherited
+  link colour, text alignment, caption column widths, rasterization
+  warnings only when a raster fallback is emitted, and button labels and
+  links in plain text.
+
+### Security
+
+- rustls 0.23.46 (RUSTSEC-2026-0346 through 0349).
+- quinn-proto 0.11.19 (RUSTSEC-2026-0338 through 0342). Transitive Tauri
+  QUIC stack; the advisory fix does not claim a Varve-reachable path.
+
 ## [0.5.0] - 2026-10-09
 
 Varve remains in public beta. This release adds broad authoring workflows while
