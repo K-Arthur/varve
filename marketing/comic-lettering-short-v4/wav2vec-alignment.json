@@ -1,0 +1,2595 @@
+[
+  {
+    "beat": 1,
+    "greedy_transcript": "WHAT IF YOUR COMIC DIALOGUE WAS NEVER BAKED INTO PIXTLES ",
+    "frame_resolution": 0.02003571428571429,
+    "word_alignment": [
+      {
+        "word": "WHAT",
+        "start": 0.401,
+        "end": 0.541,
+        "chars": [
+          {
+            "char": "W",
+            "start": 0.401,
+            "end": 0.421,
+            "score": -0.00056
+          },
+          {
+            "char": "H",
+            "start": 0.421,
+            "end": 0.441,
+            "score": -0.00318
+          },
+          {
+            "char": "A",
+            "start": 0.481,
+            "end": 0.501,
+            "score": -0.00653
+          },
+          {
+            "char": "T",
+            "start": 0.501,
+            "end": 0.541,
+            "score": -0.30291
+          }
+        ]
+      },
+      {
+        "word": "IF",
+        "start": 0.601,
+        "end": 0.641,
+        "chars": [
+          {
+            "char": "I",
+            "start": 0.601,
+            "end": 0.621,
+            "score": -0.18885
+          },
+          {
+            "char": "F",
+            "start": 0.621,
+            "end": 0.641,
+            "score": -0.00109
+          }
+        ]
+      },
+      {
+        "word": "YOUR",
+        "start": 0.701,
+        "end": 0.821,
+        "chars": [
+          {
+            "char": "Y",
+            "start": 0.701,
+            "end": 0.721,
+            "score": -0.0032
+          },
+          {
+            "char": "O",
+            "start": 0.741,
+            "end": 0.761,
+            "score": -0.002
+          },
+          {
+            "char": "U",
+            "start": 0.761,
+            "end": 0.781,
+            "score": -0.00146
+          },
+          {
+            "char": "R",
+            "start": 0.801,
+            "end": 0.821,
+            "score": -6e-5
+          }
+        ]
+      },
+      {
+        "word": "COMIC",
+        "start": 0.922,
+        "end": 1.242,
+        "chars": [
+          {
+            "char": "C",
+            "start": 0.922,
+            "end": 0.962,
+            "score": -0.01224
+          },
+          {
+            "char": "O",
+            "start": 1.062,
+            "end": 1.082,
+            "score": -0.00041
+          },
+          {
+            "char": "M",
+            "start": 1.122,
+            "end": 1.142,
+            "score": -0.00028
+          },
+          {
+            "char": "I",
+            "start": 1.202,
+            "end": 1.222,
+            "score": -0.00301
+          },
+          {
+            "char": "C",
+            "start": 1.222,
+            "end": 1.242,
+            "score": -0.00039
+          }
+        ]
+      },
+      {
+        "word": "DIALOGUE",
+        "start": 1.342,
+        "end": 1.883,
+        "chars": [
+          {
+            "char": "D",
+            "start": 1.342,
+            "end": 1.362,
+            "score": -3e-5
+          },
+          {
+            "char": "I",
+            "start": 1.483,
+            "end": 1.503,
+            "score": -4e-5
+          },
+          {
+            "char": "A",
+            "start": 1.563,
+            "end": 1.583,
+            "score": -5e-5
+          },
+          {
+            "char": "L",
+            "start": 1.623,
+            "end": 1.663,
+            "score": -0.02483
+          },
+          {
+            "char": "O",
+            "start": 1.743,
+            "end": 1.763,
+            "score": -0.00016
+          },
+          {
+            "char": "G",
+            "start": 1.783,
+            "end": 1.823,
+            "score": -0.00106
+          },
+          {
+            "char": "U",
+            "start": 1.823,
+            "end": 1.843,
+            "score": -0.00016
+          },
+          {
+            "char": "E",
+            "start": 1.843,
+            "end": 1.883,
+            "score": -0.06281
+          }
+        ]
+      },
+      {
+        "word": "WAS",
+        "start": 2.284,
+        "end": 2.424,
+        "chars": [
+          {
+            "char": "W",
+            "start": 2.284,
+            "end": 2.324,
+            "score": -0.09046
+          },
+          {
+            "char": "A",
+            "start": 2.364,
+            "end": 2.384,
+            "score": -6e-5
+          },
+          {
+            "char": "S",
+            "start": 2.384,
+            "end": 2.424,
+            "score": -0.00226
+          }
+        ]
+      },
+      {
+        "word": "NEVER",
+        "start": 2.585,
+        "end": 2.825,
+        "chars": [
+          {
+            "char": "N",
+            "start": 2.585,
+            "end": 2.625,
+            "score": -0.00388
+          },
+          {
+            "char": "E",
+            "start": 2.665,
+            "end": 2.705,
+            "score": -0.02194
+          },
+          {
+            "char": "V",
+            "start": 2.725,
+            "end": 2.745,
+            "score": -0.0
+          },
+          {
+            "char": "E",
+            "start": 2.765,
+            "end": 2.805,
+            "score": -0.09257
+          },
+          {
+            "char": "R",
+            "start": 2.805,
+            "end": 2.825,
+            "score": -0.0
+          }
+        ]
+      },
+      {
+        "word": "BAKED",
+        "start": 2.925,
+        "end": 3.186,
+        "chars": [
+          {
+            "char": "B",
+            "start": 2.925,
+            "end": 2.945,
+            "score": -2e-5
+          },
+          {
+            "char": "A",
+            "start": 3.005,
+            "end": 3.025,
+            "score": -0.00011
+          },
+          {
+            "char": "K",
+            "start": 3.065,
+            "end": 3.106,
+            "score": -0.02781
+          },
+          {
+            "char": "E",
+            "start": 3.126,
+            "end": 3.146,
+            "score": -6e-5
+          },
+          {
+            "char": "D",
+            "start": 3.146,
+            "end": 3.186,
+            "score": -0.01328
+          }
+        ]
+      },
+      {
+        "word": "INTO",
+        "start": 3.226,
+        "end": 3.386,
+        "chars": [
+          {
+            "char": "I",
+            "start": 3.226,
+            "end": 3.246,
+            "score": -0.00018
+          },
+          {
+            "char": "N",
+            "start": 3.246,
+            "end": 3.266,
+            "score": -0.0001
+          },
+          {
+            "char": "T",
+            "start": 3.326,
+            "end": 3.346,
+            "score": -0.00157
+          },
+          {
+            "char": "O",
+            "start": 3.366,
+            "end": 3.386,
+            "score": -0.00222
+          }
+        ]
+      },
+      {
+        "word": "PIXELS",
+        "start": 3.466,
+        "end": 3.967,
+        "chars": [
+          {
+            "char": "P",
+            "start": 3.466,
+            "end": 3.506,
+            "score": -0.22793
+          },
+          {
+            "char": "I",
+            "start": 3.566,
+            "end": 3.586,
+            "score": -0.00289
+          },
+          {
+            "char": "X",
+            "start": 3.586,
+            "end": 3.606,
+            "score": -0.40318
+          },
+          {
+            "char": "E",
+            "start": 3.767,
+            "end": 3.787,
+            "score": -4.04555
+          },
+          {
+            "char": "L",
+            "start": 3.807,
+            "end": 3.827,
+            "score": -0.00068
+          },
+          {
+            "char": "S",
+            "start": 3.907,
+            "end": 3.967,
+            "score": -4.75888
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "beat": 2,
+    "greedy_transcript": "INVARVE DIALOGUE LIVES INSIDE THE BALLOON REWRITE THE LINE AS YOUR SCENE DEVELOPS ",
+    "frame_resolution": 0.020035398230088496,
+    "word_alignment": [
+      {
+        "word": "IN",
+        "start": 0.24,
+        "end": 0.28,
+        "chars": [
+          {
+            "char": "I",
+            "start": 0.24,
+            "end": 0.26,
+            "score": -0.03172
+          },
+          {
+            "char": "N",
+            "start": 0.26,
+            "end": 0.28,
+            "score": -0.00025
+          }
+        ]
+      },
+      {
+        "word": "VARVE",
+        "start": 0.401,
+        "end": 0.801,
+        "chars": [
+          {
+            "char": "V",
+            "start": 0.401,
+            "end": 0.421,
+            "score": -0.00105
+          },
+          {
+            "char": "A",
+            "start": 0.581,
+            "end": 0.601,
+            "score": -0.01091
+          },
+          {
+            "char": "R",
+            "start": 0.621,
+            "end": 0.661,
+            "score": -0.0207
+          },
+          {
+            "char": "V",
+            "start": 0.721,
+            "end": 0.741,
+            "score": -0.00226
+          },
+          {
+            "char": "E",
+            "start": 0.761,
+            "end": 0.801,
+            "score": -0.22461
+          }
+        ]
+      },
+      {
+        "word": "DIALOGUE",
+        "start": 1.443,
+        "end": 1.923,
+        "chars": [
+          {
+            "char": "D",
+            "start": 1.443,
+            "end": 1.463,
+            "score": -2e-5
+          },
+          {
+            "char": "I",
+            "start": 1.583,
+            "end": 1.603,
+            "score": -0.00014
+          },
+          {
+            "char": "A",
+            "start": 1.643,
+            "end": 1.683,
+            "score": -0.33432
+          },
+          {
+            "char": "L",
+            "start": 1.703,
+            "end": 1.743,
+            "score": -0.00205
+          },
+          {
+            "char": "O",
+            "start": 1.803,
+            "end": 1.823,
+            "score": -1e-5
+          },
+          {
+            "char": "G",
+            "start": 1.843,
+            "end": 1.863,
+            "score": -8e-5
+          },
+          {
+            "char": "U",
+            "start": 1.863,
+            "end": 1.903,
+            "score": -0.24231
+          },
+          {
+            "char": "E",
+            "start": 1.903,
+            "end": 1.923,
+            "score": -0.00209
+          }
+        ]
+      },
+      {
+        "word": "LIVES",
+        "start": 2.024,
+        "end": 2.264,
+        "chars": [
+          {
+            "char": "L",
+            "start": 2.024,
+            "end": 2.064,
+            "score": -0.20265
+          },
+          {
+            "char": "I",
+            "start": 2.124,
+            "end": 2.144,
+            "score": -1e-5
+          },
+          {
+            "char": "V",
+            "start": 2.164,
+            "end": 2.184,
+            "score": -2e-5
+          },
+          {
+            "char": "E",
+            "start": 2.184,
+            "end": 2.224,
+            "score": -0.02372
+          },
+          {
+            "char": "S",
+            "start": 2.224,
+            "end": 2.264,
+            "score": -0.03533
+          }
+        ]
+      },
+      {
+        "word": "INSIDE",
+        "start": 2.344,
+        "end": 2.705,
+        "chars": [
+          {
+            "char": "I",
+            "start": 2.344,
+            "end": 2.364,
+            "score": -0.0009
+          },
+          {
+            "char": "N",
+            "start": 2.364,
+            "end": 2.384,
+            "score": -0.00011
+          },
+          {
+            "char": "S",
+            "start": 2.504,
+            "end": 2.524,
+            "score": -0.00012
+          },
+          {
+            "char": "I",
+            "start": 2.605,
+            "end": 2.625,
+            "score": -2e-5
+          },
+          {
+            "char": "D",
+            "start": 2.665,
+            "end": 2.685,
+            "score": -0.00026
+          },
+          {
+            "char": "E",
+            "start": 2.685,
+            "end": 2.705,
+            "score": -0.00023
+          }
+        ]
+      },
+      {
+        "word": "THE",
+        "start": 2.765,
+        "end": 2.825,
+        "chars": [
+          {
+            "char": "T",
+            "start": 2.765,
+            "end": 2.785,
+            "score": -0.00022
+          },
+          {
+            "char": "H",
+            "start": 2.785,
+            "end": 2.805,
+            "score": -0.00019
+          },
+          {
+            "char": "E",
+            "start": 2.805,
+            "end": 2.825,
+            "score": -0.0005
+          }
+        ]
+      },
+      {
+        "word": "BALLOON",
+        "start": 2.885,
+        "end": 3.206,
+        "chars": [
+          {
+            "char": "B",
+            "start": 2.885,
+            "end": 2.905,
+            "score": -0.0
+          },
+          {
+            "char": "A",
+            "start": 2.925,
+            "end": 2.945,
+            "score": -0.00027
+          },
+          {
+            "char": "L",
+            "start": 2.945,
+            "end": 2.965,
+            "score": -1e-5
+          },
+          {
+            "char": "L",
+            "start": 3.005,
+            "end": 3.045,
+            "score": -0.00025
+          },
+          {
+            "char": "O",
+            "start": 3.045,
+            "end": 3.085,
+            "score": -8e-5
+          },
+          {
+            "char": "O",
+            "start": 3.146,
+            "end": 3.166,
+            "score": -8e-5
+          },
+          {
+            "char": "N",
+            "start": 3.166,
+            "end": 3.206,
+            "score": -0.11045
+          }
+        ]
+      },
+      {
+        "word": "REWRITE",
+        "start": 4.067,
+        "end": 4.448,
+        "chars": [
+          {
+            "char": "R",
+            "start": 4.067,
+            "end": 4.107,
+            "score": -0.05938
+          },
+          {
+            "char": "E",
+            "start": 4.167,
+            "end": 4.187,
+            "score": -0.00032
+          },
+          {
+            "char": "W",
+            "start": 4.268,
+            "end": 4.288,
+            "score": -0.01537
+          },
+          {
+            "char": "R",
+            "start": 4.288,
+            "end": 4.308,
+            "score": -0.00031
+          },
+          {
+            "char": "I",
+            "start": 4.328,
+            "end": 4.348,
+            "score": -0.00034
+          },
+          {
+            "char": "T",
+            "start": 4.388,
+            "end": 4.408,
+            "score": -0.00053
+          },
+          {
+            "char": "E",
+            "start": 4.408,
+            "end": 4.448,
+            "score": -0.37878
+          }
+        ]
+      },
+      {
+        "word": "THE",
+        "start": 4.488,
+        "end": 4.568,
+        "chars": [
+          {
+            "char": "T",
+            "start": 4.488,
+            "end": 4.508,
+            "score": -0.0001
+          },
+          {
+            "char": "H",
+            "start": 4.508,
+            "end": 4.528,
+            "score": -9e-5
+          },
+          {
+            "char": "E",
+            "start": 4.548,
+            "end": 4.568,
+            "score": -0.00089
+          }
+        ]
+      },
+      {
+        "word": "LINE",
+        "start": 4.648,
+        "end": 4.909,
+        "chars": [
+          {
+            "char": "L",
+            "start": 4.648,
+            "end": 4.668,
+            "score": -3e-5
+          },
+          {
+            "char": "I",
+            "start": 4.788,
+            "end": 4.829,
+            "score": -0.22499
+          },
+          {
+            "char": "N",
+            "start": 4.849,
+            "end": 4.889,
+            "score": -0.0042
+          },
+          {
+            "char": "E",
+            "start": 4.889,
+            "end": 4.909,
+            "score": -0.00206
+          }
+        ]
+      },
+      {
+        "word": "AS",
+        "start": 5.209,
+        "end": 5.269,
+        "chars": [
+          {
+            "char": "A",
+            "start": 5.209,
+            "end": 5.229,
+            "score": -8e-5
+          },
+          {
+            "char": "S",
+            "start": 5.229,
+            "end": 5.269,
+            "score": -0.27833
+          }
+        ]
+      },
+      {
+        "word": "YOUR",
+        "start": 5.329,
+        "end": 5.47,
+        "chars": [
+          {
+            "char": "Y",
+            "start": 5.329,
+            "end": 5.349,
+            "score": -0.01413
+          },
+          {
+            "char": "O",
+            "start": 5.369,
+            "end": 5.39,
+            "score": -0.0305
+          },
+          {
+            "char": "U",
+            "start": 5.39,
+            "end": 5.41,
+            "score": -0.0158
+          },
+          {
+            "char": "R",
+            "start": 5.43,
+            "end": 5.47,
+            "score": -0.23981
+          }
+        ]
+      },
+      {
+        "word": "SCENE",
+        "start": 5.51,
+        "end": 5.71,
+        "chars": [
+          {
+            "char": "S",
+            "start": 5.51,
+            "end": 5.55,
+            "score": -0.3439
+          },
+          {
+            "char": "C",
+            "start": 5.55,
+            "end": 5.57,
+            "score": -0.04283
+          },
+          {
+            "char": "E",
+            "start": 5.63,
+            "end": 5.65,
+            "score": -0.00832
+          },
+          {
+            "char": "N",
+            "start": 5.67,
+            "end": 5.69,
+            "score": -0.00613
+          },
+          {
+            "char": "E",
+            "start": 5.69,
+            "end": 5.71,
+            "score": -0.38701
+          }
+        ]
+      },
+      {
+        "word": "DEVELOPS",
+        "start": 5.77,
+        "end": 6.291,
+        "chars": [
+          {
+            "char": "D",
+            "start": 5.77,
+            "end": 5.79,
+            "score": -3e-5
+          },
+          {
+            "char": "E",
+            "start": 5.83,
+            "end": 5.85,
+            "score": -0.0
+          },
+          {
+            "char": "V",
+            "start": 5.87,
+            "end": 5.91,
+            "score": -0.00018
+          },
+          {
+            "char": "E",
+            "start": 5.971,
+            "end": 5.991,
+            "score": -0.0
+          },
+          {
+            "char": "L",
+            "start": 6.011,
+            "end": 6.051,
+            "score": -0.00301
+          },
+          {
+            "char": "O",
+            "start": 6.111,
+            "end": 6.151,
+            "score": -0.00031
+          },
+          {
+            "char": "P",
+            "start": 6.151,
+            "end": 6.191,
+            "score": -0.00013
+          },
+          {
+            "char": "S",
+            "start": 6.251,
+            "end": 6.291,
+            "score": -0.00493
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "beat": 3,
+    "greedy_transcript": "WHEN A LAN GETS LONGER THE BALLOON FITS ITSELF AROUND YOUR WORDS TALES PATTING STYLE ALL LIVE ",
+    "frame_resolution": 0.020047732696897375,
+    "word_alignment": [
+      {
+        "word": "WHEN",
+        "start": 0.16,
+        "end": 0.261,
+        "chars": [
+          {
+            "char": "W",
+            "start": 0.16,
+            "end": 0.18,
+            "score": -0.00018
+          },
+          {
+            "char": "H",
+            "start": 0.18,
+            "end": 0.2,
+            "score": -0.00072
+          },
+          {
+            "char": "E",
+            "start": 0.221,
+            "end": 0.241,
+            "score": -0.00266
+          },
+          {
+            "char": "N",
+            "start": 0.241,
+            "end": 0.261,
+            "score": -0.00058
+          }
+        ]
+      },
+      {
+        "word": "A",
+        "start": 0.321,
+        "end": 0.341,
+        "chars": [
+          {
+            "char": "A",
+            "start": 0.321,
+            "end": 0.341,
+            "score": -0.10108
+          }
+        ]
+      },
+      {
+        "word": "LINE",
+        "start": 0.401,
+        "end": 0.581,
+        "chars": [
+          {
+            "char": "L",
+            "start": 0.401,
+            "end": 0.421,
+            "score": -0.00203
+          },
+          {
+            "char": "I",
+            "start": 0.481,
+            "end": 0.501,
+            "score": -0.92337
+          },
+          {
+            "char": "N",
+            "start": 0.541,
+            "end": 0.561,
+            "score": -0.02055
+          },
+          {
+            "char": "E",
+            "start": 0.561,
+            "end": 0.581,
+            "score": -1.1013
+          }
+        ]
+      },
+      {
+        "word": "GETS",
+        "start": 0.621,
+        "end": 0.802,
+        "chars": [
+          {
+            "char": "G",
+            "start": 0.621,
+            "end": 0.642,
+            "score": -0.00074
+          },
+          {
+            "char": "E",
+            "start": 0.682,
+            "end": 0.702,
+            "score": -0.00194
+          },
+          {
+            "char": "T",
+            "start": 0.722,
+            "end": 0.742,
+            "score": -0.00012
+          },
+          {
+            "char": "S",
+            "start": 0.782,
+            "end": 0.802,
+            "score": -0.00212
+          }
+        ]
+      },
+      {
+        "word": "LONGER",
+        "start": 0.882,
+        "end": 1.223,
+        "chars": [
+          {
+            "char": "L",
+            "start": 0.882,
+            "end": 0.902,
+            "score": -0.00018
+          },
+          {
+            "char": "O",
+            "start": 0.982,
+            "end": 1.002,
+            "score": -0.00023
+          },
+          {
+            "char": "N",
+            "start": 1.002,
+            "end": 1.042,
+            "score": -0.17909
+          },
+          {
+            "char": "G",
+            "start": 1.063,
+            "end": 1.083,
+            "score": -3e-5
+          },
+          {
+            "char": "E",
+            "start": 1.163,
+            "end": 1.183,
+            "score": -0.00649
+          },
+          {
+            "char": "R",
+            "start": 1.183,
+            "end": 1.223,
+            "score": -0.01961
+          }
+        ]
+      },
+      {
+        "word": "THE",
+        "start": 1.764,
+        "end": 1.844,
+        "chars": [
+          {
+            "char": "T",
+            "start": 1.764,
+            "end": 1.784,
+            "score": -0.0001
+          },
+          {
+            "char": "H",
+            "start": 1.784,
+            "end": 1.824,
+            "score": -0.31644
+          },
+          {
+            "char": "E",
+            "start": 1.824,
+            "end": 1.844,
+            "score": -0.00084
+          }
+        ]
+      },
+      {
+        "word": "BALLOON",
+        "start": 1.884,
+        "end": 2.145,
+        "chars": [
+          {
+            "char": "B",
+            "start": 1.884,
+            "end": 1.905,
+            "score": -0.0
+          },
+          {
+            "char": "A",
+            "start": 1.925,
+            "end": 1.945,
+            "score": -0.00015
+          },
+          {
+            "char": "L",
+            "start": 1.945,
+            "end": 1.985,
+            "score": -0.08081
+          },
+          {
+            "char": "L",
+            "start": 2.005,
+            "end": 2.045,
+            "score": -0.00035
+          },
+          {
+            "char": "O",
+            "start": 2.045,
+            "end": 2.065,
+            "score": -1e-5
+          },
+          {
+            "char": "O",
+            "start": 2.105,
+            "end": 2.125,
+            "score": -3e-5
+          },
+          {
+            "char": "N",
+            "start": 2.125,
+            "end": 2.145,
+            "score": -0.00012
+          }
+        ]
+      },
+      {
+        "word": "FITS",
+        "start": 2.305,
+        "end": 2.526,
+        "chars": [
+          {
+            "char": "F",
+            "start": 2.305,
+            "end": 2.326,
+            "score": -1e-5
+          },
+          {
+            "char": "I",
+            "start": 2.366,
+            "end": 2.386,
+            "score": -0.0001
+          },
+          {
+            "char": "T",
+            "start": 2.446,
+            "end": 2.466,
+            "score": -8e-5
+          },
+          {
+            "char": "S",
+            "start": 2.486,
+            "end": 2.526,
+            "score": -0.0115
+          }
+        ]
+      },
+      {
+        "word": "ITSELF",
+        "start": 2.606,
+        "end": 2.887,
+        "chars": [
+          {
+            "char": "I",
+            "start": 2.606,
+            "end": 2.626,
+            "score": -4e-5
+          },
+          {
+            "char": "T",
+            "start": 2.626,
+            "end": 2.666,
+            "score": -0.04336
+          },
+          {
+            "char": "S",
+            "start": 2.706,
+            "end": 2.747,
+            "score": -0.00114
+          },
+          {
+            "char": "E",
+            "start": 2.787,
+            "end": 2.807,
+            "score": -1e-5
+          },
+          {
+            "char": "L",
+            "start": 2.807,
+            "end": 2.847,
+            "score": -0.00052
+          },
+          {
+            "char": "F",
+            "start": 2.867,
+            "end": 2.887,
+            "score": -3e-5
+          }
+        ]
+      },
+      {
+        "word": "AROUND",
+        "start": 3.007,
+        "end": 3.208,
+        "chars": [
+          {
+            "char": "A",
+            "start": 3.007,
+            "end": 3.027,
+            "score": -0.05283
+          },
+          {
+            "char": "R",
+            "start": 3.047,
+            "end": 3.087,
+            "score": -0.03021
+          },
+          {
+            "char": "O",
+            "start": 3.107,
+            "end": 3.127,
+            "score": -0.00013
+          },
+          {
+            "char": "U",
+            "start": 3.127,
+            "end": 3.147,
+            "score": -0.0004
+          },
+          {
+            "char": "N",
+            "start": 3.147,
+            "end": 3.188,
+            "score": -0.09935
+          },
+          {
+            "char": "D",
+            "start": 3.188,
+            "end": 3.208,
+            "score": -0.00125
+          }
+        ]
+      },
+      {
+        "word": "YOUR",
+        "start": 3.248,
+        "end": 3.368,
+        "chars": [
+          {
+            "char": "Y",
+            "start": 3.248,
+            "end": 3.268,
+            "score": -7e-5
+          },
+          {
+            "char": "O",
+            "start": 3.288,
+            "end": 3.308,
+            "score": -0.00014
+          },
+          {
+            "char": "U",
+            "start": 3.308,
+            "end": 3.328,
+            "score": -0.0002
+          },
+          {
+            "char": "R",
+            "start": 3.348,
+            "end": 3.368,
+            "score": -0.00039
+          }
+        ]
+      },
+      {
+        "word": "WORDS",
+        "start": 3.428,
+        "end": 3.769,
+        "chars": [
+          {
+            "char": "W",
+            "start": 3.428,
+            "end": 3.448,
+            "score": -0.0
+          },
+          {
+            "char": "O",
+            "start": 3.508,
+            "end": 3.528,
+            "score": -0.00026
+          },
+          {
+            "char": "R",
+            "start": 3.548,
+            "end": 3.589,
+            "score": -0.0001
+          },
+          {
+            "char": "D",
+            "start": 3.649,
+            "end": 3.669,
+            "score": -0.00041
+          },
+          {
+            "char": "S",
+            "start": 3.729,
+            "end": 3.769,
+            "score": -0.13929
+          }
+        ]
+      },
+      {
+        "word": "TAILS",
+        "start": 4.491,
+        "end": 4.952,
+        "chars": [
+          {
+            "char": "T",
+            "start": 4.491,
+            "end": 4.531,
+            "score": -0.0012
+          },
+          {
+            "char": "A",
+            "start": 4.671,
+            "end": 4.691,
+            "score": -0.00023
+          },
+          {
+            "char": "I",
+            "start": 4.711,
+            "end": 4.731,
+            "score": -3.04777
+          },
+          {
+            "char": "L",
+            "start": 4.771,
+            "end": 4.832,
+            "score": -0.02168
+          },
+          {
+            "char": "S",
+            "start": 4.912,
+            "end": 4.952,
+            "score": -0.00436
+          }
+        ]
+      },
+      {
+        "word": "PADDING",
+        "start": 5.413,
+        "end": 5.814,
+        "chars": [
+          {
+            "char": "P",
+            "start": 5.413,
+            "end": 5.433,
+            "score": -0.00013
+          },
+          {
+            "char": "A",
+            "start": 5.533,
+            "end": 5.553,
+            "score": -0.00044
+          },
+          {
+            "char": "D",
+            "start": 5.573,
+            "end": 5.593,
+            "score": -1.92075
+          },
+          {
+            "char": "D",
+            "start": 5.653,
+            "end": 5.674,
+            "score": -2.03797
+          },
+          {
+            "char": "I",
+            "start": 5.734,
+            "end": 5.754,
+            "score": -3e-5
+          },
+          {
+            "char": "N",
+            "start": 5.754,
+            "end": 5.774,
+            "score": -1e-5
+          },
+          {
+            "char": "G",
+            "start": 5.794,
+            "end": 5.814,
+            "score": -3e-5
+          }
+        ]
+      },
+      {
+        "word": "STYLE",
+        "start": 6.295,
+        "end": 6.716,
+        "chars": [
+          {
+            "char": "S",
+            "start": 6.295,
+            "end": 6.335,
+            "score": -0.00027
+          },
+          {
+            "char": "T",
+            "start": 6.375,
+            "end": 6.395,
+            "score": -3e-5
+          },
+          {
+            "char": "Y",
+            "start": 6.576,
+            "end": 6.596,
+            "score": -0.02051
+          },
+          {
+            "char": "L",
+            "start": 6.636,
+            "end": 6.696,
+            "score": -0.07676
+          },
+          {
+            "char": "E",
+            "start": 6.696,
+            "end": 6.716,
+            "score": -0.00407
+          }
+        ]
+      },
+      {
+        "word": "ALL",
+        "start": 7.398,
+        "end": 7.538,
+        "chars": [
+          {
+            "char": "A",
+            "start": 7.398,
+            "end": 7.418,
+            "score": -0.00025
+          },
+          {
+            "char": "L",
+            "start": 7.438,
+            "end": 7.458,
+            "score": -0.00038
+          },
+          {
+            "char": "L",
+            "start": 7.518,
+            "end": 7.538,
+            "score": -0.00017
+          }
+        ]
+      },
+      {
+        "word": "LIVE",
+        "start": 7.618,
+        "end": 7.979,
+        "chars": [
+          {
+            "char": "L",
+            "start": 7.618,
+            "end": 7.638,
+            "score": -1e-5
+          },
+          {
+            "char": "I",
+            "start": 7.779,
+            "end": 7.799,
+            "score": -2e-5
+          },
+          {
+            "char": "V",
+            "start": 7.839,
+            "end": 7.859,
+            "score": -2e-5
+          },
+          {
+            "char": "E",
+            "start": 7.879,
+            "end": 7.979,
+            "score": -7.37631
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "beat": 4,
+    "greedy_transcript": "SPEECH THOUGHTS SHOUTS EVERY BALLOON STAYS PART OF THE DESIGN ",
+    "frame_resolution": 0.020027027027027026,
+    "word_alignment": [
+      {
+        "word": "SPEECH",
+        "start": 0.22,
+        "end": 0.621,
+        "chars": [
+          {
+            "char": "S",
+            "start": 0.22,
+            "end": 0.26,
+            "score": -0.04185
+          },
+          {
+            "char": "P",
+            "start": 0.32,
+            "end": 0.34,
+            "score": -1e-5
+          },
+          {
+            "char": "E",
+            "start": 0.381,
+            "end": 0.421,
+            "score": -0.00014
+          },
+          {
+            "char": "E",
+            "start": 0.501,
+            "end": 0.521,
+            "score": -9e-5
+          },
+          {
+            "char": "C",
+            "start": 0.561,
+            "end": 0.581,
+            "score": -0.00128
+          },
+          {
+            "char": "H",
+            "start": 0.601,
+            "end": 0.621,
+            "score": -0.00046
+          }
+        ]
+      },
+      {
+        "word": "THOUGHTS",
+        "start": 1.182,
+        "end": 1.542,
+        "chars": [
+          {
+            "char": "T",
+            "start": 1.182,
+            "end": 1.222,
+            "score": -0.02363
+          },
+          {
+            "char": "H",
+            "start": 1.222,
+            "end": 1.242,
+            "score": -2e-5
+          },
+          {
+            "char": "O",
+            "start": 1.302,
+            "end": 1.342,
+            "score": -0.0393
+          },
+          {
+            "char": "U",
+            "start": 1.342,
+            "end": 1.362,
+            "score": -1e-5
+          },
+          {
+            "char": "G",
+            "start": 1.382,
+            "end": 1.402,
+            "score": -2e-5
+          },
+          {
+            "char": "H",
+            "start": 1.402,
+            "end": 1.442,
+            "score": -0.00705
+          },
+          {
+            "char": "T",
+            "start": 1.442,
+            "end": 1.482,
+            "score": -0.00589
+          },
+          {
+            "char": "S",
+            "start": 1.522,
+            "end": 1.542,
+            "score": -0.00039
+          }
+        ]
+      },
+      {
+        "word": "SHOUTS",
+        "start": 2.183,
+        "end": 2.543,
+        "chars": [
+          {
+            "char": "S",
+            "start": 2.183,
+            "end": 2.203,
+            "score": -1e-5
+          },
+          {
+            "char": "H",
+            "start": 2.203,
+            "end": 2.243,
+            "score": -0.00186
+          },
+          {
+            "char": "O",
+            "start": 2.343,
+            "end": 2.363,
+            "score": -1e-5
+          },
+          {
+            "char": "U",
+            "start": 2.363,
+            "end": 2.383,
+            "score": -1e-5
+          },
+          {
+            "char": "T",
+            "start": 2.443,
+            "end": 2.483,
+            "score": -0.04592
+          },
+          {
+            "char": "S",
+            "start": 2.523,
+            "end": 2.543,
+            "score": -0.00014
+          }
+        ]
+      },
+      {
+        "word": "EVERY",
+        "start": 3.605,
+        "end": 3.785,
+        "chars": [
+          {
+            "char": "E",
+            "start": 3.605,
+            "end": 3.625,
+            "score": -1e-5
+          },
+          {
+            "char": "V",
+            "start": 3.645,
+            "end": 3.665,
+            "score": -0.0
+          },
+          {
+            "char": "E",
+            "start": 3.665,
+            "end": 3.705,
+            "score": -0.00181
+          },
+          {
+            "char": "R",
+            "start": 3.705,
+            "end": 3.745,
+            "score": -0.00029
+          },
+          {
+            "char": "Y",
+            "start": 3.745,
+            "end": 3.785,
+            "score": -0.28659
+          }
+        ]
+      },
+      {
+        "word": "BALLOON",
+        "start": 3.845,
+        "end": 4.146,
+        "chars": [
+          {
+            "char": "B",
+            "start": 3.845,
+            "end": 3.865,
+            "score": -0.0
+          },
+          {
+            "char": "A",
+            "start": 3.885,
+            "end": 3.905,
+            "score": -3e-5
+          },
+          {
+            "char": "L",
+            "start": 3.905,
+            "end": 3.945,
+            "score": -0.02237
+          },
+          {
+            "char": "L",
+            "start": 3.985,
+            "end": 4.005,
+            "score": -1e-5
+          },
+          {
+            "char": "O",
+            "start": 4.005,
+            "end": 4.045,
+            "score": -0.00015
+          },
+          {
+            "char": "O",
+            "start": 4.086,
+            "end": 4.106,
+            "score": -3e-5
+          },
+          {
+            "char": "N",
+            "start": 4.106,
+            "end": 4.146,
+            "score": -0.00065
+          }
+        ]
+      },
+      {
+        "word": "STAYS",
+        "start": 4.246,
+        "end": 4.506,
+        "chars": [
+          {
+            "char": "S",
+            "start": 4.246,
+            "end": 4.286,
+            "score": -0.05114
+          },
+          {
+            "char": "T",
+            "start": 4.306,
+            "end": 4.326,
+            "score": -0.00022
+          },
+          {
+            "char": "A",
+            "start": 4.386,
+            "end": 4.406,
+            "score": -0.00017
+          },
+          {
+            "char": "Y",
+            "start": 4.426,
+            "end": 4.446,
+            "score": -0.00238
+          },
+          {
+            "char": "S",
+            "start": 4.466,
+            "end": 4.506,
+            "score": -0.0501
+          }
+        ]
+      },
+      {
+        "word": "PART",
+        "start": 4.606,
+        "end": 4.786,
+        "chars": [
+          {
+            "char": "P",
+            "start": 4.606,
+            "end": 4.626,
+            "score": -1e-5
+          },
+          {
+            "char": "A",
+            "start": 4.686,
+            "end": 4.706,
+            "score": -2e-5
+          },
+          {
+            "char": "R",
+            "start": 4.706,
+            "end": 4.726,
+            "score": -0.00011
+          },
+          {
+            "char": "T",
+            "start": 4.766,
+            "end": 4.786,
+            "score": -4e-5
+          }
+        ]
+      },
+      {
+        "word": "OF",
+        "start": 4.827,
+        "end": 4.867,
+        "chars": [
+          {
+            "char": "O",
+            "start": 4.827,
+            "end": 4.847,
+            "score": -0.00117
+          },
+          {
+            "char": "F",
+            "start": 4.847,
+            "end": 4.867,
+            "score": -0.00049
+          }
+        ]
+      },
+      {
+        "word": "THE",
+        "start": 4.927,
+        "end": 4.987,
+        "chars": [
+          {
+            "char": "T",
+            "start": 4.927,
+            "end": 4.947,
+            "score": -0.00121
+          },
+          {
+            "char": "H",
+            "start": 4.947,
+            "end": 4.967,
+            "score": -0.00082
+          },
+          {
+            "char": "E",
+            "start": 4.967,
+            "end": 4.987,
+            "score": -0.00109
+          }
+        ]
+      },
+      {
+        "word": "DESIGN",
+        "start": 5.047,
+        "end": 5.387,
+        "chars": [
+          {
+            "char": "D",
+            "start": 5.047,
+            "end": 5.067,
+            "score": -2e-5
+          },
+          {
+            "char": "E",
+            "start": 5.087,
+            "end": 5.107,
+            "score": -6e-5
+          },
+          {
+            "char": "S",
+            "start": 5.147,
+            "end": 5.167,
+            "score": -3e-5
+          },
+          {
+            "char": "I",
+            "start": 5.287,
+            "end": 5.307,
+            "score": -1e-5
+          },
+          {
+            "char": "G",
+            "start": 5.307,
+            "end": 5.347,
+            "score": -0.00113
+          },
+          {
+            "char": "N",
+            "start": 5.347,
+            "end": 5.387,
+            "score": -0.00038
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "beat": 5,
+    "greedy_transcript": "FARVE IS FREE AND LOCAL FIRST YOUR PAGES NEVER LEAVE YOUR MACHINE ",
+    "frame_resolution": 0.020041237113402062,
+    "word_alignment": [
+      {
+        "word": "VARVE",
+        "start": 0.581,
+        "end": 0.922,
+        "chars": [
+          {
+            "char": "V",
+            "start": 0.581,
+            "end": 0.601,
+            "score": -5.17638
+          },
+          {
+            "char": "A",
+            "start": 0.742,
+            "end": 0.762,
+            "score": -0.00011
+          },
+          {
+            "char": "R",
+            "start": 0.762,
+            "end": 0.802,
+            "score": -0.08669
+          },
+          {
+            "char": "V",
+            "start": 0.862,
+            "end": 0.882,
+            "score": -0.00531
+          },
+          {
+            "char": "E",
+            "start": 0.882,
+            "end": 0.922,
+            "score": -0.18906
+          }
+        ]
+      },
+      {
+        "word": "IS",
+        "start": 1.062,
+        "end": 1.122,
+        "chars": [
+          {
+            "char": "I",
+            "start": 1.062,
+            "end": 1.082,
+            "score": -4e-5
+          },
+          {
+            "char": "S",
+            "start": 1.082,
+            "end": 1.122,
+            "score": -0.00381
+          }
+        ]
+      },
+      {
+        "word": "FREE",
+        "start": 1.263,
+        "end": 1.503,
+        "chars": [
+          {
+            "char": "F",
+            "start": 1.263,
+            "end": 1.283,
+            "score": -1e-5
+          },
+          {
+            "char": "R",
+            "start": 1.323,
+            "end": 1.363,
+            "score": -0.03626
+          },
+          {
+            "char": "E",
+            "start": 1.383,
+            "end": 1.443,
+            "score": -0.04344
+          },
+          {
+            "char": "E",
+            "start": 1.483,
+            "end": 1.503,
+            "score": -2e-5
+          }
+        ]
+      },
+      {
+        "word": "AND",
+        "start": 1.904,
+        "end": 1.984,
+        "chars": [
+          {
+            "char": "A",
+            "start": 1.904,
+            "end": 1.924,
+            "score": -0.00019
+          },
+          {
+            "char": "N",
+            "start": 1.924,
+            "end": 1.944,
+            "score": -4e-5
+          },
+          {
+            "char": "D",
+            "start": 1.964,
+            "end": 1.984,
+            "score": -0.00083
+          }
+        ]
+      },
+      {
+        "word": "LOCAL",
+        "start": 2.064,
+        "end": 2.325,
+        "chars": [
+          {
+            "char": "L",
+            "start": 2.064,
+            "end": 2.084,
+            "score": -0.0
+          },
+          {
+            "char": "O",
+            "start": 2.144,
+            "end": 2.164,
+            "score": -1e-5
+          },
+          {
+            "char": "C",
+            "start": 2.205,
+            "end": 2.225,
+            "score": -3e-5
+          },
+          {
+            "char": "A",
+            "start": 2.265,
+            "end": 2.285,
+            "score": -9e-5
+          },
+          {
+            "char": "L",
+            "start": 2.285,
+            "end": 2.325,
+            "score": -0.08712
+          }
+        ]
+      },
+      {
+        "word": "FIRST",
+        "start": 2.405,
+        "end": 2.746,
+        "chars": [
+          {
+            "char": "F",
+            "start": 2.405,
+            "end": 2.425,
+            "score": -0.00097
+          },
+          {
+            "char": "I",
+            "start": 2.505,
+            "end": 2.525,
+            "score": -0.00519
+          },
+          {
+            "char": "R",
+            "start": 2.545,
+            "end": 2.585,
+            "score": -0.00174
+          },
+          {
+            "char": "S",
+            "start": 2.645,
+            "end": 2.665,
+            "score": -7e-5
+          },
+          {
+            "char": "T",
+            "start": 2.726,
+            "end": 2.746,
+            "score": -0.00077
+          }
+        ]
+      },
+      {
+        "word": "YOUR",
+        "start": 3.447,
+        "end": 3.587,
+        "chars": [
+          {
+            "char": "Y",
+            "start": 3.447,
+            "end": 3.467,
+            "score": -2e-5
+          },
+          {
+            "char": "O",
+            "start": 3.487,
+            "end": 3.507,
+            "score": -4e-5
+          },
+          {
+            "char": "U",
+            "start": 3.507,
+            "end": 3.547,
+            "score": -0.01967
+          },
+          {
+            "char": "R",
+            "start": 3.547,
+            "end": 3.587,
+            "score": -0.00953
+          }
+        ]
+      },
+      {
+        "word": "PAGES",
+        "start": 3.648,
+        "end": 3.988,
+        "chars": [
+          {
+            "char": "P",
+            "start": 3.648,
+            "end": 3.668,
+            "score": -1e-5
+          },
+          {
+            "char": "A",
+            "start": 3.748,
+            "end": 3.788,
+            "score": -0.04635
+          },
+          {
+            "char": "G",
+            "start": 3.828,
+            "end": 3.848,
+            "score": -0.0
+          },
+          {
+            "char": "E",
+            "start": 3.888,
+            "end": 3.908,
+            "score": -2e-5
+          },
+          {
+            "char": "S",
+            "start": 3.968,
+            "end": 3.988,
+            "score": -3e-5
+          }
+        ]
+      },
+      {
+        "word": "NEVER",
+        "start": 4.128,
+        "end": 4.349,
+        "chars": [
+          {
+            "char": "N",
+            "start": 4.128,
+            "end": 4.169,
+            "score": -0.14713
+          },
+          {
+            "char": "E",
+            "start": 4.189,
+            "end": 4.209,
+            "score": -1e-5
+          },
+          {
+            "char": "V",
+            "start": 4.249,
+            "end": 4.269,
+            "score": -0.0
+          },
+          {
+            "char": "E",
+            "start": 4.289,
+            "end": 4.309,
+            "score": -0.0
+          },
+          {
+            "char": "R",
+            "start": 4.309,
+            "end": 4.349,
+            "score": -0.00404
+          }
+        ]
+      },
+      {
+        "word": "LEAVE",
+        "start": 4.429,
+        "end": 4.609,
+        "chars": [
+          {
+            "char": "L",
+            "start": 4.429,
+            "end": 4.449,
+            "score": -1e-5
+          },
+          {
+            "char": "E",
+            "start": 4.489,
+            "end": 4.509,
+            "score": -2e-5
+          },
+          {
+            "char": "A",
+            "start": 4.509,
+            "end": 4.549,
+            "score": -0.00176
+          },
+          {
+            "char": "V",
+            "start": 4.549,
+            "end": 4.569,
+            "score": -3e-5
+          },
+          {
+            "char": "E",
+            "start": 4.569,
+            "end": 4.609,
+            "score": -0.04427
+          }
+        ]
+      },
+      {
+        "word": "YOUR",
+        "start": 4.63,
+        "end": 4.75,
+        "chars": [
+          {
+            "char": "Y",
+            "start": 4.63,
+            "end": 4.65,
+            "score": -5e-5
+          },
+          {
+            "char": "O",
+            "start": 4.67,
+            "end": 4.69,
+            "score": -4e-5
+          },
+          {
+            "char": "U",
+            "start": 4.69,
+            "end": 4.71,
+            "score": -0.0002
+          },
+          {
+            "char": "R",
+            "start": 4.73,
+            "end": 4.75,
+            "score": -0.00083
+          }
+        ]
+      },
+      {
+        "word": "MACHINE",
+        "start": 4.81,
+        "end": 5.191,
+        "chars": [
+          {
+            "char": "M",
+            "start": 4.81,
+            "end": 4.83,
+            "score": -1e-5
+          },
+          {
+            "char": "A",
+            "start": 4.85,
+            "end": 4.87,
+            "score": -1e-5
+          },
+          {
+            "char": "C",
+            "start": 4.91,
+            "end": 4.93,
+            "score": -1e-5
+          },
+          {
+            "char": "H",
+            "start": 4.93,
+            "end": 4.97,
+            "score": -0.00166
+          },
+          {
+            "char": "I",
+            "start": 5.03,
+            "end": 5.05,
+            "score": -1e-5
+          },
+          {
+            "char": "N",
+            "start": 5.07,
+            "end": 5.09,
+            "score": -3e-5
+          },
+          {
+            "char": "E",
+            "start": 5.09,
+            "end": 5.191,
+            "score": -8.11282
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "beat": 6,
+    "greedy_transcript": "WHAT WOULD YOUR COMIC SAY FOLLOW FOR THE NEXT DROP ",
+    "frame_resolution": 0.020090497737556563,
+    "word_alignment": [
+      {
+        "word": "WHAT",
+        "start": 0.482,
+        "end": 0.583,
+        "chars": [
+          {
+            "char": "W",
+            "start": 0.482,
+            "end": 0.502,
+            "score": -0.0
+          },
+          {
+            "char": "H",
+            "start": 0.502,
+            "end": 0.522,
+            "score": -6e-5
+          },
+          {
+            "char": "A",
+            "start": 0.542,
+            "end": 0.563,
+            "score": -5e-5
+          },
+          {
+            "char": "T",
+            "start": 0.563,
+            "end": 0.583,
+            "score": -5e-5
+          }
+        ]
+      },
+      {
+        "word": "WOULD",
+        "start": 0.623,
+        "end": 0.763,
+        "chars": [
+          {
+            "char": "W",
+            "start": 0.623,
+            "end": 0.643,
+            "score": -0.00053
+          },
+          {
+            "char": "O",
+            "start": 0.643,
+            "end": 0.683,
+            "score": -0.0015
+          },
+          {
+            "char": "U",
+            "start": 0.683,
+            "end": 0.703,
+            "score": -5e-5
+          },
+          {
+            "char": "L",
+            "start": 0.703,
+            "end": 0.723,
+            "score": -2e-5
+          },
+          {
+            "char": "D",
+            "start": 0.723,
+            "end": 0.763,
+            "score": -0.15325
+          }
+        ]
+      },
+      {
+        "word": "YOUR",
+        "start": 0.784,
+        "end": 0.904,
+        "chars": [
+          {
+            "char": "Y",
+            "start": 0.784,
+            "end": 0.804,
+            "score": -0.00031
+          },
+          {
+            "char": "O",
+            "start": 0.804,
+            "end": 0.824,
+            "score": -0.00238
+          },
+          {
+            "char": "U",
+            "start": 0.824,
+            "end": 0.864,
+            "score": -0.19904
+          },
+          {
+            "char": "R",
+            "start": 0.864,
+            "end": 0.904,
+            "score": -0.23347
+          }
+        ]
+      },
+      {
+        "word": "COMIC",
+        "start": 0.924,
+        "end": 1.205,
+        "chars": [
+          {
+            "char": "C",
+            "start": 0.924,
+            "end": 0.944,
+            "score": -0.00316
+          },
+          {
+            "char": "O",
+            "start": 1.025,
+            "end": 1.045,
+            "score": -0.00024
+          },
+          {
+            "char": "M",
+            "start": 1.085,
+            "end": 1.125,
+            "score": -0.33857
+          },
+          {
+            "char": "I",
+            "start": 1.165,
+            "end": 1.185,
+            "score": -0.03174
+          },
+          {
+            "char": "C",
+            "start": 1.185,
+            "end": 1.205,
+            "score": -0.00188
+          }
+        ]
+      },
+      {
+        "word": "SAY",
+        "start": 1.326,
+        "end": 1.507,
+        "chars": [
+          {
+            "char": "S",
+            "start": 1.326,
+            "end": 1.346,
+            "score": -0.00047
+          },
+          {
+            "char": "A",
+            "start": 1.426,
+            "end": 1.467,
+            "score": -0.16318
+          },
+          {
+            "char": "Y",
+            "start": 1.467,
+            "end": 1.507,
+            "score": -0.01735
+          }
+        ]
+      },
+      {
+        "word": "FOLLOW",
+        "start": 2.813,
+        "end": 3.074,
+        "chars": [
+          {
+            "char": "F",
+            "start": 2.813,
+            "end": 2.833,
+            "score": -0.0
+          },
+          {
+            "char": "O",
+            "start": 2.893,
+            "end": 2.913,
+            "score": -2e-5
+          },
+          {
+            "char": "L",
+            "start": 2.913,
+            "end": 2.933,
+            "score": -3e-5
+          },
+          {
+            "char": "L",
+            "start": 2.973,
+            "end": 3.014,
+            "score": -0.03974
+          },
+          {
+            "char": "O",
+            "start": 3.034,
+            "end": 3.054,
+            "score": -7e-5
+          },
+          {
+            "char": "W",
+            "start": 3.054,
+            "end": 3.074,
+            "score": -0.00012
+          }
+        ]
+      },
+      {
+        "word": "FOR",
+        "start": 3.154,
+        "end": 3.235,
+        "chars": [
+          {
+            "char": "F",
+            "start": 3.154,
+            "end": 3.174,
+            "score": -0.00021
+          },
+          {
+            "char": "O",
+            "start": 3.194,
+            "end": 3.214,
+            "score": -0.0006
+          },
+          {
+            "char": "R",
+            "start": 3.214,
+            "end": 3.235,
+            "score": -0.0004
+          }
+        ]
+      },
+      {
+        "word": "THE",
+        "start": 3.295,
+        "end": 3.355,
+        "chars": [
+          {
+            "char": "T",
+            "start": 3.295,
+            "end": 3.315,
+            "score": -0.007
+          },
+          {
+            "char": "H",
+            "start": 3.315,
+            "end": 3.335,
+            "score": -0.00687
+          },
+          {
+            "char": "E",
+            "start": 3.335,
+            "end": 3.355,
+            "score": -0.00403
+          }
+        ]
+      },
+      {
+        "word": "NEXT",
+        "start": 3.395,
+        "end": 3.596,
+        "chars": [
+          {
+            "char": "N",
+            "start": 3.395,
+            "end": 3.415,
+            "score": -0.00221
+          },
+          {
+            "char": "E",
+            "start": 3.435,
+            "end": 3.476,
+            "score": -0.1019
+          },
+          {
+            "char": "X",
+            "start": 3.476,
+            "end": 3.496,
+            "score": -0.00013
+          },
+          {
+            "char": "T",
+            "start": 3.536,
+            "end": 3.596,
+            "score": -0.35721
+          }
+        ]
+      },
+      {
+        "word": "DROP",
+        "start": 3.656,
+        "end": 3.938,
+        "chars": [
+          {
+            "char": "D",
+            "start": 3.656,
+            "end": 3.677,
+            "score": -0.00013
+          },
+          {
+            "char": "R",
+            "start": 3.697,
+            "end": 3.737,
+            "score": -0.00033
+          },
+          {
+            "char": "O",
+            "start": 3.837,
+            "end": 3.857,
+            "score": -0.00011
+          },
+          {
+            "char": "P",
+            "start": 3.918,
+            "end": 3.938,
+            "score": -4e-5
+          }
+        ]
+      }
+    ]
+  }
+]
