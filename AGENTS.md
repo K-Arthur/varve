@@ -13,6 +13,36 @@ primary dev OS.
 - WebKitGTK 2.52.4 / GTK 3.24.52 / librsvg / openssl / fontconfig / fuse2 confirmed via pkg-config.
 - Optional: `cmake`, `xdotool` (not needed for core build).
 
+## Cursor Cloud specific instructions
+
+Cloud Agents boot with this toolchain already on disk. It matches CI, not a
+laptop install under `~/.cargo` or `~/.local`:
+
+- Node 26.10.0, npm, and pnpm 11.9.0 are on `/usr/local/bin`. Login shells
+  prepend that directory, so `node` is 26 even when an older runtime binary
+  exists earlier in the default PATH.
+- Rust 1.97.1 (`rustc` / `cargo` / `rustfmt` / `clippy`) with the
+  `wasm32-unknown-unknown` target. `wasm-pack` 0.13.1 and `wasm-opt` are on
+  PATH. `just` is 1.58.0.
+- WebKitGTK 4.1, GTK 3, librsvg, libsoup 3, and the other Tauri Linux packages
+  from the desktop CI job are installed. `pkg-config --exists webkit2gtk-4.1`
+  should succeed.
+
+Dependency install is `pnpm install --frozen-lockfile` from the repo root.
+`postinstall` stages onnxruntime-web into `apps/desktop/public/ort-wasm` and
+the native ONNX Runtime library under `apps/desktop/src-tauri/onnxruntime-libs`.
+Playwright Chromium is installed for E2E (`pnpm exec playwright install chromium`).
+
+On every boot the editor and the marketing site are already running. Do not
+start a second copy; Vite binds port 1420 with `strictPort`:
+
+- Editor: http://127.0.0.1:1420/ (tmux session `varve-editor`)
+- Website: http://127.0.0.1:4321/ (tmux session `varve-website`)
+
+`just check-env` prints process IDs with just 1.58 because the recipe's `$$`
+is passed through to the shell. Confirm the toolchain with `node -v`,
+`pnpm -v`, `rustc --version`, and `pkg-config --exists webkit2gtk-4.1`.
+
 ## Validation economy — mandatory
 
 **Validate according to impact, not repository size.** The full suite is an
