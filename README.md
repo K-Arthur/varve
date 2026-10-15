@@ -77,8 +77,11 @@
 - **Export** — SVG, PDF, React, Svelte, Vue, Flutter, SwiftUI, email HTML,
   Web Components, Tailwind, and Lottie/CSS/SVG animation, computed locally.
 - **Images and local intelligence** — adjustments, effects, background removal,
-  palette extraction, object selection, depth blur, and optional on-device
-  enhancement. Optional models download only when requested.
+  palette extraction, object selection, depth blur, on-device enhancement, and
+  Generative Edit (mask-guided Fill, Remove, and Expand on one selected image;
+  Replace and prompt-conditioned modes stay gated until a qualified local model
+  exists). AI features are on in Settings by default and can be turned off.
+  Larger models download only when requested.
 
 **Not yet implemented:** real-time collaboration exists only as UI scaffolding.
 The native desktop application is the full product; an experimental browser build
@@ -368,12 +371,14 @@ mandatory cloud sync.
 <details>
 <summary><strong>Does Varve include AI features?</strong></summary>
 <br>
-Yes, as optional local workflows. Depending on the build, these include
-background removal, image enhancement, object selection, depth-aware effects,
-palette extraction, and local asset search. Some small baseline models ship
-with the app; larger models are downloaded on demand, verified against a
-checksum when available, and run locally. There is no Varve-hosted inference
-service.
+Yes. Settings keep AI features on by default; turn them off if you do not
+want them. Depending on the build, they include background removal, image
+enhancement, object selection, depth-aware effects, palette extraction, local
+asset search, and Generative Edit (Fill, Remove, Expand). Replace and
+prompt-conditioned generation stay unavailable until a reviewed local model
+is qualified. Some small baseline models ship with the app; larger models
+are downloaded on demand, verified against a checksum when available, and
+run locally. There is no Varve-hosted inference service.
 </details>
 
 <details>
