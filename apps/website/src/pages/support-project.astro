@@ -2,8 +2,19 @@
 import Button from '../components/Button.astro';
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
+import { SHOW_SUPPORT_PROJECT } from '../config/features.js';
 ---
 
+{!SHOW_SUPPORT_PROJECT ? (
+  <Layout title="Support the Project" description="This page isn't available yet." noindex>
+    <div class="container-custom">
+      <main class="support-project-page">
+        <h1 class="site-page-title">Support the Project</h1>
+        <p>This page isn't available yet.</p>
+      </main>
+    </div>
+  </Layout>
+) : (
 <Layout title="Support the Project" description="Varve is built by one developer. GitHub Sponsors funds platform work, stability, and new features; non-financial contributions are equally valuable.">
   <div class="container-custom">
     <div class="support-project-page">
@@ -131,6 +142,7 @@ import { sitePath } from '../lib/siteUrl';
     </div>
   </div>
 </Layout>
+)}
 
 <style>
   .support-project-page {

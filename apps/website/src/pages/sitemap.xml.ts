@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { SHOW_SUPPORT_PROJECT } from '../config/features.js';
 import { siteUrl } from '../lib/siteUrl';
 
 /**
@@ -22,6 +23,7 @@ function toRoute(filePath: string): string | null {
   // 404 is not a destination; dynamic routes cannot be enumerated without
   // knowing their params, and we have none today.
   if (relative === '404') return null;
+  if (relative === 'support-project' && !SHOW_SUPPORT_PROJECT) return null;
   // Legacy security URL is a redirect alias for the canonical /security page.
   if (relative === 'about/security') return null;
   // /releases is a noindex redirect alias for /changelog; a sitemap must not

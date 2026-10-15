@@ -13,6 +13,7 @@
 import DownloadCTA from './DownloadCTA.astro';
 import { CONTACTS } from '@varve/shared';
 import { sitePath } from '../lib/siteUrl';
+import { SHOW_SUPPORT_PROJECT } from '../config/features.js';
 import release from '../data/release-manifest.json';
 
 const statusLabel = release.hasRelease && release.version
@@ -102,7 +103,7 @@ const statusLabel = release.hasRelease && release.version
         <h3>Project</h3>
         <ul>
           <li><a href={sitePath('/contribute')}>Contribute</a></li>
-          <li><a href={sitePath('/support-project')}>Support the project</a></li>
+          {SHOW_SUPPORT_PROJECT && <li><a href={sitePath('/support-project')}>Support the project</a></li>}
           <li><a href={sitePath('/about')}>About</a></li>
           <li><a href={sitePath('/about/how-its-built')}>How Varve is built</a></li>
           <li><a href={sitePath('/press')}>Press &amp; brand assets</a></li>

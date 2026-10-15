@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { SHOW_SUPPORT_PROJECT } from '../../src/config/features.js';
 import { contrastRatio, effectiveBackground, parseColor } from './helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -233,7 +234,7 @@ test('footer keeps browser demo, support, and contribution paths discoverable', 
     'Report an issue',
     'Contact Varve',
     'Contribute',
-    'Support the project',
+    ...(SHOW_SUPPORT_PROJECT ? (['Support the project'] as const) : []),
   ]) {
     await expect(footer.getByRole('link', { name, exact: true }).first()).toBeAttached();
   }

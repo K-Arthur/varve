@@ -15,13 +15,18 @@
  * not reachable by Tab.
  */
 import { expect, test } from '@playwright/test';
+import { SHOW_SUPPORT_PROJECT } from '../../src/config/features.js';
+
+/** Visible + JSON-LD support FAQ count. The financial item is optional. */
+const SUPPORT_FAQ_QUESTION_COUNT = 15 + (SHOW_SUPPORT_PROJECT ? 1 : 0);
+const FINANCIAL_FAQ_QUESTION = 'How can I support the project financially?';
 
 test.describe('FAQ disclosure surfaces', () => {
   test('support FAQ questions are headings and toggle with Enter and Space', async ({ page }) => {
     await page.goto('/support/faq');
 
     await expect(page.locator('h1')).toContainText(/frequently asked questions/i);
-    await expect(page.locator('.faq-item__question-text')).toHaveCount(16);
+    await expect(page.locator('.faq-item__question-text')).toHaveCount(SUPPORT_FAQ_QUESTION_COUNT);
 
     const details = page.locator('details.faq-item').first();
     const summary = details.locator('summary');
@@ -108,11 +113,19 @@ test.describe('FAQ disclosure surfaces', () => {
         ? main.map((entry) => (entry as { name?: string }).name ?? '')
         : [];
     });
-    expect(schemaQuestions.length).toBeGreaterThanOrEqual(16);
+    expect(schemaQuestions).toHaveLength(SUPPORT_FAQ_QUESTION_COUNT);
 
     const visible = await page
       .locator('.faq-item__question-text')
       .evaluateAll((nodes) => nodes.map((n) => n.textContent?.trim() ?? ''));
+    expect(visible).toHaveLength(SUPPORT_FAQ_QUESTION_COUNT);
+    if (SHOW_SUPPORT_PROJECT) {
+      expect(schemaQuestions).toContain(FINANCIAL_FAQ_QUESTION);
+      expect(visible).toContain(FINANCIAL_FAQ_QUESTION);
+    } else {
+      expect(schemaQuestions).not.toContain(FINANCIAL_FAQ_QUESTION);
+      expect(visible).not.toContain(FINANCIAL_FAQ_QUESTION);
+    }
     for (const question of visible) {
       expect(schemaQuestions).toContain(question);
     }

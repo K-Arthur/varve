@@ -75,6 +75,23 @@ describe('FAQ disclosure contract', () => {
     expectQuestionParity(visibleQuestions(source), schemaQuestions(source), 'faq.astro');
   });
 
+  it('gates the financial-support FAQ with SHOW_SUPPORT_PROJECT, not the offline FAQ', () => {
+    const source = read('pages/support/faq.astro');
+    expect(source).toMatch(
+      /\{SHOW_SUPPORT_PROJECT && <details class="faq-item">[\s\S]*How can I support the project financially\?/,
+    );
+    expect(source).toMatch(
+      /\.\.\.\(SHOW_SUPPORT_PROJECT \? \[\{[\s\S]*How can I support the project financially\?/,
+    );
+    const offlineHeading = source.indexOf('Does Varve work offline?');
+    const firstGatedDetails = source.indexOf('{SHOW_SUPPORT_PROJECT && <details class="faq-item">');
+    expect(offlineHeading, 'offline heading present').toBeGreaterThan(-1);
+    expect(firstGatedDetails, 'gated financial details present').toBeGreaterThan(-1);
+    expect(offlineHeading, 'offline FAQ stays visible when the flag is false').toBeLessThan(
+      firstGatedDetails,
+    );
+  });
+
   it('keeps the compare page questions in sync by construction', () => {
     const source = read('pages/compare.astro');
     const questions = arrayQuestions(source);

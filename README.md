@@ -14,7 +14,9 @@
   <a href="https://varve.studio/download"><img src="https://img.shields.io/github/v/release/K-Arthur/varve?label=release&amp;filter=v*" alt="Latest application release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-3b82f6" alt="License: FSL-1.1-MIT"></a>
   <a href="#project-status"><img src="https://img.shields.io/badge/status-public%20beta-C54B3A" alt="Status: public beta"></a>
+  <!-- Restored when SHOW_SUPPORT_PROJECT is true in apps/website/src/config/features.js:
   <a href="https://github.com/sponsors/K-Arthur"><img src="https://img.shields.io/github/sponsors/K-Arthur?label=sponsors" alt="GitHub Sponsors"></a>
+  -->
 </p>
 
 > **Public beta.** This repository contains the `0.5.0` update. The
@@ -35,8 +37,10 @@
   <a href="https://varve.studio/docs?ref=gh-readme-docs"><strong>Docs</strong></a> ·
   <a href="https://varve.studio/about/how-its-built?ref=gh-readme-about"><strong>How it's built</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/releases"><strong>Releases</strong></a> ·
-  <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a> ·
-  <a href="https://github.com/sponsors/K-Arthur"><strong>Sponsor</strong></a>
+  <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a>
+  <!-- Restored when SHOW_SUPPORT_PROJECT is true in apps/website/src/config/features.js:
+  · <a href="https://github.com/sponsors/K-Arthur"><strong>Sponsor</strong></a>
+  -->
 </p>
 
 **Design, illustrate, and publish — locally, without subscriptions.** Vector graphics, typography, layout, motion, and print production in one application. Free under FSL-1.1-MIT (converts to MIT after 2 years), runs on Linux, macOS, and Windows, with an experimental browser build.

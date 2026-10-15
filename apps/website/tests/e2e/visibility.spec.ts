@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { SHOW_SUPPORT_PROJECT } from '../../src/config/features.js';
 import { contrastRatio, parseColor } from './helpers';
 
 /**
@@ -38,7 +39,7 @@ const ROUTES = [
   '/releases',
   '/learn',
   '/learn/tutorials',
-  '/support-project',
+  ...(SHOW_SUPPORT_PROJECT ? ['/support-project'] : []),
   '/404',
 ];
 
