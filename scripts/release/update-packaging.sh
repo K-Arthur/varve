@@ -30,7 +30,8 @@ AUR_DIR="$REPO_ROOT/packaging/aur/varve-desktop-bin"
 FLATPAK_DIR="$REPO_ROOT/packaging/flatpak"
 GITHUB_URL="https://github.com/K-Arthur/varve"
 SHA256_URL="$GITHUB_URL/releases/download/v$VERSION/SHA256SUMS.txt"
-AUR_SOURCE_NAME="Varve-${VERSION}-linux-x86_64.AppImage"
+AUR_SOURCE_X86="Varve-${VERSION}-linux-x86_64.AppImage"
+AUR_SOURCE_ARM="Varve-${VERSION}-linux-aarch64.AppImage"
 
 # Parse options
 SKIP_SOURCES=false
@@ -52,32 +53,61 @@ info "Fetching SHA256SUMS.txt for v$VERSION..."
 SHA256SUMS=$(curl -sfL "$SHA256_URL" 2>/dev/null) || \
   die "Could not fetch $SHA256_URL — release may not be published yet."
 
-AUR_SOURCE_SHA256=$(echo "$SHA256SUMS" | grep "$AUR_SOURCE_NAME" | awk '{print $1}') || \
-  die "Could not find $AUR_SOURCE_NAME in SHA256SUMS.txt"
+hash_for() {
+  local name="$1"
+  local hash
+  hash=$(echo "$SHA256SUMS" | grep -F "$name" | awk '{print $1}') || true
+  if [[ -z "$hash" ]]; then
+    die "Could not find $name in SHA256SUMS.txt"
+  fi
+  echo "$hash"
+}
 
-if [[ -z "$AUR_SOURCE_SHA256" ]]; then
-  die "Empty sha256 for $AUR_SOURCE_NAME"
-fi
-
-info "SHA256 for $AUR_SOURCE_NAME: $AUR_SOURCE_SHA256"
+AUR_SHA_X86=$(hash_for "$AUR_SOURCE_X86")
+AUR_SHA_ARM=$(hash_for "$AUR_SOURCE_ARM")
+info "SHA256 for $AUR_SOURCE_X86: $AUR_SHA_X86"
+info "SHA256 for $AUR_SOURCE_ARM: $AUR_SHA_ARM"
 
 # ── 2. Update AUR PKGBUILD sha256sums ───────────────────────────────────────
-info "Updating PKGBUILD sha256sums..."
+info "Updating PKGBUILD sha256sums_x86_64 and sha256sums_aarch64..."
 PKGBUILD="$AUR_DIR/PKGBUILD"
 if [[ ! -f "$PKGBUILD" ]]; then
   die "PKGBUILD not found at $PKGBUILD"
 fi
 
-# Replace the sha256sums line — the pattern matches the single-quoted hash.
-sed -i "s/^sha256sums=('[^']*')/sha256sums=('$AUR_SOURCE_SHA256')/" "$PKGBUILD"
+sed -i "s/^sha256sums_x86_64=('[^']*')/sha256sums_x86_64=('$AUR_SHA_X86')/" "$PKGBUILD"
+sed -i "s/^sha256sums_aarch64=('[^']*')/sha256sums_aarch64=('$AUR_SHA_ARM')/" "$PKGBUILD"
 
-# Verify the replacement
-NEW_HASH=$(grep "^sha256sums=" "$PKGBUILD" | sed "s/sha256sums=('//;s/')//" )
-if [[ "$NEW_HASH" != "$AUR_SOURCE_SHA256" ]]; then
-  die "sha256sums replacement failed — got '$NEW_HASH' instead of '$AUR_SOURCE_SHA256'"
+NEW_X86=$(grep "^sha256sums_x86_64=" "$PKGBUILD" | sed "s/sha256sums_x86_64=('//;s/')//")
+NEW_ARM=$(grep "^sha256sums_aarch64=" "$PKGBUILD" | sed "s/sha256sums_aarch64=('//;s/')//")
+if [[ "$NEW_X86" != "$AUR_SHA_X86" ]]; then
+  die "sha256sums_x86_64 replacement failed — got '$NEW_X86' instead of '$AUR_SHA_X86'"
+fi
+if [[ "$NEW_ARM" != "$AUR_SHA_ARM" ]]; then
+  die "sha256sums_aarch64 replacement failed — got '$NEW_ARM' instead of '$AUR_SHA_ARM'"
 fi
 
-info "PKGBUILD sha256sums updated: $NEW_HASH"
+info "PKGBUILD sha256sums_x86_64 updated: $NEW_X86"
+info "PKGBUILD sha256sums_aarch64 updated: $NEW_ARM"
+
+# Fetch both AppImages and confirm they match SHA256SUMS.txt.
+info "Fetching both AppImages to verify checksums..."
+VERIFY_DIR=$(mktemp -d)
+cleanup_verify_dir() { rm -rf "$VERIFY_DIR"; }
+trap cleanup_verify_dir EXIT
+for spec in "$AUR_SOURCE_X86:$AUR_SHA_X86" "$AUR_SOURCE_ARM:$AUR_SHA_ARM"; do
+  name="${spec%%:*}"
+  expected="${spec#*:}"
+  url="$GITHUB_URL/releases/download/v$VERSION/$name"
+  dest="$VERIFY_DIR/$name"
+  info "Fetching $name..."
+  curl -sfL "$url" -o "$dest" || die "Could not fetch $url"
+  actual=$(sha256sum "$dest" | awk '{print $1}')
+  if [[ "$actual" != "$expected" ]]; then
+    die "Checksum mismatch for $name — got '$actual' expected '$expected'"
+  fi
+done
+info "Both AppImages match SHA256SUMS.txt"
 
 # ── 3. Regenerate .SRCINFO ──────────────────────────────────────────────────
 info "Regenerating .SRCINFO..."
@@ -160,7 +190,8 @@ fi
 echo ""
 info "=== Packaging update complete for v$VERSION ==="
 echo ""
-echo "  AUR PKGBUILD:  sha256sums=$NEW_HASH"
+echo "  AUR PKGBUILD:  sha256sums_x86_64=$NEW_X86"
+echo "  AUR PKGBUILD:  sha256sums_aarch64=$NEW_ARM"
 echo "  AUR .SRCINFO:  regenerated"
 echo "  Flatpak tag:   ${COMMIT:+$TAG ($COMMIT)}"
 echo ""

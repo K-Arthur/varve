@@ -114,6 +114,9 @@ export const cloudRemovalProvider: RemovalProvider = {
     options: BackgroundRemovalOptions,
     signal?: AbortSignal,
   ): Promise<BackgroundRemovalResult> {
+    if (!getAiFeaturesEnabled()) {
+      throw new Error('AI features are disabled');
+    }
     const config = loadCloudConfig();
     if (!config) {
       throw new Error('Cloud provider is not configured');

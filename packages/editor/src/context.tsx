@@ -649,8 +649,12 @@ export type { CanvasMode, EditorState, SessionMeta, ToolId };
 function guardInference<A extends unknown[]>(
   action: (...args: A) => Promise<void>,
 ): (...args: A) => Promise<void> {
-  return (...args: A) =>
-    sessionGlobals.isCapabilityRestricted('inference') ? Promise.resolve() : action(...args);
+  return async (...args: A) => {
+    if (sessionGlobals.isCapabilityRestricted('inference')) return;
+    const { checkAiFeaturesEnabled } = await import('./features/useAiFeaturesEnabled');
+    if (!checkAiFeaturesEnabled(toastHandler, 'Background removal')) return;
+    return action(...args);
+  };
 }
 
 function viewportCenterWorld(cam: {
@@ -5161,15 +5165,21 @@ export function EditorProvider({
       },
 
       applyPanelLayout: (presetId) => {
-        updateDoc((doc) => divideFrameIntoPanels(doc, state.selection, presetId).doc);
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => divideFrameIntoPanels(doc, state.selection, presetId).doc);
+        });
       },
 
       joinPanels: () => {
-        updateDoc((doc) => joinPanels(doc, state.selection).doc);
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => joinPanels(doc, state.selection).doc);
+        });
       },
 
       renumberPanels: (direction) => {
-        updateDoc((doc) => renumberPanelsInFrame(doc, state.selection, direction).doc);
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => renumberPanelsInFrame(doc, state.selection, direction).doc);
+        });
       },
 
       findContainingFrame: (world, providedFrameIndex) => {
@@ -7439,25 +7449,31 @@ export function EditorProvider({
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => addMaskForSelection(doc, id, sel, type, sourceNodeId));
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => addMaskForSelection(doc, id, sel, type, sourceNodeId));
+        });
       },
 
       removeMaskFromSelected: () => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => removeMaskDoc(doc, id));
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => removeMaskDoc(doc, id));
+        });
       },
 
       toggleMask: () => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => {
-          const container = doc.nodes[id];
-          const n = container as { mask?: { visible?: boolean } };
-          if (!n.mask) return doc;
-          return setMaskVisibleDoc(doc, id, !n.mask.visible);
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => {
+            const container = doc.nodes[id];
+            const n = container as { mask?: { visible?: boolean } };
+            if (!n.mask) return doc;
+            return setMaskVisibleDoc(doc, id, !n.mask.visible);
+          });
         });
       },
 
@@ -7465,11 +7481,13 @@ export function EditorProvider({
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => {
-          const container = doc.nodes[id];
-          const n = container as { mask?: { inverted?: boolean } };
-          if (!n.mask) return doc;
-          return setMaskInvertedDoc(doc, id, !n.mask.inverted);
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => {
+            const container = doc.nodes[id];
+            const n = container as { mask?: { inverted?: boolean } };
+            if (!n.mask) return doc;
+            return setMaskInvertedDoc(doc, id, !n.mask.inverted);
+          });
         });
       },
 
@@ -7491,42 +7509,54 @@ export function EditorProvider({
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => setMaskHideSourceDoc(doc, id, hidden));
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => setMaskHideSourceDoc(doc, id, hidden));
+        });
       },
 
       setMaskLinked: (linked: boolean) => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => setMaskLinkedDoc(doc, id, linked));
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => setMaskLinkedDoc(doc, id, linked));
+        });
       },
 
       setMaskType: (type: MaskType) => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => setMaskTypeDoc(doc, id, type));
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => setMaskTypeDoc(doc, id, type));
+        });
       },
 
       setMaskSourceNode: (sourceNodeId: string) => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => setMaskSourceNodeDoc(doc, id, sourceNodeId as NodeId));
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => setMaskSourceNodeDoc(doc, id, sourceNodeId as NodeId));
+        });
       },
 
       setMaskFillRule: (fillRule: import('@varve/scene').MaskFillRule) => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => setMaskFillRuleDoc(doc, id, fillRule));
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => setMaskFillRuleDoc(doc, id, fillRule));
+        });
       },
 
       setMaskVectorPath: (points: import('@varve/engine').PathPoint[], closed: boolean) => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
-        updateDoc((doc) => setMaskVectorPathDoc(doc, id, points, closed));
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => setMaskVectorPathDoc(doc, id, points, closed));
+        });
       },
 
       // ── Clipping masks ──
@@ -9266,7 +9296,9 @@ export function EditorProvider({
         updateDoc((doc) => setDocumentWorkingSpaceDoc(doc, workingSpace));
       },
       setDocumentBlendEvaluationSpace: (space) => {
-        updateDoc((doc) => setDocumentBlendEvaluationSpaceDoc(doc, space));
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => setDocumentBlendEvaluationSpaceDoc(doc, space));
+        });
       },
       setDocumentGradientInterpolation: (space) => {
         updateDoc((doc) => setDocumentGradientInterpolationDoc(doc, space));

@@ -9,12 +9,24 @@ import {
   DEFAULT_EMAIL_SEMANTIC_MAP,
   makeTextNode,
 } from '@varve/scene';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { EditorProvider } from '../../../context';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { EditorProvider, setToastHandler } from '../../../context';
 import { resetPanelLocalStateForTest } from '../../../workspace/panelLocalState';
 import { EmailOutputPanel } from './EmailOutputPanel';
 import { EmailPanel } from './EmailPanel';
 import { EmailPreviewPanel } from './EmailPreviewPanel';
+
+const { mockSaveExportBytes } = vi.hoisted(() => ({
+  mockSaveExportBytes: vi.fn(),
+}));
+
+vi.mock('../../../exportSaveAdapter', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../exportSaveAdapter')>();
+  return {
+    ...actual,
+    saveExportBytes: mockSaveExportBytes,
+  };
+});
 
 function emailDocument(includeOrphanSource = false) {
   const initial = createDocument('Email test');
@@ -35,7 +47,16 @@ function emailDocument(includeOrphanSource = false) {
 }
 
 describe('EmailPanel', () => {
-  beforeEach(() => resetPanelLocalStateForTest());
+  beforeEach(() => {
+    resetPanelLocalStateForTest();
+    mockSaveExportBytes.mockReset();
+    mockSaveExportBytes.mockResolvedValue('email.html');
+    setToastHandler(null);
+  });
+
+  afterEach(() => {
+    setToastHandler(null);
+  });
 
   it('enables a normal document and exposes safe desktop/mobile preview controls', async () => {
     render(
@@ -139,5 +160,27 @@ describe('EmailPanel', () => {
     const generated = screen.getByRole('textbox', { name: 'Generated email HTML' });
     expect((generated as HTMLTextAreaElement).value).toContain('{{firstName}}');
     expect((generated as HTMLTextAreaElement).value).not.toContain('Avery');
+  });
+
+  it('shows an error toast when HTML email export fails', async () => {
+    const toast = vi.fn();
+    setToastHandler(toast);
+    mockSaveExportBytes.mockRejectedValue(new Error('disk full'));
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(emailDocument())}>
+        <EmailOutputPanel />
+      </EditorProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Export HTML, text, and manifest' }));
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'error',
+          message: expect.stringMatching(/email export failed.*disk full/i),
+        }),
+      ),
+    );
   });
 });

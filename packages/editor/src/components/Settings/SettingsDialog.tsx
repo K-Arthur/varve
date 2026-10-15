@@ -801,7 +801,7 @@ function AISection() {
         <SwitchField
           label={settings.ai.enabled ? 'On' : 'Off'}
           checked={settings.ai.enabled}
-          onChange={(checked) => updateSection('ai', { enabled: checked })}
+          onChange={(e) => updateSection('ai', { enabled: e.target.checked })}
           id="ai-features-toggle"
         />
       </SettingsFieldRow>

@@ -25,6 +25,7 @@ import {
   ExportService,
   isMultiFileExportFormat,
 } from '../../exportService';
+import { checkAiFeaturesEnabled } from '../../features/useAiFeaturesEnabled';
 import { buildPackageExport } from '../../packageExport';
 import { BatchBgRemoveDialog } from '../BatchBgRemoveDialog';
 import { ExportDialog } from '../Export/ExportDialog';
@@ -325,6 +326,9 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
       // is the one place every route passes through.
       openBatchBgRemove: () => {
         if (isCapabilityRestricted('inference')) return;
+        if (!checkAiFeaturesEnabled(editorRef.current.showToast, 'Batch background removal')) {
+          return;
+        }
         setBatchBgRemoveOpen(true);
       },
       copySelectionAsPng,

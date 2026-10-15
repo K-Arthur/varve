@@ -2,6 +2,7 @@ import type { Document } from '@varve/scene';
 import {
   addChild,
   addNode,
+  addPage,
   createClippingMask,
   createDocument,
   imageFill,
@@ -211,6 +212,33 @@ describe('exportDocumentToSvg', () => {
     expect(svg).toContain('width="400"');
     expect(svg.match(/<circle/g)).toHaveLength(1);
     expect(svg).toContain('viewBox="0 0 140 140"');
+  });
+
+  it('does not export inactive page descendants even when they leak into rootChildren', () => {
+    let doc = createDocument('Paged SVG leak');
+    const activePage = doc.pages?.[0];
+    if (!activePage) throw new Error('Expected an initial page');
+    const active = makeShapeNode(
+      'active-shape',
+      { kind: 'rect', x: 10, y: 10, w: 40, h: 40 },
+      { name: 'ActiveRect', fill: { space: 'rgb', r: 11, g: 22, b: 33, a: 255 } },
+    );
+    doc = addChild(doc, activePage.contentRoot, active);
+
+    doc = addPage(doc, { name: 'Other' });
+    const otherPage = doc.pages?.find((page) => page.id !== activePage.id);
+    if (!otherPage) throw new Error('Expected a second page');
+    const inactive = makeShapeNode(
+      'inactive-shape',
+      { kind: 'rect', x: 100, y: 100, w: 40, h: 40 },
+      { name: 'InactiveRect', fill: { space: 'rgb', r: 200, g: 10, b: 10, a: 255 } },
+    );
+    doc = addChild(doc, otherPage.contentRoot, inactive);
+    doc = { ...doc, rootChildren: [...doc.rootChildren, inactive.id] };
+
+    const svg = exportDocumentToSvg(doc);
+    expect(svg.split('rgba(11,22,33').length - 1).toBe(1);
+    expect(svg).not.toContain('rgba(200,10,10');
   });
 });
 
