@@ -86,8 +86,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         setTimeout(() => this.setState({ copied: false }), 2000);
       },
       () => {
-        this.setState({ copied: true });
-        setTimeout(() => this.setState({ copied: false }), 2000);
+        this.setState({ copied: false });
       },
     );
   };

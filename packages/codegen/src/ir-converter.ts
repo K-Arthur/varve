@@ -394,27 +394,7 @@ function buildIR(doc: Document): IRDocument {
   const fidelityWarnings: FidelityWarning[] = [];
   const htmlHints: Record<string, HtmlElementHint> = {};
 
-  const pageRoots = activePageNodes(doc);
-  // activePageNodes already includes the active page and global roots. The
-  // legacy root list is still needed for flat documents, but in paged
-  // documents it also contains roots from other pages.
-  const pageContentRoots = new Set<string>();
-  const inactivePageNodes = new Set<string>();
-  if (doc.activePageId && doc.pages?.length) {
-    for (const page of doc.pages) {
-      pageContentRoots.add(page.contentRoot);
-      if (page.id !== doc.activePageId)
-        collectSceneSubtree(page.contentRoot, doc, inactivePageNodes);
-    }
-  }
-  const allRoots = [
-    ...new Set([
-      ...pageRoots,
-      ...doc.rootChildren.filter(
-        (rootId) => !pageContentRoots.has(rootId) && !inactivePageNodes.has(rootId),
-      ),
-    ]),
-  ];
+  const allRoots = documentSceneRootIds(doc);
 
   for (const rootId of allRoots) {
     const context = {
@@ -485,6 +465,34 @@ function buildIR(doc: Document): IRDocument {
     fidelityWarnings,
     htmlHints,
   };
+}
+
+/**
+ * Active-page artwork plus leftover flat roots, excluding other pages'
+ * content roots and any leaked inactive descendants.
+ */
+export function documentSceneRootIds(doc: Document): string[] {
+  const pageRoots = activePageNodes(doc);
+  // activePageNodes already includes the active page and global roots. The
+  // legacy root list is still needed for flat documents, but in paged
+  // documents it also contains roots from other pages.
+  const pageContentRoots = new Set<string>();
+  const inactivePageNodes = new Set<string>();
+  if (doc.activePageId && doc.pages?.length) {
+    for (const page of doc.pages) {
+      pageContentRoots.add(page.contentRoot);
+      if (page.id !== doc.activePageId)
+        collectSceneSubtree(page.contentRoot, doc, inactivePageNodes);
+    }
+  }
+  return [
+    ...new Set([
+      ...pageRoots,
+      ...doc.rootChildren.filter(
+        (rootId) => !pageContentRoots.has(rootId) && !inactivePageNodes.has(rootId),
+      ),
+    ]),
+  ];
 }
 
 function collectSceneSubtree(rootId: string, doc: Document, collected: Set<string>): void {

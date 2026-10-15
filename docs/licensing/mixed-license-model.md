@@ -53,10 +53,10 @@ All `packages/*` and `apps/*` remain FSL-1.1-MIT. This includes
 
 ICC profiles (`varve-colour/profiles/`), bundled fonts, icon sets, and
 ONNX model weights retain their original licenses. See
-`THIRD_PARTY_NOTICES` for full attribution. The ICC profiles are
-currently Artifex Software 2011 and must be replaced with
-permissively-licensed equivalents before crates.io publication (see
-"Known issues" below).
+`THIRD_PARTY_NOTICES` for full attribution. The bundled ICC profiles
+are the Compact ICC Profiles CC0 sRGB (`sRGB-v4.icc`) and the
+Zlib-licensed basICColor ISO Coated v2 CMYK profile
+(`ISOcoated_v2_bas.ICC`). See `docs/licensing/icc-profile-replacement.md`.
 
 ## Dependency direction
 

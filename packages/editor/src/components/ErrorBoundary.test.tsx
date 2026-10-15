@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -133,5 +133,27 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
     expect(mounts).toBe(1);
+  });
+
+  it('does not claim the error was copied when clipboard write rejects', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    const { container } = render(
+      <ErrorBoundary showDetails>
+        <Bomb shouldThrow />
+      </ErrorBoundary>,
+    );
+    const copyBtn = container.querySelector(
+      '.error-boundary__action--secondary',
+    ) as HTMLButtonElement;
+    expect(copyBtn.textContent).toBe('Copy error');
+    fireEvent.click(copyBtn);
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(copyBtn.textContent).toBe('Copy error');
+    expect(copyBtn.textContent).not.toBe('Error copied');
   });
 });

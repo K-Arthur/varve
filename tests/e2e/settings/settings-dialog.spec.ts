@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { navigateToEditor, setVisibleCheckbox } from '../shared';
 
 /**
  * Regression coverage for a CSS-cascade bug: `dialog:not([open]) { display:
@@ -271,5 +271,47 @@ test.describe('Settings dialog', () => {
       )
       .toBe('full');
     await page.screenshot({ path: testInfo.outputPath('navigation-settings.png'), fullPage: true });
+  });
+
+  test('toggles AI features on and off without crashing and persists the setting', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    await page.evaluate(() => {
+      const file = [...document.querySelectorAll('button')].find(
+        (element) => element.textContent?.trim() === 'File',
+      );
+      (file as HTMLElement | undefined)?.click();
+    });
+    await page.getByRole('menuitem', { name: /Settings/ }).click();
+
+    const settingsDialog = page.locator('dialog.varve-dialog--settings[open]');
+    await settingsDialog.getByLabel('Filter settings sections').fill('On-device');
+    await settingsDialog.getByRole('tab', { name: 'On-device Assistants' }).click();
+
+    const toggle = settingsDialog.locator('#ai-features-toggle');
+    await expect(toggle).toBeAttached();
+    await expect(toggle).toBeChecked();
+
+    await setVisibleCheckbox(toggle, false);
+    await expect(page.locator('dialog.crash-dialog[open]')).toHaveCount(0);
+    await expect(page.locator('.error-boundary')).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => JSON.parse(localStorage.getItem('varve-editor-settings') ?? '{}').ai?.enabled,
+        ),
+      )
+      .toBe(false);
+
+    await setVisibleCheckbox(toggle, true);
+    await expect(page.locator('dialog.crash-dialog[open]')).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => JSON.parse(localStorage.getItem('varve-editor-settings') ?? '{}').ai?.enabled,
+        ),
+      )
+      .toBe(true);
   });
 });

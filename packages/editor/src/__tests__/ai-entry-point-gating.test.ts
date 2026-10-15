@@ -54,9 +54,24 @@ const AI_ENTRY_POINTS = [
     description: 'Batch background removal',
   },
   {
+    file: 'packages/engine/src/backgroundRemoval/index.ts',
+    function: 'removeBackground',
+    description: 'Engine background-removal dispatch (all AI providers)',
+  },
+  {
     file: 'packages/engine/src/backgroundRemoval/providers/cloudProvider.ts',
     function: 'isAvailable',
-    description: 'Cloud background removal provider',
+    description: 'Cloud background removal provider availability',
+  },
+  {
+    file: 'packages/engine/src/backgroundRemoval/providers/cloudProvider.ts',
+    function: 'remove',
+    description: 'Cloud background removal inference',
+  },
+  {
+    file: 'packages/editor/src/context.tsx',
+    function: 'guardInference',
+    description: 'Editor inference choke point (background removal)',
   },
 ] as const;
 
@@ -79,7 +94,8 @@ function extractEntryBody(content: string, name: string): string | null {
     new RegExp(`${name}:\\s*(?:async\\s+)?\\([^)]*\\)\\s*(?::[^{=]+)?=>\\s*\\{`),
     new RegExp(`(?:const|let)\\s+${name}\\s*=\\s*useCallback\\s*\\(`),
     new RegExp(`(?:const|let)\\s+${name}\\s*=\\s*(?:async\\s+)?\\(`),
-    new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`),
+    new RegExp(`(?:async\\s+)?function\\s+${name}\\s*(?:<[^>]*>)?\\s*\\(`),
+    new RegExp(`(?:async\\s+)?${name}\\s*\\([^)]*\\)\\s*(?::[^{]+)?\\{`),
   ];
   for (const pattern of starts) {
     const match = content.match(pattern);
@@ -92,13 +108,14 @@ function extractEntryBody(content: string, name: string): string | null {
 }
 
 /**
- * Patterns that indicate proper AI gating.
+ * Patterns that honour the user-facing AI master switch.
+ * Deployment capability restriction (`isCapabilityRestricted('inference')`)
+ * is not sufficient — a user who turned AI off must still be blocked.
  */
-const GATING_PATTERNS = [
+const USER_SWITCH_PATTERNS = [
   /settings\.ai\.enabled/,
   /checkAiFeaturesEnabled/,
   /getAiFeaturesEnabled/,
-  /isCapabilityRestricted\(['"]inference['"]\)/,
   /aiEnabled/, // From useAiFeaturesEnabled hook
   /aiFeaturesEnabled/, // Alternative naming
 ] as const;
@@ -125,10 +142,9 @@ describe('AI Entry Point Gating Audit', () => {
         continue;
       }
 
-      // Check if any gating pattern is present in the function body
-      const hasGating = GATING_PATTERNS.some((pattern) => pattern.test(functionBody));
+      const hasUserSwitch = USER_SWITCH_PATTERNS.some((pattern) => pattern.test(functionBody));
 
-      if (!hasGating) {
+      if (!hasUserSwitch) {
         ungated.push(entryPoint);
       }
     }
@@ -139,8 +155,8 @@ describe('AI Entry Point Gating Audit', () => {
         .join('\n');
       throw new Error(
         `Found ${ungated.length} AI entry point(s) without proper gating:\n${report}\n\n` +
-          'Each AI entry point must check ai.enabled before executing.\n' +
-          'Use checkAiFeaturesEnabled() or getAiFeaturesEnabled() to gate access.',
+          'Each AI entry point must honour the user AI master switch before executing.\n' +
+          'Use checkAiFeaturesEnabled() or getAiFeaturesEnabled() — capability restriction alone is not enough.',
       );
     }
   });

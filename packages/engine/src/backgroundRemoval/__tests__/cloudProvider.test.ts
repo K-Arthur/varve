@@ -48,6 +48,7 @@ describe('cloudRemovalProvider', () => {
     vi.resetModules();
     vi.unstubAllGlobals();
     mockLoadCloudConfig.mockReset();
+    localStorage.removeItem('varve-editor-settings');
     stubOffscreenCanvas();
   });
 
@@ -117,6 +118,15 @@ describe('cloudRemovalProvider', () => {
       await expect(
         cloudRemovalProvider.remove(makeImageData(), { method: 'ai-balanced' }),
       ).rejects.toThrow('Cloud provider is not configured');
+    });
+
+    it('refuses to run when the user AI master switch is off', async () => {
+      localStorage.setItem('varve-editor-settings', JSON.stringify({ ai: { enabled: false } }));
+      mockLoadCloudConfig.mockReturnValue(MOCK_CONFIG);
+      const { cloudRemovalProvider } = await import('../providers/cloudProvider');
+      await expect(
+        cloudRemovalProvider.remove(makeImageData(), { method: 'ai-balanced' }),
+      ).rejects.toThrow('AI features are disabled');
     });
 
     it('completes a successful inference and returns correct result shape', async () => {

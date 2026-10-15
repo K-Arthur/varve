@@ -170,6 +170,11 @@ describe('BatchBgRemoveDialog', () => {
     expect(screen.getByText('2 images selected')).toBeTruthy();
     expect(screen.getByText('Image i1')).toBeTruthy();
     expect(screen.getByText('Image i2')).toBeTruthy();
+    for (const img of document.querySelectorAll('.batch-bg-remove__thumb-img')) {
+      const height = img.getAttribute('height');
+      expect(height).not.toBe('NaN');
+      expect(Number.isFinite(Number(height))).toBe(true);
+    }
   });
 
   it('shows method selector', () => {

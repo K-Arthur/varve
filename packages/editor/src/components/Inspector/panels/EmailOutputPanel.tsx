@@ -60,83 +60,109 @@ export function EmailOutputPanel({
     if (!compilation || hasErrors || !output) return;
     const baseName = safeBaseName(state.document.name);
     const encoder = new TextEncoder();
-    await saveExportBytes(
-      editor.platform,
-      `${baseName}.html`,
-      encoder.encode(output.html),
-      'text/html',
-      '.html',
-    );
-    await saveExportBytes(
-      editor.platform,
-      `${baseName}.txt`,
-      encoder.encode(output.plainText),
-      'text/plain',
-      '.txt',
-    );
-    await saveExportBytes(
-      editor.platform,
-      `${baseName}.manifest.json`,
-      encoder.encode(
-        JSON.stringify(
-          {
-            format: 'varve-email-export',
-            version: 1,
-            provider: compilation.ir.settings.provider,
-            compatibilityProfile: compilation.ir.settings.compatibilityProfile,
-            assets: exportAssetManifest(compilation.ir.assets),
-            diagnostics: compilation.ir.diagnostics,
-          },
-          null,
-          2,
-        ),
-      ),
-      'application/json',
-      '.json',
-    );
-    for (const asset of compilation.ir.assets) {
-      if (!asset.dataUrl) continue;
-      const bytes = decodeDataUrl(asset.dataUrl);
-      if (!bytes) continue;
-      await saveExportBytes(
-        editor.platform,
-        `assets/${asset.filename}`,
-        bytes,
-        asset.mimeType,
-        `.${asset.filename.split('.').pop() ?? 'bin'}`,
-      );
+    try {
+      if (
+        (await saveExportBytes(
+          editor.platform,
+          `${baseName}.html`,
+          encoder.encode(output.html),
+          'text/html',
+          '.html',
+        )) == null
+      ) {
+        return;
+      }
+      if (
+        (await saveExportBytes(
+          editor.platform,
+          `${baseName}.txt`,
+          encoder.encode(output.plainText),
+          'text/plain',
+          '.txt',
+        )) == null
+      ) {
+        return;
+      }
+      if (
+        (await saveExportBytes(
+          editor.platform,
+          `${baseName}.manifest.json`,
+          encoder.encode(
+            JSON.stringify(
+              {
+                format: 'varve-email-export',
+                version: 1,
+                provider: compilation.ir.settings.provider,
+                compatibilityProfile: compilation.ir.settings.compatibilityProfile,
+                assets: exportAssetManifest(compilation.ir.assets),
+                diagnostics: compilation.ir.diagnostics,
+              },
+              null,
+              2,
+            ),
+          ),
+          'application/json',
+          '.json',
+        )) == null
+      ) {
+        return;
+      }
+      for (const asset of compilation.ir.assets) {
+        if (!asset.dataUrl) continue;
+        const bytes = decodeDataUrl(asset.dataUrl);
+        if (!bytes) continue;
+        if (
+          (await saveExportBytes(
+            editor.platform,
+            `assets/${asset.filename}`,
+            bytes,
+            asset.mimeType,
+            `.${asset.filename.split('.').pop() ?? 'bin'}`,
+          )) == null
+        ) {
+          return;
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      editor.showToast({ message: `Email export failed — ${message}`, type: 'error' });
     }
   };
 
   const exportEmailPackage = async () => {
     if (!compilation || hasErrors || !output) return;
-    const archive = createBufferedExportArchive(editor.platform);
-    const encoder = new TextEncoder();
-    await archive.saveFile('email.html', encoder.encode(output.html));
-    await archive.saveFile('email.txt', encoder.encode(output.plainText));
-    await archive.saveFile(
-      'manifest.json',
-      encoder.encode(
-        JSON.stringify(
-          {
-            format: 'varve-email-package',
-            version: 1,
-            provider: compilation.ir.settings.provider,
-            compatibilityProfile: compilation.ir.settings.compatibilityProfile,
-            assets: exportAssetManifest(compilation.ir.assets),
-            diagnostics: compilation.ir.diagnostics,
-          },
-          null,
-          2,
+    try {
+      const archive = createBufferedExportArchive(editor.platform);
+      const encoder = new TextEncoder();
+      await archive.saveFile('email.html', encoder.encode(output.html));
+      await archive.saveFile('email.txt', encoder.encode(output.plainText));
+      await archive.saveFile(
+        'manifest.json',
+        encoder.encode(
+          JSON.stringify(
+            {
+              format: 'varve-email-package',
+              version: 1,
+              provider: compilation.ir.settings.provider,
+              compatibilityProfile: compilation.ir.settings.compatibilityProfile,
+              assets: exportAssetManifest(compilation.ir.assets),
+              diagnostics: compilation.ir.diagnostics,
+            },
+            null,
+            2,
+          ),
         ),
-      ),
-    );
-    for (const asset of compilation.ir.assets) {
-      if (!asset.dataUrl) continue;
-      const bytes = decodeDataUrl(asset.dataUrl);
-      if (bytes) await archive.saveFile(`assets/${asset.filename}`, bytes);
+      );
+      for (const asset of compilation.ir.assets) {
+        if (!asset.dataUrl) continue;
+        const bytes = decodeDataUrl(asset.dataUrl);
+        if (bytes) await archive.saveFile(`assets/${asset.filename}`, bytes);
+      }
+      await archive.flush(safeBaseName(state.document.name));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      editor.showToast({ message: `Email package export failed — ${message}`, type: 'error' });
     }
-    await archive.flush(safeBaseName(state.document.name));
   };
 
   return (

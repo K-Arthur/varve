@@ -8,8 +8,9 @@
 
 import type { Affine } from '@varve/engine';
 import type { Document, ManagedColor, Mask, NodeId, SceneNode, VectorMaskData } from '@varve/scene';
-import { activePageNodes, isImageShape, resolveMask } from '@varve/scene';
+import { isImageShape, resolveMask } from '@varve/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@varve/shared';
+import { documentSceneRootIds } from './ir-converter';
 import { resolveLiveBooleanForExport } from './liveBooleanExport';
 import { buildPerspectiveImageSvg } from './perspectiveSvg';
 import { nodeEffectiveTransform, svgCompositing } from './shared';
@@ -403,13 +404,7 @@ function documentNodeBounds(
 
 /** Resolve current page artwork plus legacy flat root nodes without duplicates. */
 function documentExportRootIds(doc: Document): NodeId[] {
-  const contentRoots = new Set(doc.pages?.map((page) => page.contentRoot) ?? []);
-  return [
-    ...new Set([
-      ...activePageNodes(doc),
-      ...doc.rootChildren.filter((id) => !contentRoots.has(id)),
-    ]),
-  ];
+  return documentSceneRootIds(doc);
 }
 
 export function computeDocumentBounds(doc: Document): {
