@@ -54,6 +54,11 @@ const AI_ENTRY_POINTS = [
     description: 'Batch background removal',
   },
   {
+    file: 'packages/engine/src/backgroundRemoval/index.ts',
+    function: 'removeBackground',
+    description: 'Engine background-removal dispatch (all AI providers)',
+  },
+  {
     file: 'packages/engine/src/backgroundRemoval/providers/cloudProvider.ts',
     function: 'isAvailable',
     description: 'Cloud background removal provider availability',

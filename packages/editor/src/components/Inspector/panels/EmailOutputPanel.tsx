@@ -61,51 +61,67 @@ export function EmailOutputPanel({
     const baseName = safeBaseName(state.document.name);
     const encoder = new TextEncoder();
     try {
-      await saveExportBytes(
-        editor.platform,
-        `${baseName}.html`,
-        encoder.encode(output.html),
-        'text/html',
-        '.html',
-      );
-      await saveExportBytes(
-        editor.platform,
-        `${baseName}.txt`,
-        encoder.encode(output.plainText),
-        'text/plain',
-        '.txt',
-      );
-      await saveExportBytes(
-        editor.platform,
-        `${baseName}.manifest.json`,
-        encoder.encode(
-          JSON.stringify(
-            {
-              format: 'varve-email-export',
-              version: 1,
-              provider: compilation.ir.settings.provider,
-              compatibilityProfile: compilation.ir.settings.compatibilityProfile,
-              assets: exportAssetManifest(compilation.ir.assets),
-              diagnostics: compilation.ir.diagnostics,
-            },
-            null,
-            2,
+      if (
+        (await saveExportBytes(
+          editor.platform,
+          `${baseName}.html`,
+          encoder.encode(output.html),
+          'text/html',
+          '.html',
+        )) == null
+      ) {
+        return;
+      }
+      if (
+        (await saveExportBytes(
+          editor.platform,
+          `${baseName}.txt`,
+          encoder.encode(output.plainText),
+          'text/plain',
+          '.txt',
+        )) == null
+      ) {
+        return;
+      }
+      if (
+        (await saveExportBytes(
+          editor.platform,
+          `${baseName}.manifest.json`,
+          encoder.encode(
+            JSON.stringify(
+              {
+                format: 'varve-email-export',
+                version: 1,
+                provider: compilation.ir.settings.provider,
+                compatibilityProfile: compilation.ir.settings.compatibilityProfile,
+                assets: exportAssetManifest(compilation.ir.assets),
+                diagnostics: compilation.ir.diagnostics,
+              },
+              null,
+              2,
+            ),
           ),
-        ),
-        'application/json',
-        '.json',
-      );
+          'application/json',
+          '.json',
+        )) == null
+      ) {
+        return;
+      }
       for (const asset of compilation.ir.assets) {
         if (!asset.dataUrl) continue;
         const bytes = decodeDataUrl(asset.dataUrl);
         if (!bytes) continue;
-        await saveExportBytes(
-          editor.platform,
-          `assets/${asset.filename}`,
-          bytes,
-          asset.mimeType,
-          `.${asset.filename.split('.').pop() ?? 'bin'}`,
-        );
+        if (
+          (await saveExportBytes(
+            editor.platform,
+            `assets/${asset.filename}`,
+            bytes,
+            asset.mimeType,
+            `.${asset.filename.split('.').pop() ?? 'bin'}`,
+          )) == null
+        ) {
+          return;
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -162,6 +162,38 @@ describe('EmailPanel', () => {
     expect((generated as HTMLTextAreaElement).value).not.toContain('Avery');
   });
 
+  it('returns without an error toast when HTML email export is cancelled', async () => {
+    const toast = vi.fn();
+    setToastHandler(toast);
+    mockSaveExportBytes.mockResolvedValueOnce(null);
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(emailDocument())}>
+        <EmailOutputPanel />
+      </EditorProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Export HTML, text, and manifest' }));
+    await waitFor(() => expect(mockSaveExportBytes).toHaveBeenCalledTimes(1));
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it('stops after a later cancel without a failure toast for the earlier writes', async () => {
+    const toast = vi.fn();
+    setToastHandler(toast);
+    mockSaveExportBytes.mockResolvedValueOnce('email.html').mockResolvedValueOnce(null);
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(emailDocument())}>
+        <EmailOutputPanel />
+      </EditorProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Export HTML, text, and manifest' }));
+    await waitFor(() => expect(mockSaveExportBytes).toHaveBeenCalledTimes(2));
+    expect(toast).not.toHaveBeenCalled();
+  });
+
   it('shows an error toast when HTML email export fails', async () => {
     const toast = vi.fn();
     setToastHandler(toast);

@@ -1,6 +1,7 @@
 import { getRuntimeCapabilities } from '../inference/core/RuntimeCapabilities';
 import { getModelById } from '../inference/modelCatalog';
 import { assessImageInferenceResources } from '../inference/resourcePolicy';
+import { getAiFeaturesEnabled } from './aiFeaturesEnabled';
 import { maskToDataUrl } from './heuristic';
 import { decodeMaskDataUrl } from './maskDecode';
 import { resizeMaskBilinear } from './maskOps';
@@ -315,6 +316,9 @@ export async function removeBackground(
   }
 
   const resolved = withPreviewDefaults(options);
+  if (resolved.method !== 'quick' && !getAiFeaturesEnabled()) {
+    throw new Error('AI features are disabled');
+  }
   const maxDim = resolved.previewMaxDimension ?? DEFAULT_PREVIEW_MAX_DIMENSION;
   await preflightBrowserSourceMemory(imageData, resolved, maxDim, signal);
   if (signal?.aborted) throw new Error('cancelled');

@@ -50,15 +50,26 @@ die()  { echo ":: ERROR: $*" >&2; exit 1; }
 
 # ── 1. Fetch SHA256SUMS from GitHub release ──────────────────────────────────
 info "Fetching SHA256SUMS.txt for v$VERSION..."
-SHA256SUMS=$(curl -sfL "$SHA256_URL" 2>/dev/null) || \
+SHA256SUMS=$(curl -sfL --connect-timeout 20 --max-time 60 "$SHA256_URL" 2>/dev/null) || \
   die "Could not fetch $SHA256_URL — release may not be published yet."
 
 hash_for() {
   local name="$1"
-  local hash
-  hash=$(echo "$SHA256SUMS" | grep -F "$name" | awk '{print $1}') || true
-  if [[ -z "$hash" ]]; then
-    die "Could not find $name in SHA256SUMS.txt"
+  local matches
+  matches=$(printf '%s\n' "$SHA256SUMS" | awk -v name="$name" '$2 == name {print $1}')
+  local count=0
+  local hash=""
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    count=$((count + 1))
+    hash="$line"
+  done <<< "$matches"
+  if [[ "$count" -ne 1 ]]; then
+    die "Expected exactly one checksum for $name in SHA256SUMS.txt (got $count)"
+  fi
+  if [[ ! "$hash" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    die "Checksum for $name is not a 64-character hex digest: '$hash'"
   fi
   echo "$hash"
 }
@@ -101,7 +112,7 @@ for spec in "$AUR_SOURCE_X86:$AUR_SHA_X86" "$AUR_SOURCE_ARM:$AUR_SHA_ARM"; do
   url="$GITHUB_URL/releases/download/v$VERSION/$name"
   dest="$VERIFY_DIR/$name"
   info "Fetching $name..."
-  curl -sfL "$url" -o "$dest" || die "Could not fetch $url"
+  curl -sfL --connect-timeout 20 --max-time 300 "$url" -o "$dest" || die "Could not fetch $url"
   actual=$(sha256sum "$dest" | awk '{print $1}')
   if [[ "$actual" != "$expected" ]]; then
     die "Checksum mismatch for $name — got '$actual' expected '$expected'"
@@ -129,7 +140,7 @@ if [[ -f "$MANIFEST" ]]; then
 
   # Fetch the commit hash for the tag from GitHub
   TAG="v$VERSION"
-  COMMIT=$(curl -sfL "https://api.github.com/repos/K-Arthur/varve/git/ref/tags/$TAG" 2>/dev/null | \
+  COMMIT=$(curl -sfL --connect-timeout 20 --max-time 30 "https://api.github.com/repos/K-Arthur/varve/git/ref/tags/$TAG" 2>/dev/null | \
     grep '"sha"' | head -1 | sed 's/.*"sha": *"//;s/".*//' || true)
 
   if [[ -z "$COMMIT" ]]; then

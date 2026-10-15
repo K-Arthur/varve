@@ -1,3 +1,4 @@
+import { getAiFeaturesEnabled } from '../aiFeaturesEnabled';
 import type { CloudApiResponse, CloudProviderSettings } from '../cloudConfig';
 import { loadCloudConfig } from '../cloudConfig';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
@@ -84,18 +85,6 @@ async function removeBackgroundViaCloud(
   }
 
   throw lastError ?? new Error('Cloud inference failed');
-}
-
-function getAiFeaturesEnabled(): boolean {
-  try {
-    const raw = localStorage.getItem('varve-editor-settings');
-    if (!raw) return true;
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const ai = parsed.ai as Record<string, unknown> | undefined;
-    return ai?.enabled !== false;
-  } catch {
-    return true;
-  }
 }
 
 export const cloudRemovalProvider: RemovalProvider = {
