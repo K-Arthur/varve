@@ -1,0 +1,268 @@
+{
+  "status": "rendered-and-media-verified",
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "durationInFrames": 912,
+  "durationSeconds": 30.4,
+  "music": null,
+  "sceneBoundaries": "VO beat starts rounded to nearest output frame; audio and word timestamps remain absolute",
+  "scenes": [
+    {
+      "beat": 1,
+      "fromFrame": 0,
+      "durationInFrames": 109,
+      "theme": "dark",
+      "headline": "Never baked into pixels.",
+      "audio": "vo2-1.mp3",
+      "audioStartSeconds": 0.0,
+      "audioDurationSeconds": 3.288,
+      "wordTimings": "vo-timings.json (absolute seconds; unmodified)"
+    },
+    {
+      "beat": 2,
+      "fromFrame": 109,
+      "durationInFrames": 178,
+      "theme": "light",
+      "headline": "Rewrite inside the balloon.",
+      "audio": "vo2-2.mp3",
+      "audioStartSeconds": 3.638,
+      "audioDurationSeconds": 5.568,
+      "wordTimings": "vo-timings.json (absolute seconds; unmodified)"
+    },
+    {
+      "beat": 3,
+      "fromFrame": 287,
+      "durationInFrames": 179,
+      "theme": "dark",
+      "headline": "Balloons that fit themselves.",
+      "audio": "vo2-3.mp3",
+      "audioStartSeconds": 9.556,
+      "audioDurationSeconds": 5.64,
+      "wordTimings": "vo-timings.json (absolute seconds; unmodified)"
+    },
+    {
+      "beat": 4,
+      "fromFrame": 466,
+      "durationInFrames": 125,
+      "theme": "light",
+      "headline": "Speech. Thoughts. Shouts.",
+      "audio": "vo2-4.mp3",
+      "audioStartSeconds": 15.546,
+      "audioDurationSeconds": 3.792,
+      "wordTimings": "vo-timings.json (absolute seconds; unmodified)"
+    },
+    {
+      "beat": 5,
+      "fromFrame": 591,
+      "durationInFrames": 138,
+      "theme": "dark",
+      "headline": "Free. Local-first. Yours.",
+      "audio": "vo2-5.mp3",
+      "audioStartSeconds": 19.688,
+      "audioDurationSeconds": 4.248,
+      "wordTimings": "vo-timings.json (absolute seconds; unmodified)"
+    },
+    {
+      "beat": 6,
+      "fromFrame": 729,
+      "durationInFrames": 183,
+      "theme": "light",
+      "headline": "What would YOUR comic say?",
+      "audio": "vo2-6.mp3",
+      "audioStartSeconds": 24.286,
+      "audioDurationSeconds": 3.0,
+      "wordTimings": "vo-timings.json (absolute seconds; unmodified)"
+    }
+  ],
+  "loopReturnFromFrame": 903,
+  "loopReturnInstruction": "Frames 903-911 duplicate output frame 0 exactly.",
+  "shots": [
+    {
+      "id": "hook-page",
+      "fromFrame": 0,
+      "toFrame": 57,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 43.0,
+      "crop": [520, 155, 840, 840],
+      "speed": 1.0,
+      "evidence": "Full authored page in actual app canvas"
+    },
+    {
+      "id": "hook-punch",
+      "fromFrame": 57,
+      "toFrame": 109,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 41.05,
+      "crop": [516, 174, 846, 786],
+      "speed": 1.0,
+      "evidence": "Speech balloon closeup"
+    },
+    {
+      "id": "type-first-line",
+      "fromFrame": 109,
+      "toFrame": 181,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 2.15,
+      "crop": [516, 174, 846, 786],
+      "speed": 1.0,
+      "evidence": "Actual text entry: That morning"
+    },
+    {
+      "id": "rewrite-detail",
+      "fromFrame": 181,
+      "toFrame": 241,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 15.0,
+      "crop": [540, 180, 810, 710],
+      "speed": 1.0,
+      "evidence": "Actual text entry: Perfect!"
+    },
+    {
+      "id": "wrap-dialogue",
+      "fromFrame": 241,
+      "toFrame": 287,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 41.0,
+      "crop": [516, 174, 846, 786],
+      "speed": 1.0,
+      "evidence": "Finished speech balloon; leaves creation event for beat 3"
+    },
+    {
+      "id": "balloon-fit",
+      "fromFrame": 287,
+      "toFrame": 348,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 17.3,
+      "crop": [790, 190, 600, 600],
+      "speed": 1.0,
+      "evidence": "Real balloon creation; no fabricated text growth"
+    },
+    {
+      "id": "fit-controls",
+      "fromFrame": 348,
+      "toFrame": 405,
+      "source": "marketing/sample-comic/video/lettering-vertical.mp4",
+      "sourceStart": 18.0,
+      "crop": [750, 1045, 315, 335],
+      "speed": 1.0,
+      "evidence": "Actual style, padding and fit-policy controls"
+    },
+    {
+      "id": "live-tail",
+      "fromFrame": 405,
+      "toFrame": 466,
+      "source": "marketing/sample-comic/video/balloon-tail-loop.mp4",
+      "sourceStart": 2.0,
+      "crop": [238, 174, 846, 786],
+      "speed": 1.0,
+      "evidence": "Live tail endpoint change"
+    },
+    {
+      "id": "type-speech",
+      "fromFrame": 466,
+      "toFrame": 478,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 41.0,
+      "crop": [516, 174, 846, 786],
+      "speed": 1.0,
+      "evidence": "Speech type"
+    },
+    {
+      "id": "type-thought",
+      "fromFrame": 478,
+      "toFrame": 489,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 36.1,
+      "crop": [516, 174, 846, 786],
+      "speed": 1.0,
+      "evidence": "Thought type"
+    },
+    {
+      "id": "type-shout",
+      "fromFrame": 489,
+      "toFrame": 548,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 27.0,
+      "crop": [516, 174, 846, 786],
+      "speed": 1.0,
+      "evidence": "Shout type"
+    },
+    {
+      "id": "types-on-page",
+      "fromFrame": 548,
+      "toFrame": 591,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 43.0,
+      "crop": [520, 155, 840, 840],
+      "speed": 1.0,
+      "evidence": "All balloon types on page"
+    },
+    {
+      "id": "local-live",
+      "fromFrame": 591,
+      "toFrame": 655,
+      "source": "marketing/sample-comic/video/balloon-tail-loop.mp4",
+      "sourceStart": 4.0,
+      "crop": [238, 174, 846, 786],
+      "speed": 1.0,
+      "evidence": "Actual app with animated icon/domain overlay"
+    },
+    {
+      "id": "local-page",
+      "fromFrame": 655,
+      "toFrame": 729,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 43.0,
+      "crop": [520, 155, 840, 840],
+      "speed": 0.7,
+      "evidence": "Moving finished-page view under icon/domain"
+    },
+    {
+      "id": "recap-page",
+      "fromFrame": 729,
+      "toFrame": 799,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 43.0,
+      "crop": [520, 155, 840, 840],
+      "speed": 0.65,
+      "evidence": "Hook page visual returns behind engagement question"
+    },
+    {
+      "id": "recap-voice",
+      "fromFrame": 799,
+      "toFrame": 855,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 41.0,
+      "crop": [516, 174, 846, 786],
+      "speed": 1.0,
+      "evidence": "Speech closeup and follow line"
+    },
+    {
+      "id": "recap-page-return",
+      "fromFrame": 855,
+      "toFrame": 903,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 43.0,
+      "crop": [520, 155, 840, 840],
+      "speed": 0.7,
+      "evidence": "Final page view"
+    },
+    {
+      "id": "loop",
+      "fromFrame": 903,
+      "toFrame": 912,
+      "source": "marketing/sample-comic/video/lettering-timelapse.mp4",
+      "sourceStart": 43.0,
+      "crop": [520, 155, 840, 840],
+      "speed": 1.0,
+      "evidence": "Exact copy of opening output frame"
+    }
+  ],
+  "sourceProvenance": {
+    "branch": "cursor/comic-lettering-videos-04c3",
+    "notes": "Restored the three real screen recordings. Crops and playback rates only; no synthetic application UI."
+  },
+  "wordTimingNote": "Supplied word boundaries are uniformly estimated within each beat. Preserved as provided; no claim of forced alignment.",
+  "fitEvidenceNote": "Source demonstrates wrapping a balloon around text and real fit-policy controls. It does not show a longer line automatically growing a balloon."
+}

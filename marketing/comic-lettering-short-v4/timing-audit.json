@@ -1,0 +1,115 @@
+{
+  "decision": "Owner selected corrected timings aligned to audio. Original uploaded timings and MP3s remain unchanged.",
+  "original_timing_sha256": "9ae3c2c122ac68d5123ed6bbe0e6a9802f84b284f8ab49ba0c589917a7ebaab1",
+  "audio_sources": [
+    {
+      "file": "vo3-1.mp3",
+      "sha256": "6a975b2055250fd633781e37daab4d3909d0e4464b19395e845da7fb3c1cf5b6"
+    },
+    {
+      "file": "vo3-2.mp3",
+      "sha256": "bb6bdfe8063d6b17191e43752fdd7c22a8528a0bcb7fc2865862b8f9b23abfab"
+    },
+    {
+      "file": "vo3-3.mp3",
+      "sha256": "fd83f0eb8b229254c4616f1691459ca46b2d34d3cb28c4d48b45babae7ca8dc8"
+    },
+    {
+      "file": "vo3-4.mp3",
+      "sha256": "f927b47ce5272ae0ef0377f21f6adf7723219de5239a0f0957583c6fdf8514f2"
+    },
+    {
+      "file": "vo3-5.mp3",
+      "sha256": "f16a32b4457c998b90a50431253b30c3fd6446b707d5f1594836c4139f1267aa"
+    },
+    {
+      "file": "vo3-6.mp3",
+      "sha256": "d665d5f3dd99d3bc1eb608d0ede890f79dcd6e5427f11b97e0adc390d4269d0e"
+    }
+  ],
+  "models": [
+    {
+      "name": "PocketSphinx",
+      "version": "5.1.1",
+      "resolution_seconds": 0.01,
+      "uses": "Forced word alignment and unconstrained ASR; dictionary addition varve V AA R V"
+    },
+    {
+      "name": "TorchAudio Wav2Vec2 ASR base 960h",
+      "torch_version": "2.8.0+cpu",
+      "torchaudio_version": "2.8.0+cpu",
+      "resolution_seconds": "approximately 0.020",
+      "uses": "Independent unconstrained ASR and forced CTC alignment"
+    }
+  ],
+  "caption_word_span_source": "PocketSphinx forced word spans; first starts in beats 2 and 3 set to local 0.14 s from unconstrained recognition, and beat 2 as set to local 5.13 s after unconstrained silence. All independently cross-checked with Wav2Vec2 CTC.",
+  "uncertainty_seconds": [0.05, 0.15],
+  "uncertainty_note": "Typical acoustic boundary uncertainty; not an empirical confidence interval. CTC character spikes fall inside phonemes and are narrower than acoustic word spans. No claim of exact millisecond ground truth.",
+  "highlight_rule": "Use each absolute words[].start <= time < words[].end. No extra anticipation, lag, gap filling, duration normalization, or end trimming. Ordinary 30 fps sampling applies.",
+  "audio_mix_rule": "Place each complete original MP3 at its original beat.start; do not trim at uploaded beat.duration. Original beat start offsets remain unchanged. 36 s output includes all speech and tails.",
+  "uploaded_onsets_differing_over_250ms": 53,
+  "total_words": 72,
+  "beat_summary": [
+    {
+      "beat": 1,
+      "words": 10,
+      "mean_onset_difference": 0.482,
+      "max_onset_difference": 1.064,
+      "onsets_over_250ms": 7,
+      "last_acoustic_end": 4.11,
+      "audio_duration": 4.488
+    },
+    {
+      "beat": 2,
+      "words": 14,
+      "mean_onset_difference": 0.645,
+      "max_onset_difference": 1.318,
+      "onsets_over_250ms": 12,
+      "last_acoustic_end": 10.83,
+      "audio_duration": 6.792
+    },
+    {
+      "beat": 3,
+      "words": 17,
+      "mean_onset_difference": 0.634,
+      "max_onset_difference": 1.504,
+      "onsets_over_250ms": 13,
+      "last_acoustic_end": 19.123,
+      "audio_duration": 8.4
+    },
+    {
+      "beat": 4,
+      "words": 10,
+      "mean_onset_difference": 1.137,
+      "max_onset_difference": 2.244,
+      "onsets_over_250ms": 8,
+      "last_acoustic_end": 24.868,
+      "audio_duration": 5.928
+    },
+    {
+      "beat": 5,
+      "words": 11,
+      "mean_onset_difference": 0.672,
+      "max_onset_difference": 1.328,
+      "onsets_over_250ms": 6,
+      "last_acoustic_end": 30.441,
+      "audio_duration": 5.832
+    },
+    {
+      "beat": 6,
+      "words": 10,
+      "mean_onset_difference": 0.494,
+      "max_onset_difference": 0.909,
+      "onsets_over_250ms": 7,
+      "last_acoustic_end": 34.887,
+      "audio_duration": 4.44
+    }
+  ],
+  "evidence_files": [
+    "word-timing-comparison.csv",
+    "pocketsphinx-alignment.json",
+    "pocketsphinx-free-decoding.json",
+    "wav2vec-alignment.json"
+  ],
+  "reproduction_scripts": ["align.py", "free_decode.py", "wav2vec.py", "build_report.py"]
+}

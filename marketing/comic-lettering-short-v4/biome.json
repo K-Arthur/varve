@@ -1,0 +1,10 @@
+{
+  "root": false,
+  "extends": "//",
+  "overrides": [
+    {
+      "includes": ["vo3-timings.json"],
+      "formatter": { "enabled": false }
+    }
+  ]
+}

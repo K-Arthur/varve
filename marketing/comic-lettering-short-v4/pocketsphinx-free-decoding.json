@@ -1,0 +1,603 @@
+[
+  {
+    "beat": 1,
+    "transcript": "what if your comment dialogue was never baked into pixels",
+    "segments": [
+      {
+        "word": "<s>",
+        "start": 0.0,
+        "end": 0.1
+      },
+      {
+        "word": "<sil>",
+        "start": 0.1,
+        "end": 0.32
+      },
+      {
+        "word": "what",
+        "start": 0.32,
+        "end": 0.53
+      },
+      {
+        "word": "if",
+        "start": 0.53,
+        "end": 0.67
+      },
+      {
+        "word": "your(2)",
+        "start": 0.67,
+        "end": 0.84
+      },
+      {
+        "word": "comment",
+        "start": 0.84,
+        "end": 1.31
+      },
+      {
+        "word": "dialogue",
+        "start": 1.31,
+        "end": 1.95
+      },
+      {
+        "word": "<sil>",
+        "start": 1.95,
+        "end": 2.21
+      },
+      {
+        "word": "was(2)",
+        "start": 2.21,
+        "end": 2.46
+      },
+      {
+        "word": "never",
+        "start": 2.46,
+        "end": 2.85
+      },
+      {
+        "word": "baked",
+        "start": 2.85,
+        "end": 3.19
+      },
+      {
+        "word": "into(2)",
+        "start": 3.19,
+        "end": 3.38
+      },
+      {
+        "word": "pixels",
+        "start": 3.38,
+        "end": 4.11
+      },
+      {
+        "word": "</s>",
+        "start": 4.11,
+        "end": 4.48
+      }
+    ]
+  },
+  {
+    "beat": 2,
+    "transcript": "in a bar of dialogue lives inside the building prevent the line as you seem develops",
+    "segments": [
+      {
+        "word": "<s>",
+        "start": 0.0,
+        "end": 0.14
+      },
+      {
+        "word": "in",
+        "start": 0.14,
+        "end": 0.32
+      },
+      {
+        "word": "a",
+        "start": 0.32,
+        "end": 0.36
+      },
+      {
+        "word": "bar",
+        "start": 0.36,
+        "end": 0.72
+      },
+      {
+        "word": "of",
+        "start": 0.72,
+        "end": 0.88
+      },
+      {
+        "word": "<sil>",
+        "start": 0.88,
+        "end": 0.98
+      },
+      {
+        "word": "<sil>",
+        "start": 0.98,
+        "end": 1.41
+      },
+      {
+        "word": "dialogue",
+        "start": 1.41,
+        "end": 1.95
+      },
+      {
+        "word": "lives",
+        "start": 1.95,
+        "end": 2.28
+      },
+      {
+        "word": "inside",
+        "start": 2.28,
+        "end": 2.74
+      },
+      {
+        "word": "the",
+        "start": 2.74,
+        "end": 2.81
+      },
+      {
+        "word": "building",
+        "start": 2.81,
+        "end": 3.3
+      },
+      {
+        "word": "<sil>",
+        "start": 3.3,
+        "end": 3.36
+      },
+      {
+        "word": "<sil>",
+        "start": 3.36,
+        "end": 3.96
+      },
+      {
+        "word": "prevent(2)",
+        "start": 3.96,
+        "end": 4.44
+      },
+      {
+        "word": "the",
+        "start": 4.44,
+        "end": 4.53
+      },
+      {
+        "word": "line",
+        "start": 4.53,
+        "end": 5.01
+      },
+      {
+        "word": "<sil>",
+        "start": 5.01,
+        "end": 5.13
+      },
+      {
+        "word": "as",
+        "start": 5.13,
+        "end": 5.31
+      },
+      {
+        "word": "you",
+        "start": 5.31,
+        "end": 5.42
+      },
+      {
+        "word": "seem",
+        "start": 5.42,
+        "end": 5.72
+      },
+      {
+        "word": "develops",
+        "start": 5.72,
+        "end": 6.44
+      },
+      {
+        "word": "</s>",
+        "start": 6.44,
+        "end": 6.78
+      }
+    ]
+  },
+  {
+    "beat": 3,
+    "transcript": "when i'm lying gets longer the balloon fix itself around here where it's tales hanging style all live",
+    "segments": [
+      {
+        "word": "<s>",
+        "start": 0.0,
+        "end": 0.14
+      },
+      {
+        "word": "when(3)",
+        "start": 0.14,
+        "end": 0.28
+      },
+      {
+        "word": "i'm(2)",
+        "start": 0.28,
+        "end": 0.36
+      },
+      {
+        "word": "lying",
+        "start": 0.36,
+        "end": 0.6
+      },
+      {
+        "word": "gets(2)",
+        "start": 0.6,
+        "end": 0.84
+      },
+      {
+        "word": "longer",
+        "start": 0.84,
+        "end": 1.35
+      },
+      {
+        "word": "<sil>",
+        "start": 1.35,
+        "end": 1.59
+      },
+      {
+        "word": "<sil>",
+        "start": 1.59,
+        "end": 1.74
+      },
+      {
+        "word": "the",
+        "start": 1.74,
+        "end": 1.83
+      },
+      {
+        "word": "balloon",
+        "start": 1.83,
+        "end": 2.18
+      },
+      {
+        "word": "fix",
+        "start": 2.18,
+        "end": 2.53
+      },
+      {
+        "word": "itself",
+        "start": 2.53,
+        "end": 2.95
+      },
+      {
+        "word": "around(2)",
+        "start": 2.95,
+        "end": 3.2
+      },
+      {
+        "word": "here",
+        "start": 3.2,
+        "end": 3.34
+      },
+      {
+        "word": "where",
+        "start": 3.34,
+        "end": 3.62
+      },
+      {
+        "word": "it's",
+        "start": 3.62,
+        "end": 3.9
+      },
+      {
+        "word": "<sil>",
+        "start": 3.9,
+        "end": 4.44
+      },
+      {
+        "word": "tales",
+        "start": 4.44,
+        "end": 5.07
+      },
+      {
+        "word": "<sil>",
+        "start": 5.07,
+        "end": 5.14
+      },
+      {
+        "word": "<sil>",
+        "start": 5.14,
+        "end": 5.34
+      },
+      {
+        "word": "hanging",
+        "start": 5.34,
+        "end": 5.94
+      },
+      {
+        "word": "<sil>",
+        "start": 5.94,
+        "end": 6.21
+      },
+      {
+        "word": "style",
+        "start": 6.21,
+        "end": 6.83
+      },
+      {
+        "word": "<sil>",
+        "start": 6.83,
+        "end": 7.29
+      },
+      {
+        "word": "all",
+        "start": 7.29,
+        "end": 7.53
+      },
+      {
+        "word": "live(2)",
+        "start": 7.53,
+        "end": 8.02
+      },
+      {
+        "word": "</s>",
+        "start": 8.02,
+        "end": 8.39
+      }
+    ]
+  },
+  {
+    "beat": 4,
+    "transcript": "speech on its child's every bone in space part of the design",
+    "segments": [
+      {
+        "word": "<s>",
+        "start": 0.0,
+        "end": 0.08
+      },
+      {
+        "word": "speech",
+        "start": 0.08,
+        "end": 0.83
+      },
+      {
+        "word": "<sil>",
+        "start": 0.83,
+        "end": 1.17
+      },
+      {
+        "word": "on",
+        "start": 1.17,
+        "end": 1.43
+      },
+      {
+        "word": "its",
+        "start": 1.43,
+        "end": 1.7
+      },
+      {
+        "word": "<sil>",
+        "start": 1.7,
+        "end": 1.81
+      },
+      {
+        "word": "<sil>",
+        "start": 1.81,
+        "end": 2.06
+      },
+      {
+        "word": "child's",
+        "start": 2.06,
+        "end": 2.72
+      },
+      {
+        "word": "<sil>",
+        "start": 2.72,
+        "end": 3.52
+      },
+      {
+        "word": "every(2)",
+        "start": 3.52,
+        "end": 3.79
+      },
+      {
+        "word": "bone",
+        "start": 3.79,
+        "end": 4.01
+      },
+      {
+        "word": "in",
+        "start": 4.01,
+        "end": 4.18
+      },
+      {
+        "word": "space",
+        "start": 4.18,
+        "end": 4.53
+      },
+      {
+        "word": "part",
+        "start": 4.53,
+        "end": 4.79
+      },
+      {
+        "word": "of",
+        "start": 4.79,
+        "end": 4.88
+      },
+      {
+        "word": "the",
+        "start": 4.88,
+        "end": 4.97
+      },
+      {
+        "word": "design",
+        "start": 4.97,
+        "end": 5.51
+      },
+      {
+        "word": "</s>",
+        "start": 5.51,
+        "end": 5.92
+      }
+    ]
+  },
+  {
+    "beat": 5,
+    "transcript": "florida is free and local first your pages never leave your machine",
+    "segments": [
+      {
+        "word": "<s>",
+        "start": 0.0,
+        "end": 0.1
+      },
+      {
+        "word": "<sil>",
+        "start": 0.1,
+        "end": 0.46
+      },
+      {
+        "word": "florida(4)",
+        "start": 0.46,
+        "end": 0.97
+      },
+      {
+        "word": "is",
+        "start": 0.97,
+        "end": 1.18
+      },
+      {
+        "word": "free",
+        "start": 1.18,
+        "end": 1.69
+      },
+      {
+        "word": "<sil>",
+        "start": 1.69,
+        "end": 1.84
+      },
+      {
+        "word": "and(2)",
+        "start": 1.84,
+        "end": 2.0
+      },
+      {
+        "word": "local",
+        "start": 2.0,
+        "end": 2.31
+      },
+      {
+        "word": "first",
+        "start": 2.31,
+        "end": 2.9
+      },
+      {
+        "word": "<sil>",
+        "start": 2.9,
+        "end": 3.38
+      },
+      {
+        "word": "your(2)",
+        "start": 3.38,
+        "end": 3.56
+      },
+      {
+        "word": "pages(2)",
+        "start": 3.56,
+        "end": 4.03
+      },
+      {
+        "word": "never",
+        "start": 4.03,
+        "end": 4.34
+      },
+      {
+        "word": "leave",
+        "start": 4.34,
+        "end": 4.61
+      },
+      {
+        "word": "your(2)",
+        "start": 4.61,
+        "end": 4.72
+      },
+      {
+        "word": "machine",
+        "start": 4.72,
+        "end": 5.22
+      },
+      {
+        "word": "</s>",
+        "start": 5.22,
+        "end": 5.82
+      }
+    ]
+  },
+  {
+    "beat": 6,
+    "transcript": "what would your comics a fall for the next drop",
+    "segments": [
+      {
+        "word": "<s>",
+        "start": 0.0,
+        "end": 0.07
+      },
+      {
+        "word": "<sil>",
+        "start": 0.07,
+        "end": 0.45
+      },
+      {
+        "word": "what",
+        "start": 0.45,
+        "end": 0.62
+      },
+      {
+        "word": "would",
+        "start": 0.62,
+        "end": 0.75
+      },
+      {
+        "word": "your(2)",
+        "start": 0.75,
+        "end": 0.86
+      },
+      {
+        "word": "comics",
+        "start": 0.86,
+        "end": 1.35
+      },
+      {
+        "word": "a(2)",
+        "start": 1.35,
+        "end": 1.64
+      },
+      {
+        "word": "<sil>",
+        "start": 1.64,
+        "end": 2.63
+      },
+      {
+        "word": "fall",
+        "start": 2.63,
+        "end": 3.07
+      },
+      {
+        "word": "for(2)",
+        "start": 3.07,
+        "end": 3.23
+      },
+      {
+        "word": "the",
+        "start": 3.23,
+        "end": 3.32
+      },
+      {
+        "word": "next(2)",
+        "start": 3.32,
+        "end": 3.61
+      },
+      {
+        "word": "drop",
+        "start": 3.61,
+        "end": 4.08
+      },
+      {
+        "word": "</s>",
+        "start": 4.08,
+        "end": 4.43
+      }
+    ]
+  }
+]
