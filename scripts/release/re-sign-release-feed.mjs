@@ -61,15 +61,7 @@ const toResign = [];
 for (const arch of ARCHITECTURES) {
   const filename = `Varve-${tag.slice(1)}-linux-${arch}.AppImage`;
   try {
-    const view = run('gh', [
-      'release',
-      'view',
-      tag,
-      '--repo',
-      repo,
-      '--json',
-      'assets',
-    ]);
+    const view = run('gh', ['release', 'view', tag, '--repo', repo, '--json', 'assets']);
     const assets = JSON.parse(view).assets ?? [];
     if (assets.some((a) => a.name === filename)) toResign.push({ arch, filename });
   } catch (e) {
