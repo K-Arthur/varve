@@ -1,0 +1,224 @@
+{
+  "format": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "width": 1080,
+        "height": 1920,
+        "coded_width": 1080,
+        "coded_height": 1920,
+        "closed_captions": 0,
+        "film_grain": 0,
+        "has_b_frames": 2,
+        "pix_fmt": "yuv420p",
+        "level": 40,
+        "color_range": "tv",
+        "color_space": "bt709",
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "refs": 1,
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "30/1",
+        "avg_frame_rate": "30/1",
+        "time_base": "1/15360",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 552960,
+        "duration": "36.000000",
+        "bit_rate": "1112231",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "1080",
+        "extradata_size": 50,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "vendor_id": "[0][0][0][0]",
+          "encoder": "Lavc61.19.101 libx264"
+        }
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "sample_fmt": "fltp",
+        "sample_rate": "48000",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 0,
+        "id": "0x2",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/48000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 1727424,
+        "duration": "35.988000",
+        "bit_rate": "161255",
+        "nb_frames": "1688",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "SoundHandler",
+          "vendor_id": "[0][0][0][0]"
+        }
+      }
+    ],
+    "format": {
+      "filename": "/workspace/varve/marketing/comic-lettering-short-v3/out/comic-lettering-short-v3.mp4",
+      "nb_streams": 2,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "36.000000",
+      "size": "5771919",
+      "bit_rate": "1282648",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf61.7.103"
+      }
+    }
+  },
+  "captionFramesChecked": 1080,
+  "activeCaptionFrames": 921,
+  "wordsChecked": 72,
+  "captionMismatches": [],
+  "timingRule": "start <= frame/30 < end; uploaded absolute seconds unchanged",
+  "boundaryResolutionSeconds": 0.03333333333333333,
+  "audioCorrelations": [
+    {
+      "beat": 1,
+      "sampleOffset": 0,
+      "correlation": 0.9832015766299542,
+      "bestLagSamples": 0
+    },
+    {
+      "beat": 2,
+      "sampleOffset": 210720,
+      "correlation": 0.997645784101486,
+      "bestLagSamples": 0
+    },
+    {
+      "beat": 3,
+      "sampleOffset": 532944,
+      "correlation": 0.9992600607024373,
+      "bestLagSamples": 0
+    },
+    {
+      "beat": 4,
+      "sampleOffset": 929184,
+      "correlation": 0.993892917109541,
+      "bestLagSamples": 0
+    },
+    {
+      "beat": 5,
+      "sampleOffset": 1210608,
+      "correlation": 0.9986042271543553,
+      "bestLagSamples": 0
+    },
+    {
+      "beat": 6,
+      "sampleOffset": 1478736,
+      "correlation": 0.958976592465639,
+      "bestLagSamples": 0
+    }
+  ],
+  "sceneDurationsSeconds": [4.4, 6.7, 8.266666666666667, 5.866666666666666, 5.566666666666666, 5.2],
+  "grabs": [
+    {
+      "frame": 90,
+      "seconds": 3.0
+    },
+    {
+      "frame": 270,
+      "seconds": 9.0
+    },
+    {
+      "frame": 450,
+      "seconds": 15.0
+    },
+    {
+      "frame": 630,
+      "seconds": 21.0
+    },
+    {
+      "frame": 810,
+      "seconds": 27.0
+    },
+    {
+      "frame": 990,
+      "seconds": 33.0
+    }
+  ],
+  "music": null,
+  "speechReviewLimit": "Checks verify supplied word intervals against pixels and original audio placement. Independent phonetic alignment/listening is not established by these checks.",
+  "inputSHA256": {
+    "ArchivoBlack.ttf": "dd9a89a019b4849f66ab75455fe7bdf931311042cbb0f0f97acc061539703180",
+    "InterTight-ExtraBold.ttf": "b81b73dcb64df3c230cabade7df6c5773bf863233f24c9ee51087519f1f88b6f",
+    "vo3-1.mp3": "6a975b2055250fd633781e37daab4d3909d0e4464b19395e845da7fb3c1cf5b6",
+    "vo3-2.mp3": "bb6bdfe8063d6b17191e43752fdd7c22a8528a0bcb7fc2865862b8f9b23abfab",
+    "vo3-3.mp3": "fd83f0eb8b229254c4616f1691459ca46b2d34d3cb28c4d48b45babae7ca8dc8",
+    "vo3-4.mp3": "f927b47ce5272ae0ef0377f21f6adf7723219de5239a0f0957583c6fdf8514f2",
+    "vo3-5.mp3": "f16a32b4457c998b90a50431253b30c3fd6446b707d5f1594836c4139f1267aa",
+    "vo3-6.mp3": "d665d5f3dd99d3bc1eb608d0ede890f79dcd6e5427f11b97e0adc390d4269d0e"
+  }
+}

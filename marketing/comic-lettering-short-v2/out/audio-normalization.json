@@ -1,0 +1,80 @@
+[
+  {
+    "beat": 1,
+    "input_i": "-18.42",
+    "input_tp": "-2.93",
+    "input_lra": "0.50",
+    "input_thresh": "-28.48",
+    "output_i": "-16.08",
+    "output_tp": "-1.50",
+    "output_lra": "0.00",
+    "output_thresh": "-26.08",
+    "normalization_type": "dynamic",
+    "target_offset": "0.08"
+  },
+  {
+    "beat": 2,
+    "input_i": "-17.70",
+    "input_tp": "-0.92",
+    "input_lra": "2.20",
+    "input_thresh": "-28.02",
+    "output_i": "-16.45",
+    "output_tp": "-1.50",
+    "output_lra": "1.50",
+    "output_thresh": "-26.70",
+    "normalization_type": "dynamic",
+    "target_offset": "0.45"
+  },
+  {
+    "beat": 3,
+    "input_i": "-16.12",
+    "input_tp": "-0.31",
+    "input_lra": "0.90",
+    "input_thresh": "-26.23",
+    "output_i": "-15.85",
+    "output_tp": "-1.50",
+    "output_lra": "0.80",
+    "output_thresh": "-25.93",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.15"
+  },
+  {
+    "beat": 4,
+    "input_i": "-18.69",
+    "input_tp": "-0.26",
+    "input_lra": "0.90",
+    "input_thresh": "-28.83",
+    "output_i": "-16.56",
+    "output_tp": "-1.50",
+    "output_lra": "0.00",
+    "output_thresh": "-26.69",
+    "normalization_type": "dynamic",
+    "target_offset": "0.56"
+  },
+  {
+    "beat": 5,
+    "input_i": "-19.26",
+    "input_tp": "-1.85",
+    "input_lra": "1.20",
+    "input_thresh": "-29.39",
+    "output_i": "-16.34",
+    "output_tp": "-1.50",
+    "output_lra": "0.20",
+    "output_thresh": "-26.45",
+    "normalization_type": "dynamic",
+    "target_offset": "0.34"
+  },
+  {
+    "beat": 6,
+    "input_i": "-17.26",
+    "input_tp": "-0.46",
+    "input_lra": "0.30",
+    "input_thresh": "-27.75",
+    "output_i": "-16.01",
+    "output_tp": "-1.50",
+    "output_lra": "0.00",
+    "output_thresh": "-26.51",
+    "normalization_type": "dynamic",
+    "target_offset": "0.01"
+  }
+]
