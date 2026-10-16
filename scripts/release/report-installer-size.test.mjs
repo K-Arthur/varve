@@ -73,7 +73,7 @@ test('status is ok inside warn threshold', () => {
 });
 
 test('status warns past warnRatio and blocks past blockRatio', () => {
-  withTempFile(70_000_000, 'Varve-0.1.3-windows-x86_64.exe', (warnPath) => {
+  withTempFile(85_000_000, 'Varve-0.1.3-windows-x86_64.exe', (warnPath) => {
     const warn = analyzeInstaller({
       installerPath: warnPath,
       baseline: DEFAULT_BASELINE,
@@ -83,7 +83,7 @@ test('status warns past warnRatio and blocks past blockRatio', () => {
     assert.equal(warn.status, 'warn');
   });
 
-  withTempFile(80_000_000, 'Varve-0.1.3-windows-x86_64.exe', (blockPath) => {
+  withTempFile(95_000_000, 'Varve-0.1.3-windows-x86_64.exe', (blockPath) => {
     const block = analyzeInstaller({
       installerPath: blockPath,
       baseline: DEFAULT_BASELINE,
@@ -95,7 +95,7 @@ test('status warns past warnRatio and blocks past blockRatio', () => {
 });
 
 test('an explicit override converts a block into block-overridden and records the reason', () => {
-  withTempFile(80_000_000, 'Varve-0.1.3-windows-x86_64.exe', (path) => {
+  withTempFile(95_000_000, 'Varve-0.1.3-windows-x86_64.exe', (path) => {
     const r = analyzeInstaller({
       installerPath: path,
       baseline: DEFAULT_BASELINE,
