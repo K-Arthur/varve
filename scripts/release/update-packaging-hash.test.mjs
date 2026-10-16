@@ -178,8 +178,14 @@ sha256sums=('${SINGLE}')
   const arm = pkgbuild.match(/^sha256sums_aarch64=\('([0-9a-fA-F]{64})'\)$/m)?.[1];
   assert.ok(x86 && arm, 'PKGBUILD must declare both per-arch sha256sums');
   assert.match(srcinfo, new RegExp(`^\\tpkgver = ${pkgver.replaceAll('.', '\\.')}$`, 'm'));
-  assert.match(srcinfo, new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-linux-x86_64\\.AppImage`));
-  assert.match(srcinfo, new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-linux-aarch64\\.AppImage`));
+  assert.match(
+    srcinfo,
+    new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-linux-x86_64\\.AppImage`),
+  );
+  assert.match(
+    srcinfo,
+    new RegExp(`noextract = Varve-${pkgver.replaceAll('.', '\\.')}-linux-aarch64\\.AppImage`),
+  );
   assert.match(
     srcinfo,
     new RegExp(
