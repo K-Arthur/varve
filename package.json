@@ -144,7 +144,7 @@
     "stylelint-config-standard": "^40.0.0",
     "ts-node": "10.9.2",
     "ts-prune": "0.10.3",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.11"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
   }
 }
