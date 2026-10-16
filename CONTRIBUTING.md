@@ -13,8 +13,8 @@ The best current contributions are reproducible bug reports, workflow and
 architecture discussions, cross-platform testing, documentation, examples,
 and design feedback. See the [current contributor guide](docs/development/contributing.md)
 for the project map, channel guide, validation expectations, and future PR
-workflow. Use [GitHub Issues](https://github.com/K-Arthur/varve/issues) for
-reproducible bugs and [GitHub Discussions](https://github.com/K-Arthur/varve/discussions)
+workflow. Use [GitHub Issues](https://github.com/varvedesign/varve/issues) for
+reproducible bugs and [GitHub Discussions](https://github.com/varvedesign/varve/discussions)
 for questions, proposals, and workflows.
 
 ## Code of Conduct
@@ -151,6 +151,6 @@ material in issues, discussions, commits, or pull requests.
 
 ## Questions?
 
-Ask in [GitHub Discussions](https://github.com/K-Arthur/varve/discussions).
-Use [GitHub Issues](https://github.com/K-Arthur/varve/issues) for
+Ask in [GitHub Discussions](https://github.com/varvedesign/varve/discussions).
+Use [GitHub Issues](https://github.com/varvedesign/varve/issues) for
 reproducible bugs.

@@ -9,6 +9,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { isMainModule } from '../is-main-module.mjs';
+import { releaseDownloadBaseUrl } from './product.mjs';
 
 const TARGETS = [
   { key: 'linux-x86_64', filename: (v) => `Varve-${v}-linux-x86_64.AppImage` },
@@ -76,8 +77,7 @@ function main() {
   const version =
     args.version ?? JSON.parse(readFileSync(join(dir, 'release-manifest.json'), 'utf8')).version;
   const channel = args.channel ?? 'stable';
-  const baseUrl =
-    args['base-url'] ?? `https://github.com/K-Arthur/varve/releases/download/v${version}`;
+  const baseUrl = args['base-url'] ?? releaseDownloadBaseUrl(version);
   const output = resolve(args.out ?? join(dir, `varve-update-${channel}.json`));
   const feed = buildUpdaterFeed({
     dir,

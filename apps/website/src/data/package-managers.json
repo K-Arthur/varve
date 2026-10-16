@@ -4,7 +4,7 @@
       "id": "winget",
       "platform": "windows",
       "label": "WinGet",
-      "command": "winget install K-Arthur.Varve",
+      "command": "winget install varvedesign.Varve",
       "live": false
     },
     {
@@ -18,7 +18,7 @@
       "id": "homebrew",
       "platform": "macos",
       "label": "Homebrew",
-      "command": "brew install --cask k-arthur/varve/varve",
+      "command": "brew install --cask varvedesign/varve/varve",
       "live": false
     }
   ]

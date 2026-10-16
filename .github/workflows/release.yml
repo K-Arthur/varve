@@ -1781,7 +1781,7 @@ jobs:
             --dir dist/release \
             --version '${{ needs.preflight.outputs.version }}' \
             --channel '${{ needs.preflight.outputs.channel }}' \
-            --base-url 'https://github.com/K-Arthur/varve/releases/download/${{ needs.preflight.outputs.tag }}'
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ needs.preflight.outputs.tag }}"
 
       # Verify every feed entry's cryptographic signature against the
       # embedded pubkey and the on-disk artifacts.  This catches the class

@@ -41,7 +41,7 @@ edition = "2021"
 rust-version = "1.82"
 license = "FSL-1.1-MIT"
 authors = ["Varve"]
-repository = "https://github.com/K-Arthur/varve"
+repository = "https://github.com/varvedesign/varve"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

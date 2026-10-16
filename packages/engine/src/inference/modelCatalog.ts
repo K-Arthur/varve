@@ -10,6 +10,7 @@
  * - Quantized variants
  */
 
+import { varveHostedReleaseUrl } from './hostedReleaseUrl';
 import { ModelRegistry } from './ModelRegistry';
 import { getInt8Variant, loadModelCatalog } from './manifest';
 import type { ModelManifestEntry, ModelState } from './types';
@@ -274,8 +275,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     description:
       'Task-specific motion/defocus deblurring (NAFNet-GoPro-width64). BGR float32 input in [0,1], H/W divisible by 16 (padder_size), dynamic shape. Reproducible fp16 conversion of the official checkpoint, parity-verified against the trusted PyTorch reference.',
     sizeBytes: 138_050_767,
-    remoteUrl:
-      'https://github.com/K-Arthur/varve/releases/download/varve-models-v1/nafnet-gopro-width64-fp16b-embed.onnx',
+    remoteUrl: varveHostedReleaseUrl('varve-models-v1', 'nafnet-gopro-width64-fp16b-embed.onnx'),
     checksum: 'e9b82a578b6ddf47a3f22118da65d13a4459b53e6c0e5fcf41f5615eadf92f5e',
     bundled: false,
     inputSpec: null,
@@ -294,8 +294,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     description:
       'Experimental anime-oriented Real-ESRGAN x4. Browser-WASM smoke-tested only; 320×320 tile measured 1.459 GB peak RSS and 112.8 s on one x86_64 host. Conversion provenance, artifact distribution review, and artist-quality results are not qualified. Optional download; compare against the source and Lanczos on a duplicate.',
     sizeBytes: 17_906_556,
-    remoteUrl:
-      'https://github.com/K-Arthur/varve/releases/download/varve-models-v1/realesrgan-anime-6b.onnx',
+    remoteUrl: varveHostedReleaseUrl('varve-models-v1', 'realesrgan-anime-6b.onnx'),
     checksum: '2648cab4c4343541c1aa291c6754e9e8edbe7a813fffc2a677423dd12cb6b7f7',
     bundled: false,
     inputSpec: null,
@@ -1038,7 +1037,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     description:
       'Fast local AI colorization for grayscale photos. ConvNeXt-tiny, 256x256 input. Requires a verified model download; the artifact is not bundled (Apache-2.0).',
     sizeBytes: 223_650_419,
-    remoteUrl: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor-tiny.onnx',
+    remoteUrl: varveHostedReleaseUrl('models-v1', 'ddcolor-tiny.onnx'),
     checksum: '1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47',
     bundled: false,
     inputSpec: null,
@@ -1060,7 +1059,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       kind: 'remote',
       sources: [
         {
-          url: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor-tiny.onnx',
+          url: varveHostedReleaseUrl('models-v1', 'ddcolor-tiny.onnx'),
           sha256: '1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47',
         },
       ],
@@ -1073,7 +1072,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     description:
       'Higher-quality local AI colorization for grayscale photos. ConvNeXt-large, 512x512 input. Requires a verified model download; the artifact is not bundled (Apache-2.0).',
     sizeBytes: 915_477_115,
-    remoteUrl: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor.onnx',
+    remoteUrl: varveHostedReleaseUrl('models-v1', 'ddcolor.onnx'),
     checksum: '9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193',
     bundled: false,
     inputSpec: null,
@@ -1095,7 +1094,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       kind: 'remote',
       sources: [
         {
-          url: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor.onnx',
+          url: varveHostedReleaseUrl('models-v1', 'ddcolor.onnx'),
           sha256: '9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193',
         },
       ],

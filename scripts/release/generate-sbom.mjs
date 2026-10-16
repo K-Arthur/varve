@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { repoHttpsUrl } from './product.mjs';
 import { targetFor } from './targets.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -381,7 +382,7 @@ function main() {
     description: meta.description,
     licenses: [{ license: { name: 'FSL-1.1-MIT' } }],
     externalReferences: [
-      { type: 'vcs', url: 'https://github.com/K-Arthur/varve' },
+      { type: 'vcs', url: repoHttpsUrl() },
       ...(meta.gitSha ? [{ type: 'build-system', comment: `commit:${meta.gitSha}` }] : []),
     ],
     properties: [
@@ -403,7 +404,7 @@ function main() {
           vendor: 'K-Arthur',
           name: 'varve/generate-sbom.mjs',
           version: '1.0.0',
-          externalReferences: [{ type: 'vcs', url: 'https://github.com/K-Arthur/varve' }],
+          externalReferences: [{ type: 'vcs', url: repoHttpsUrl() }],
         },
       ],
       component,

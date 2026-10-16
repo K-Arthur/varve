@@ -525,8 +525,10 @@ test('install guidance is honest about Gatekeeper, SmartScreen, and checksums', 
   await expect(page.locator('#troubleshoot-help')).toContainText('Smart App Control');
   await page.locator('#platform-tab-windows').click();
   await expect(page.locator('#platform-windows')).toContainText('Smart App Control');
-  await expect(page.locator('body')).not.toContainText('winget install K-Arthur.Varve');
-  await expect(page.locator('body')).not.toContainText('brew install --cask k-arthur/varve/varve');
+  await expect(page.locator('body')).not.toContainText('winget install varvedesign.Varve');
+  await expect(page.locator('body')).not.toContainText(
+    'brew install --cask varvedesign/varve/varve',
+  );
   await expect(page.locator('body')).not.toContainText('The Arch AUR package');
   await expect(page.locator('body')).not.toContainText('use the AppImage for now');
   await expect(page.locator('#troubleshoot-help')).toContainText(

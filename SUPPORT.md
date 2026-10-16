@@ -8,7 +8,7 @@
   installation help, download problems, troubleshooting, and usage questions.
 - **GitHub Issues:** Report bugs and request features
 - **GitHub Discussions:** Questions, ideas, and show-and-tell —
-  [github.com/K-Arthur/varve/discussions](https://github.com/K-Arthur/varve/discussions)
+  [github.com/varvedesign/varve/discussions](https://github.com/varvedesign/varve/discussions)
 - **Feedback:** [feedback@varve.studio](mailto:feedback@varve.studio) for UX feedback,
   suggestions, and feature ideas.
 - **Security issues:** Report privately to [security@varve.studio](mailto:security@varve.studio)

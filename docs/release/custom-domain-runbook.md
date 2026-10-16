@@ -13,7 +13,7 @@ registrar only registers the domain and serves DNS.
 |---|---|---|
 | Registrar | Porkbun | `varve.studio` |
 | DNS provider | Porkbun | porkbun nameservers |
-| Hosting | GitHub Pages | `K-Arthur/varve` (workflow build, `actions/deploy-pages`) |
+| Hosting | GitHub Pages | `varvedesign/varve` (workflow build, `actions/deploy-pages`) |
 | Canonical origin | — | `https://varve.studio` |
 | `www` behavior | GitHub Pages | `www.varve.studio` serves the site, GitHub redirects it to the apex |
 | Deploy method | GitHub Actions | `.github/workflows/website-deploy.yml` |
@@ -61,14 +61,15 @@ recommended for cutover; 3600 after stability.
 | AAAA | *(blank = apex)* | `2606:50c0:8001::153` | 600 | GitHub Pages IPv6 (apex) |
 | AAAA | *(blank = apex)* | `2606:50c0:8002::153` | 600 | GitHub Pages IPv6 (apex) |
 | AAAA | *(blank = apex)* | `2606:50c0:8003::153` | 600 | GitHub Pages IPv6 (apex) |
-| CNAME | `www` | `k-arthur.github.io` | 600 | `www` hostname; GitHub redirects to apex |
+| CNAME | `www` | `varvedesign.github.io` | 600 | `www` hostname; GitHub redirects to apex |
 | TXT | `_github-pages-challenge-<account>.varve.studio` | *value shown by GitHub* | 600 | Domain verification — only if GitHub requests it |
 
 Notes:
 
-- The CNAME target is a **hostname, not a URL**: `k-arthur.github.io`, never
-  `https://k-arthur.github.io` and never `k-arthur.github.io/varve` (a CNAME
-  cannot carry a path).
+- The CNAME target is a **hostname, not a URL**: `varvedesign.github.io`, never
+  `https://varvedesign.github.io` and never `varvedesign.github.io/varve` (a CNAME
+  cannot carry a path). After the org transfer, do not leave `www` pointing at
+  `k-arthur.github.io`.
 - GitHub publishes the exact A/AAAA addresses in Repository → Settings →
   Pages after the domain is added; **re-verify them there** — they have
   changed before.
@@ -89,7 +90,7 @@ Notes:
 ## 2. GitHub Pages configuration
 
 Configured in Repository → Settings → Pages (performed via the REST API
-`PUT /repos/K-Arthur/varve/pages` with `cname: varve.studio`):
+`PUT /repos/varvedesign/varve/pages` with `cname: varve.studio`):
 
 - **Custom domain:** `varve.studio`
 - **Enforce HTTPS:** on (once the certificate is provisioned — do not enable

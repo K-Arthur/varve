@@ -15,9 +15,9 @@ You can still help today. Use the channel that matches the kind of help:
 
 | Contribution | Best place | What makes it useful |
 |---|---|---|
-| Reproducible bug or regression | [GitHub Issues](https://github.com/K-Arthur/varve/issues) | Steps, expected/actual result, platform, release or commit, and screenshots/logs |
-| Feature idea or workflow proposal | [GitHub Discussions](https://github.com/K-Arthur/varve/discussions) | The user problem, a concrete workflow, and why existing tools do not solve it |
-| Architecture or API question | [GitHub Discussions](https://github.com/K-Arthur/varve/discussions) | Constraints, trade-offs, and links to the relevant architecture document |
+| Reproducible bug or regression | [GitHub Issues](https://github.com/varvedesign/varve/issues) | Steps, expected/actual result, platform, release or commit, and screenshots/logs |
+| Feature idea or workflow proposal | [GitHub Discussions](https://github.com/varvedesign/varve/discussions) | The user problem, a concrete workflow, and why existing tools do not solve it |
+| Architecture or API question | [GitHub Discussions](https://github.com/varvedesign/varve/discussions) | Constraints, trade-offs, and links to the relevant architecture document |
 | Documentation correction | An Issue or Discussion | The page, the confusing passage, and a suggested replacement |
 | Cross-platform testing | Issues or Discussions | OS/version, package type, hardware, exact action, and whether it reproduces on a clean document |
 | Tutorial, example, or workflow | Discussions | A concise explanation, source file or steps, and the Varve version used |

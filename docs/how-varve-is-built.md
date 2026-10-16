@@ -10,9 +10,9 @@ I build Varve with a lot of help from AI coding assistants. I decide what Varve 
 
 - **Code:** a large share of the code in the TypeScript editor, the Rust engine and the desktop shell was first drafted by AI, then reviewed, reworked and tested by me.
 - **Tests, tooling and docs:** much of the test suite, the build and release scripts and the documentation were made the same way.
-- **Tools:** Claude Code, Codex, Cursor, Devin, opencode and Windsurf. The repository's [AI-assisted development notes](https://github.com/K-Arthur/varve/blob/master/docs/agents/README.md) describe how they're set up.
+- **Tools:** Claude Code, Codex, Cursor, Devin, opencode and Windsurf. The repository's [AI-assisted development notes](https://github.com/varvedesign/varve/blob/master/docs/agents/README.md) describe how they're set up.
 
-Commits don't carry AI co-author tags. Some AI tools add a "Co-authored-by" line or a "Generated with" signature to the commits they help with. Earlier Varve commits had those lines. I removed them from the Git history with git-filter-repo, and a commit hook and a CI check now block them. I did this so I'm the only author on record, because I'm accountable for every line. This page is the disclosure instead, and the removal is recorded in the repository's [provenance report](https://github.com/K-Arthur/varve/blob/master/docs/development/provenance.md).
+Commits don't carry AI co-author tags. Some AI tools add a "Co-authored-by" line or a "Generated with" signature to the commits they help with. Earlier Varve commits had those lines. I removed them from the Git history with git-filter-repo, and a commit hook and a CI check now block them. I did this so I'm the only author on record, because I'm accountable for every line. This page is the disclosure instead, and the removal is recorded in the repository's [provenance report](https://github.com/varvedesign/varve/blob/master/docs/development/provenance.md).
 
 ## What I do myself
 
@@ -26,7 +26,7 @@ Releases are built in CI from the exact tagged commit and must pass candidate ce
 
 ## Icons, fonts, logo and images
 
-- Interface icons come from open-source sets (Lucide, Phosphor, Tabler). The fonts are Geist, IBM Plex Sans and Fraunces. Credits and licences are in [THIRD_PARTY_NOTICES](https://github.com/K-Arthur/varve/blob/master/THIRD_PARTY_NOTICES).
+- Interface icons come from open-source sets (Lucide, Phosphor, Tabler). The fonts are Geist, IBM Plex Sans and Fraunces. Credits and licences are in [THIRD_PARTY_NOTICES](https://github.com/varvedesign/varve/blob/master/THIRD_PARTY_NOTICES).
 - The wordmark is outlined from the Fraunces typeface, and a script renders the app icons from one master SVG.
 - Screenshots and recordings are captured from the running app and never hand-edited.
 - One sample image on this site, the expanded landscape photo on the Generative Editing page, was made with Varve's own on-device AI edit tool. It's labelled that way where it appears.
@@ -41,6 +41,6 @@ Varve's own AI features run on your device and are on by default; turn them off 
 
 ## Questions
 
-Ask in [GitHub Discussions](https://github.com/K-Arthur/varve/discussions) or email hello@varve.studio. If anything here is wrong, tell me and I'll fix it.
+Ask in [GitHub Discussions](https://github.com/varvedesign/varve/discussions) or email hello@varve.studio. If anything here is wrong, tell me and I'll fix it.
 
 Kevin

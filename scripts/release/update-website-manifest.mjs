@@ -15,12 +15,12 @@
  *   node scripts/release/update-website-manifest.mjs \
  *     --manifest dist/release/release-manifest.json \
  *     --tag v0.1.0 \
- *     [--repo K-Arthur/varve]
+ *     [--repo owner/varve]
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { repoSlug } from './product.mjs';
+import { assertRepoSlug, repoSlug } from './product.mjs';
 import { buildWebsiteReleaseData } from './website-release-data.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -34,7 +34,7 @@ function parseArgs(argv) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const repo = args.repo ?? repoSlug();
+  const repo = assertRepoSlug(args.repo ?? repoSlug());
   const tag = args.tag;
   if (!tag) throw new Error('--tag is required (e.g. --tag v0.1.0)');
 

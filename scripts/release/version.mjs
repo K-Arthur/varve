@@ -29,6 +29,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { releaseDownloadBaseUrl } from './product.mjs';
 
 // Test hook: point VARVE_VERSION_ROOT at a fixture tree so `set`/`bump` write
 // there instead of the real repo (release-pipeline.test.mjs uses this).
@@ -316,7 +317,7 @@ function applyVersion(version, actionLabel) {
   process.stdout.write(
     'After publishing the release, refresh AUR sha256sums from the published\n' +
       'SHA256SUMS.txt:\n' +
-      `  curl -sL https://github.com/K-Arthur/varve/releases/download/v${version}/SHA256SUMS.txt | grep x86_64.AppImage\n` +
+      `  curl -sL ${releaseDownloadBaseUrl(version)}/SHA256SUMS.txt | grep x86_64.AppImage\n` +
       'then update packaging/aur/varve-desktop-bin/PKGBUILD sha256sums and run\n' +
       'makepkg --printsrcinfo > packaging/aur/varve-desktop-bin/.SRCINFO\n',
   );

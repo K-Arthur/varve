@@ -29,7 +29,47 @@ VERSION="${1:?Usage: $0 <version> [--skip-sources|--regenerate-sources]}"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 AUR_DIR="$REPO_ROOT/packaging/aur/varve-desktop-bin"
 FLATPAK_DIR="$REPO_ROOT/packaging/flatpak"
-GITHUB_URL="https://github.com/K-Arthur/varve"
+
+# Owner/repo follows an explicit override, then CI (`GITHUB_REPOSITORY`), then
+# the git `origin` remote so a transfer does not require editing this script.
+# Precedence matches scripts/release/product.mjs.
+GITHUB_REPO_SLUG_RE='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+
+assert_github_repo_slug() {
+  local slug="$1"
+  local owner repo
+  owner="${slug%%/*}"
+  repo="${slug#*/}"
+  if [[ ! "$slug" =~ $GITHUB_REPO_SLUG_RE || "$owner" == '.' || "$owner" == '..' || "$repo" == '.' || "$repo" == '..' ]]; then
+    echo ":: ERROR: Invalid GitHub repository slug: '$slug'" >&2
+    exit 1
+  fi
+  printf '%s\n' "$slug"
+}
+
+resolve_github_repo() {
+  local git_cwd="${1:-$REPO_ROOT}"
+  local slug=""
+  if [[ -n "${VARVE_GITHUB_REPOSITORY:-}" ]]; then
+    slug="$VARVE_GITHUB_REPOSITORY"
+  elif [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    slug="$GITHUB_REPOSITORY"
+  else
+    local url
+    url="$(git -C "$git_cwd" remote get-url origin 2>/dev/null || true)"
+    if [[ "$url" =~ [:/]([^/:]+/[^/]+)$ ]]; then
+      slug="${BASH_REMATCH[1]%.git}"
+    fi
+  fi
+  if [[ -z "$slug" ]]; then
+    echo ":: ERROR: Cannot determine GitHub repository. Set VARVE_GITHUB_REPOSITORY or GITHUB_REPOSITORY, or add a git remote named origin." >&2
+    exit 1
+  fi
+  assert_github_repo_slug "$slug"
+}
+
+GITHUB_REPO="$(resolve_github_repo)"
+GITHUB_URL="https://github.com/$GITHUB_REPO"
 SHA256_URL="$GITHUB_URL/releases/download/v$VERSION/SHA256SUMS.txt"
 AUR_SOURCE_X86="Varve-${VERSION}-linux-x86_64.AppImage"
 AUR_SOURCE_ARM="Varve-${VERSION}-linux-aarch64.AppImage"
@@ -162,7 +202,7 @@ if [[ -f "$MANIFEST" ]]; then
 
   # Fetch the commit hash for the tag from GitHub
   TAG="v$VERSION"
-  COMMIT=$(curl -sfL --connect-timeout 20 --max-time 30 "https://api.github.com/repos/K-Arthur/varve/git/ref/tags/$TAG" 2>/dev/null | \
+  COMMIT=$(curl -sfL --connect-timeout 20 --max-time 30 "https://api.github.com/repos/$GITHUB_REPO/git/ref/tags/$TAG" 2>/dev/null | \
     grep '"sha"' | head -1 | sed 's/.*"sha": *"//;s/".*//' || true)
 
   if [[ -z "$COMMIT" ]]; then

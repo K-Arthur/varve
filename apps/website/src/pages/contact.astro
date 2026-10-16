@@ -89,7 +89,7 @@ const faqSchema = {
       name: 'How do I report a Varve security vulnerability?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: `Report security vulnerabilities privately to ${CONTACTS.security}, or through GitHub private vulnerability reporting at https://github.com/K-Arthur/varve/security/advisories. Do not include vulnerability details in a public GitHub issue.`,
+        text: `Report security vulnerabilities privately to ${CONTACTS.security}, or through GitHub private vulnerability reporting at https://github.com/varvedesign/varve/security/advisories. Do not include vulnerability details in a public GitHub issue.`,
       },
     },
     {
@@ -162,14 +162,14 @@ const CHANNEL_ORDER = CONTACT_CHANNELS.map((channel) => channel.id);
             For a reproducible, non-sensitive bug or a concrete feature
             request. Public issues let other users find the problem, add
             detail, and see the fix land.
-            <a href="https://github.com/K-Arthur/varve/issues" target="_blank" rel="noopener noreferrer">Varve issue tracker</a>
+            <a href="https://github.com/varvedesign/varve/issues" target="_blank" rel="noopener noreferrer">Varve issue tracker</a>
           </dd>
 
           <dt>Ask in GitHub Discussions</dt>
           <dd>
             For questions, workflow advice, and ideas that benefit from other
             users answering. Discussions are public.
-            <a href="https://github.com/K-Arthur/varve/discussions" target="_blank" rel="noopener noreferrer">Varve Discussions</a>
+            <a href="https://github.com/varvedesign/varve/discussions" target="_blank" rel="noopener noreferrer">Varve Discussions</a>
           </dd>
 
           <dt>Email {CONTACTS.support}</dt>
@@ -223,7 +223,7 @@ const CHANNEL_ORDER = CONTACT_CHANNELS.map((channel) => channel.id);
             Report vulnerabilities privately to
             <a href={`mailto:${CONTACTS.security}`} aria-label="Email Varve security reporting">{CONTACTS.security}</a>,
             or use
-            <a href="https://github.com/K-Arthur/varve/security/advisories" target="_blank" rel="noopener noreferrer">GitHub private vulnerability reporting</a>.
+            <a href="https://github.com/varvedesign/varve/security/advisories" target="_blank" rel="noopener noreferrer">GitHub private vulnerability reporting</a>.
             Please avoid posting sensitive vulnerability details publicly.
           </dd>
 

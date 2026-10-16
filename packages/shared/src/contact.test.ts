@@ -103,7 +103,7 @@ describe('contactMailto', () => {
 describe('VARVE_URLS', () => {
   it('points every canonical URL at owned Varve infrastructure', () => {
     for (const url of Object.values(VARVE_URLS)) {
-      expect(url).toMatch(/^https:\/\/(varve\.studio|github\.com\/K-Arthur\/varve)/);
+      expect(url).toMatch(/^https:\/\/(varve\.studio|github\.com\/varvedesign\/varve)/);
     }
   });
 

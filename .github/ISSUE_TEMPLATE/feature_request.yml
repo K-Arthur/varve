@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         For open-ended ideas or discussion before a concrete proposal, the
-        [Ideas category in Discussions](https://github.com/K-Arthur/varve/discussions/categories/ideas)
+        [Ideas category in Discussions](https://github.com/varvedesign/varve/discussions/categories/ideas)
         may be a better fit than an issue.
 
   - type: textarea

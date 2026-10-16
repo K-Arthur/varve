@@ -1,3 +1,5 @@
+import { varveHostedReleaseUrl } from './inference/hostedReleaseUrl';
+
 /** Offline super-resolution model metadata. */
 
 export interface UpscaleModelMetadata {
@@ -41,8 +43,7 @@ export const UPSCALE_MODELS: UpscaleModelMetadata[] = [
       'Real-ESRGAN anime_6B; deepghs ONNX upload @ 35e0ed8f35ce0dbea674568161a48b31ba7d2a99 (converter unrecorded)',
     sourceUrl:
       'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/RealESRGAN_x4plus_anime_6B.pth',
-    remoteUrl:
-      'https://github.com/K-Arthur/varve/releases/download/varve-models-v1/realesrgan-anime-6b.onnx',
+    remoteUrl: varveHostedReleaseUrl('varve-models-v1', 'realesrgan-anime-6b.onnx'),
     checksum: '2648cab4c4343541caa291c6754e9e8edbe7a813fffc2a677423dd12cb6b7f7',
     bundled: false,
   },

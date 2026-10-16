@@ -7,7 +7,7 @@ privately. Do not create a public GitHub issue, and do not disclose
 the details publicly before we have coordinated a fix.
 
 Contact: open a private advisory at
-https://github.com/K-Arthur/varve/security/advisories
+https://github.com/varvedesign/varve/security/advisories
 
 You may also email [security@varve.studio](mailto:security@varve.studio). Do not
 send vulnerability details through a public issue or discussion. Do not include

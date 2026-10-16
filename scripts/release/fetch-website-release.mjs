@@ -35,7 +35,7 @@
  *
  * Usage:
  *   node scripts/release/fetch-website-release.mjs \
- *     [--repo K-Arthur/varve] [--tag v0.1.0] [--token <github token>]
+ *     [--repo owner/varve] [--tag v0.1.0] [--token <github token>]
  *
  * GITHUB_TOKEN environment variable is used when --token is absent. A token is
  * strongly recommended: the unauthenticated rate limit (60 req/h) is
@@ -45,7 +45,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchGitHubWithRetry, redactRequestUrl } from './github-fetch.mjs';
-import { repoSlug } from './product.mjs';
+import { assertRepoSlug, repoSlug } from './product.mjs';
 import { selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import {
   buildWebsiteReleaseData,
@@ -99,7 +99,7 @@ async function download(url, token) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const token = args.token ?? process.env.GITHUB_TOKEN ?? '';
-  const repo = args.repo ?? repoSlug();
+  const repo = assertRepoSlug(args.repo ?? repoSlug());
   const pinnedTag = args.tag ?? null;
   // 1. Channel policy: published stable > published prerelease > no release.
   //    Drafts (and withdrawn releases, which GitHub keeps as drafts) never

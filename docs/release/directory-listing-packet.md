@@ -20,9 +20,9 @@ Platform:          Linux (x86_64, aarch64), macOS (Apple Silicon),
 Status:            Public beta (v0.5.0, published 2026-10-09)
 Homepage:          https://varve.studio
 Download:          https://varve.studio/download
-Source:            https://github.com/K-Arthur/varve
-Discussions:       https://github.com/K-Arthur/varve/discussions
-Issue tracker:     https://github.com/K-Arthur/varve/issues
+Source:            https://github.com/varvedesign/varve
+Discussions:       https://github.com/varvedesign/varve/discussions
+Issue tracker:     https://github.com/varvedesign/varve/issues
 Documentation:     https://varve.studio/docs
 Privacy:           https://varve.studio/about/privacy
 ```
@@ -77,7 +77,7 @@ policy is published at https://varve.studio/about/privacy.
   "description": "Local-first design suite for vector graphics, layout, typography, motion, prototyping, and print.",
   "url": "https://varve.studio",
   "downloadUrl": "https://varve.studio/download",
-  "repository": "https://github.com/K-Arthur/varve",
+  "repository": "https://github.com/varvedesign/varve",
   "license": "FSL-1.1-MIT",
   "isOsiApproved": false,
   "pricing": "free",
@@ -87,7 +87,7 @@ policy is published at https://varve.studio/about/privacy.
   "version": "0.5.0",
   "releaseDate": "2026-10-09",
   "privacyPolicy": "https://varve.studio/about/privacy",
-  "supportUrl": "https://github.com/K-Arthur/varve/discussions"
+  "supportUrl": "https://github.com/varvedesign/varve/discussions"
 }
 ```
 
@@ -109,7 +109,7 @@ policy is published at https://varve.studio/about/privacy.
 
 - Package names: `varve-desktop` (generic), distribution-specific names
   vary (AppImage, deb, rpm, AUR).
-- Upstream: `https://github.com/K-Arthur/varve`
+- Upstream: `https://github.com/varvedesign/varve`
 - Version comes from the git tag and the release manifest.
 
 ## Update cadence

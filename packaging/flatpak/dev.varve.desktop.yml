@@ -61,7 +61,7 @@ modules:
         exit 1
     sources:
       - type: git
-        url: https://github.com/K-Arthur/varve.git
+        url: https://github.com/varvedesign/varve.git
         tag: v0.0.0
         # TODO: Replace with actual commit sha when publishing
         commit: PLACEHOLDER_REPLACE_WITH_GIT_SHA
