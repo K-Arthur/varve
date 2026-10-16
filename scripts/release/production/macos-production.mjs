@@ -261,10 +261,29 @@ async function launch() {
   await (await until(() => one('Fill', ['XCUIElementTypeMenuItem']))).click();
   await evidence('native-ready');
 }
+async function dismissFirstRunOverlay() {
+  // Fresh profiles show the 0.5.1 first-run overlay. Mac2 AX does not set
+  // navigator.webdriver, so the product correctly shows it and it covers File.
+  const titles = await driver.findElements(
+    'predicate string',
+    `amType IN {"XCUIElementTypeStaticText"} AND (title == ${literal('Welcome to Varve')} OR value == ${literal('Welcome to Varve')} OR label == ${literal('Welcome to Varve')})`,
+  );
+  if (titles.length === 0) return;
+  await click('Close');
+  await until(async () => {
+    const remaining = await driver.findElements(
+      'predicate string',
+      `amType IN {"XCUIElementTypeStaticText"} AND (title == ${literal('Welcome to Varve')} OR value == ${literal('Welcome to Varve')} OR label == ${literal('Welcome to Varve')})`,
+    );
+    return remaining.length === 0;
+  });
+  receipt.evidence.push({ phase: 'actual first-run overlay dismissed' });
+}
 async function createDocumentFromHome() {
   await click('New');
   await click(['Create', 'Create design']);
   await evidence('native-new');
+  await dismissFirstRunOverlay();
   const welcome = await hittableElements(
     "amType == 'XCUIElementTypeButton' AND (label == 'Get started' OR title == 'Get started')",
   );
@@ -286,6 +305,7 @@ async function open(path) {
     // qualifies its Home action, and both versions must reopen the saved disk
     // file, retain its artwork, and use the same native profile.
     if (homeOpen.length) await createDocumentFromHome();
+    await dismissFirstRunOverlay();
     await click('File');
     await click('Open…', true);
   }
@@ -293,6 +313,7 @@ async function open(path) {
   await waitForEditorAfterOpen();
 }
 async function waitForEditorAfterOpen() {
+  await dismissFirstRunOverlay();
   const outcome = await until(async () => {
     const recovery = await hittableElements(
       "amType == 'XCUIElementTypeGroup' AND (label == 'Recover unsaved documents' OR title == 'Recover unsaved documents')",

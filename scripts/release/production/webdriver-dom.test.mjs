@@ -142,6 +142,26 @@ try {
 } finally {
   rmSync(evidence, { recursive: true, force: true });
 }
+const windows = readFileSync(new URL('./windows-production.mjs', import.meta.url), 'utf8');
+const linux = readFileSync(new URL('./linux-production.mjs', import.meta.url), 'utf8');
+for (const [name, body] of [
+  ['windows', windows],
+  ['linux', linux],
+]) {
+  assert.match(
+    body,
+    /locator\('\.first-run-overlay'\)/,
+    `${name} must dismiss the actual first-run overlay before File`,
+  );
+  assert.match(body, /getByRole\('button', \{ name: 'Close', exact: true \}\)/);
+  assert.match(body, /actual first-run overlay dismissed/);
+  assert.match(
+    body,
+    /await dismissFirstRunOverlay\(\);\s+await page\.getByRole\('menubar'\)/,
+    `${name} File actions must not click through the first-run backdrop`,
+  );
+}
+
 console.log(
   'DOM selector scoping, actual radio label and strict missing/ambiguous lookup assertions passed (no native/browser execution).',
 );

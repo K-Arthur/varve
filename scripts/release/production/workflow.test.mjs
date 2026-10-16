@@ -37,8 +37,8 @@ for (const target of [
 assert.match(linux, /production\/appimage-extraction\.test\.mjs/);
 assert.match(
   linux,
-  /verify-appimage-permissions\.mjs --appimage/,
-  'package-smoke must reject a staged AppImage whose SquashFS is not world-readable',
+  /chmod \+x "\$\{IMG\}"\n\s+node scripts\/release\/verify-appimage-permissions\.mjs --appimage/,
+  'package-smoke must restore the exec bit download-artifact drops before --appimage-offset',
 );
 assert.doesNotMatch(native, /production\/appimage-extraction\.test\.mjs/);
 assert.match(
