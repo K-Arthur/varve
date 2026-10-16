@@ -73,7 +73,7 @@ jobs:
             --output ci-plan.json --github-output "$GITHUB_OUTPUT"
       - name: Upload exact candidate plan
         id: upload-plan
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-candidate-plan-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: ci-plan.json
@@ -123,14 +123,14 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - name: Install pinned advisory scanner (verified)
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8
         with:
           tool: cargo-audit@0.22.2
           checksum: true
@@ -139,7 +139,7 @@ jobs:
         run: node scripts/security/dependency-advisories.mjs
       - name: Upload sanitized dependency advisory reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-dependency-advisories-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: reports/dependency-advisories/
@@ -171,7 +171,7 @@ jobs:
         run: node scripts/quality/ci-execution-report.mjs --category pipeline --lanes pipeline-validate,ci-tools,policy --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/pipeline.json
       - name: Upload pipeline execution receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-ci-execution-${{ github.run_id }}-pipeline-attempt-${{ github.run_attempt }}
           path: ci-execution/
@@ -192,7 +192,7 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -212,7 +212,7 @@ jobs:
         run: node scripts/quality/ci-execution-report.mjs --category js --lanes js-unit:all,typecheck:all,lint:all --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/js.json
       - name: Upload JavaScript execution receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-ci-execution-${{ github.run_id }}-js-attempt-${{ github.run_attempt }}
           path: ci-execution/
@@ -234,7 +234,7 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: 1.97.1
           components: rustfmt, clippy
@@ -253,7 +253,7 @@ jobs:
         run: node scripts/quality/ci-execution-report.mjs --category rust --lanes rust-test:all,rust-clippy:all,cargo-fmt --matrix "${{ matrix.os }}" --status "${{ job.status }}" --output "ci-execution/rust-${{ matrix.os }}.json"
       - name: Upload Rust execution receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-ci-execution-${{ github.run_id }}-rust-${{ matrix.os }}-attempt-${{ github.run_attempt }}
           path: ci-execution/
@@ -272,18 +272,18 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install just
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8
         with:
           tool: just@1.54.0
       - name: WASM check
         run: just wasm-check
       - name: Install wasm-pack (pinned, verified)
-        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8
         with:
           tool: wasm-pack@0.13.1
           checksum: true
@@ -292,7 +292,7 @@ jobs:
         run: just wasm-build-all
       - name: Upload candidate WASM artifact
         id: upload-wasm
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-candidate-wasm-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: apps/desktop/public/wasm/
@@ -307,7 +307,7 @@ jobs:
         run: node scripts/quality/ci-execution-report.mjs --category wasm --lanes wasm --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/wasm.json
       - name: Upload WASM execution receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-ci-execution-${{ github.run_id }}-wasm-attempt-${{ github.run_attempt }}
           path: ci-execution/
@@ -327,7 +327,7 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -359,7 +359,7 @@ jobs:
           VARVE_CI_PLAYWRIGHT_REPORT: test-results/ci-browser/website.json
       - name: Upload website diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-candidate-website-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
@@ -377,14 +377,14 @@ jobs:
         run: node scripts/quality/ci-execution-report.mjs --category website --lanes website-unit,website-e2e --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/website.json --playwright-report website-e2e=test-results/ci-browser/website.json --playwright-inventory test-results/ci-browser/website.json=test-results/browser-inventory/website.json
       - name: Upload website execution receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-ci-execution-${{ github.run_id }}-website-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
       - name: Upload immutable candidate website inventory
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-browser-inventory-${{ github.run_id }}-website-attempt-${{ github.run_attempt }}
           path: test-results/browser-inventory/
@@ -411,14 +411,14 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - name: Download candidate WASM artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.run_id }}
@@ -505,7 +505,7 @@ jobs:
           VARVE_DEMO_E2E_OUTPUT_DIR: ci-demo-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Upload browser diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-candidate-e2e-${{ inputs.sha }}-${{ matrix.shard }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
@@ -533,14 +533,14 @@ jobs:
           fi
       - name: Upload browser execution receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-ci-execution-${{ github.run_id }}-e2e-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
       - name: Upload immutable candidate e2e inventory
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-browser-inventory-${{ github.run_id }}-e2e-${{ matrix.shard }}-attempt-${{ github.run_attempt }}
           path: test-results/browser-inventory/
@@ -548,7 +548,7 @@ jobs:
           retention-days: 14
       - name: Upload immutable candidate production-demo inventory
         if: always() && matrix.shard == 1
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-browser-inventory-${{ github.run_id }}-e2e-demo-dist-attempt-${{ github.run_attempt }}
           path: test-results/ci-demo-${{ github.run_id }}-${{ github.run_attempt }}/browser-inventory.json
@@ -573,14 +573,14 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - name: Download candidate WASM artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.run_id }}
@@ -606,7 +606,7 @@ jobs:
           fi
       - name: Upload visual diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-candidate-visual-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
@@ -625,14 +625,14 @@ jobs:
         run: node scripts/quality/ci-execution-report.mjs --category visual --lanes e2e:visual --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/visual.json --playwright-report e2e:visual=test-results/ci-browser/visual.json --playwright-inventory test-results/ci-browser/visual.json=test-results/browser-inventory/visual.json
       - name: Upload visual execution receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-ci-execution-${{ github.run_id }}-visual-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
       - name: Upload immutable candidate visual inventory
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-browser-inventory-${{ github.run_id }}-visual-attempt-${{ github.run_attempt }}
           path: test-results/browser-inventory/
@@ -660,7 +660,7 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -677,12 +677,12 @@ jobs:
             libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config patchelf xvfb dbus-x11 at-spi2-core mesa-utils
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Download candidate WASM artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.run_id }}
@@ -705,7 +705,7 @@ jobs:
         run: node scripts/quality/ci-execution-report.mjs --category desktop --lanes desktop-native --matrix "${{ matrix.name }}" --status "${{ job.status }}" --output "ci-execution/desktop-${{ matrix.name }}.json"
       - name: Upload desktop execution receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-ci-execution-${{ github.run_id }}-desktop-${{ matrix.name }}-attempt-${{ github.run_attempt }}
           path: ci-execution/
@@ -734,7 +734,7 @@ jobs:
         run: node scripts/quality/ci-execution-report.mjs --category models --lanes models --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/models.json
       - name: Upload model execution receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-ci-execution-${{ github.run_id }}-models-attempt-${{ github.run_attempt }}
           path: ci-execution/
@@ -754,7 +754,7 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -773,14 +773,14 @@ jobs:
         run: node scripts/quality/ci-execution-report.mjs --category bench --lanes bench:render --matrix ubuntu-latest --status "${{ job.status }}" --output ci-execution/bench.json
       - name: Upload benchmark execution receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-ci-execution-${{ github.run_id }}-bench-attempt-${{ github.run_attempt }}
           path: ci-execution/
           if-no-files-found: ignore
       - name: Upload benchmark diagnostics
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-candidate-bench-${{ inputs.sha }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
@@ -802,14 +802,14 @@ jobs:
         with:
           ref: ${{ needs.changes.outputs.commit_sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.run_id }}
           artifact-ids: ${{ needs.changes.outputs.plan_artifact_id }}
           path: candidate-plan
       - name: Download execution receipts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.run_id }}
@@ -846,7 +846,7 @@ jobs:
         run: node scripts/quality/test-feedback.mjs ci-execution --summary > ci-feedback.json
       - name: Upload candidate test feedback diagnostics
         if: ${{ always() && steps.test-feedback.outcome == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-candidate-test-feedback-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: ci-feedback.json
@@ -862,7 +862,7 @@ jobs:
       - name: Upload immutable candidate evidence
         id: upload-evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-release-candidate-${{ needs.changes.outputs.commit_sha }}-${{ needs.changes.outputs.policy_hash }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
@@ -888,7 +888,7 @@ jobs:
       - name: Download exact candidate plan
         id: download-plan
         if: ${{ always() && needs.changes.outputs.plan_artifact_id != '' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.run_id }}
@@ -908,7 +908,7 @@ jobs:
       - name: Upload immutable adopted candidate evidence
         id: upload-evidence
         if: ${{ always() && steps.evidence.outcome == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: varve-release-candidate-${{ inputs.sha }}-${{ needs.changes.outputs.policy_hash }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: candidate-certification.json

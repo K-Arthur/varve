@@ -450,7 +450,7 @@ jobs:
         if: matrix.enabled
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         if: matrix.enabled
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -507,7 +507,7 @@ jobs:
           node release-qualification-tooling/scripts/release/production/session-options.test.mjs
       - name: Preserve native runtime identity
         if: always() && matrix.enabled
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: native-contract-${{ matrix.name }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/native-runtime.json
@@ -631,7 +631,7 @@ jobs:
 
       - name: Set up Node for retained artifacts
         if: matrix.enabled && env.REUSE_PLATFORM == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -647,7 +647,7 @@ jobs:
 
       - name: Download retained platform bytes
         if: matrix.enabled && env.REUSE_PLATFORM == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           artifact-ids: ${{ steps.reuse.outputs.artifact_ids }}
           github-token: ${{ github.token }}
@@ -676,7 +676,7 @@ jobs:
         if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         run: node scripts/release/check-bundled-assets.mjs
 
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         with:
           toolchain: 1.97.1
@@ -746,7 +746,7 @@ jobs:
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         if: matrix.enabled && env.REUSE_PLATFORM != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -1136,7 +1136,7 @@ jobs:
 
       - name: Upload release artifacts
         if: matrix.enabled
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-${{ matrix.name }}-attempt-${{ github.run_attempt }}
           path: dist/release/
@@ -1150,7 +1150,7 @@ jobs:
       # docs/release/production-build.md for the debug-symbol plan.
       - name: Upload unstripped binary for crash triage
         if: matrix.enabled && runner.os == 'Linux' && env.REUSE_PLATFORM != 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: debug-binary-${{ matrix.name }}-attempt-${{ github.run_attempt }}
           path: ${{ env.TAURI_TARGET_DIR }}/release/varve-desktop
@@ -1219,7 +1219,7 @@ jobs:
         if: matrix.enabled
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         if: matrix.enabled
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -1258,7 +1258,7 @@ jobs:
 
       - name: Download Linux artifacts
         if: matrix.enabled
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           artifact-ids: ${{ steps.artifacts.outputs.artifact_ids }}
           github-token: ${{ github.token }}
@@ -1289,7 +1289,7 @@ jobs:
           bash scripts/release/verify-package-install.sh \
             --bundle-dir "$(pwd)/staged/linux-${{ matrix.arch_slug }}"
 
-      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         if: matrix.enabled
         with:
           toolchain: 1.97.1
@@ -1395,7 +1395,7 @@ jobs:
   # structure, signatures and launch checks. Human usability review remains useful.
       - name: Preserve actual native qualification evidence
         if: always() && matrix.enabled
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: native-production-${{ matrix.artifact }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: ~/varve-qualified/
@@ -1467,7 +1467,7 @@ jobs:
         if: matrix.enabled
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         if: matrix.enabled
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -1505,7 +1505,7 @@ jobs:
 
       - name: Download platform artifacts
         if: matrix.enabled
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           artifact-ids: ${{ steps.artifacts.outputs.artifact_ids }}
           github-token: ${{ github.token }}
@@ -1686,7 +1686,7 @@ jobs:
   # Any step failing stops the release before a draft exists.
       - name: Preserve actual native qualification evidence
         if: always() && matrix.enabled
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: native-production-${{ matrix.artifact }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: ~/varve-qualified/
@@ -1713,7 +1713,7 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -1734,7 +1734,7 @@ jobs:
           --macos '${{ needs.preflight.outputs.build_macos }}'
 
       - name: Download all platform artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           artifact-ids: ${{ steps.artifacts.outputs.artifact_ids }}
           github-token: ${{ github.token }}
@@ -1848,7 +1848,7 @@ jobs:
           echo "Generated $(wc -l < RELEASE_NOTES.md) lines of release notes."
 
       - name: Upload verified release set
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-final-attempt-${{ github.run_attempt }}
           path: |
@@ -1878,7 +1878,7 @@ jobs:
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -1894,7 +1894,7 @@ jobs:
           --sha '${{ github.sha }}' --attempt '${{ github.run_attempt }}' --targets final
 
       - name: Download the verified release set
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           artifact-ids: ${{ steps.artifacts.outputs.artifact_ids }}
           github-token: ${{ github.token }}
@@ -2006,7 +2006,7 @@ jobs:
           sparse-checkout: |
             /scripts/release/
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: ${{ env.NODE_VERSION }}
 
