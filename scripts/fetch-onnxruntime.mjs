@@ -17,6 +17,9 @@
  * expected checksum is already staged, and refuses to stage a file whose
  * checksum doesn't match (protects against a corrupted or tampered
  * download — same posture as scripts/compute-model-checksum.mjs).
+ * Transient GitHub/PyPI connect timeouts and 5xx responses retry with
+ * bounded backoff — Node's default undici connect budget is 10s and a
+ * single miss used to fail `pnpm install` in hosted CI.
  *
  * Not every platform/arch is bundled (see PLATFORMS below). Missing a bundle
  * for the current platform is not a hard failure: the app still runs, it
@@ -34,6 +37,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main-module.mjs';
 import { currentTargetId, normalizeTargetId } from './release/targets.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -41,6 +45,11 @@ const repoRoot = join(__dirname, '..');
 const stageDir = join(repoRoot, 'apps', 'desktop', 'src-tauri', 'onnxruntime-libs');
 
 const FETCH_TIMEOUT_MS = 120_000;
+/** Undici's default connect budget is 10s; GitHub releases regularly exceed that. */
+const CONNECT_TIMEOUT_MS = 30_000;
+const DOWNLOAD_ATTEMPTS = 4;
+const DOWNLOAD_BASE_DELAY_MS = 1_000;
+const DOWNLOAD_MAX_DELAY_MS = 8_000;
 
 const ORT_VERSION = '1.27.1';
 
@@ -202,31 +211,116 @@ function writeAtomic(path, bytes) {
   }
 }
 
-async function downloadToBuffer(url) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(
-        `Download failed: HTTP ${res.status} ${res.statusText} (${url})\n${body ? `  Response body: ${body.slice(0, 500)}` : ''}`,
-      );
-    }
-    const contentLength = res.headers.get('content-length');
-    const buffer = Buffer.from(await res.arrayBuffer());
-    if (buffer.length === 0) {
-      throw new Error(`Download produced zero-byte file: ${url}`);
-    }
-    if (contentLength && buffer.length !== parseInt(contentLength, 10)) {
-      throw new Error(
-        `Download size mismatch: expected ${contentLength} bytes, got ${buffer.length} (${url})`,
-      );
-    }
-    return buffer;
-  } finally {
-    clearTimeout(timer);
+export function isRetryableHttpStatus(status) {
+  return status === 408 || status === 425 || (status >= 500 && status <= 599);
+}
+
+export function isRetryableDownloadError(error) {
+  if (!error || typeof error !== 'object') return false;
+  const code = error.cause?.code ?? error.code;
+  const name = error.name ?? error.cause?.name ?? '';
+  if (
+    code === 'UND_ERR_CONNECT_TIMEOUT' ||
+    code === 'UND_ERR_HEADERS_TIMEOUT' ||
+    code === 'UND_ERR_BODY_TIMEOUT' ||
+    code === 'UND_ERR_SOCKET' ||
+    code === 'ECONNRESET' ||
+    code === 'ETIMEDOUT' ||
+    code === 'EAI_AGAIN'
+  ) {
+    return true;
   }
+  if (name === 'AbortError' || name === 'TimeoutError' || name === 'ConnectTimeoutError') {
+    return true;
+  }
+  return error instanceof TypeError && /fetch failed/i.test(error.message);
+}
+
+async function createDownloadDispatcher() {
+  try {
+    const { Agent } = await import('undici');
+    return new Agent({
+      connectTimeout: CONNECT_TIMEOUT_MS,
+      headersTimeout: FETCH_TIMEOUT_MS,
+      bodyTimeout: FETCH_TIMEOUT_MS,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+export async function downloadToBuffer(
+  url,
+  {
+    fetchImpl,
+    sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    maxAttempts = DOWNLOAD_ATTEMPTS,
+    onRetry = (event) => {
+      console.warn(
+        `[fetch-onnxruntime] transient ${event.kind} for ${event.url}; retry ${event.attempt + 1}/${event.maxAttempts} in ${event.delayMs}ms`,
+      );
+    },
+  } = {},
+) {
+  const dispatcher = fetchImpl ? undefined : await createDownloadDispatcher();
+  const doFetch = fetchImpl ?? fetch;
+  let lastError;
+  try {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const init = { signal: controller.signal };
+        if (dispatcher) init.dispatcher = dispatcher;
+        const res = await doFetch(url, init);
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          const detail = `Download failed: HTTP ${res.status} ${res.statusText} (${url})${
+            body ? `\n  Response body: ${body.slice(0, 500)}` : ''
+          }`;
+          if (isRetryableHttpStatus(res.status) && attempt + 1 < maxAttempts) {
+            const delayMs = Math.min(DOWNLOAD_BASE_DELAY_MS * 2 ** attempt, DOWNLOAD_MAX_DELAY_MS);
+            await onRetry({ attempt, delayMs, maxAttempts, kind: `HTTP ${res.status}`, url });
+            await sleep(delayMs);
+            continue;
+          }
+          throw new Error(detail);
+        }
+        const contentLength = res.headers.get('content-length');
+        const buffer = Buffer.from(await res.arrayBuffer());
+        if (buffer.length === 0) {
+          throw new Error(`Download produced zero-byte file: ${url}`);
+        }
+        if (contentLength && buffer.length !== parseInt(contentLength, 10)) {
+          throw new Error(
+            `Download size mismatch: expected ${contentLength} bytes, got ${buffer.length} (${url})`,
+          );
+        }
+        return buffer;
+      } catch (error) {
+        lastError = error;
+        if (!isRetryableDownloadError(error) || attempt + 1 >= maxAttempts) {
+          throw error;
+        }
+        const delayMs = Math.min(DOWNLOAD_BASE_DELAY_MS * 2 ** attempt, DOWNLOAD_MAX_DELAY_MS);
+        await onRetry({
+          attempt,
+          delayMs,
+          maxAttempts,
+          kind: error.cause?.code ?? error.name ?? 'network error',
+          url,
+        });
+        await sleep(delayMs);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+  } finally {
+    if (dispatcher && typeof dispatcher.close === 'function') {
+      await dispatcher.close().catch(() => undefined);
+    }
+  }
+  throw lastError;
 }
 
 async function extractFromTarGz(archiveBuffer, entryPath) {
@@ -458,7 +552,9 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error('[fetch-onnxruntime] FATAL:', err);
-  process.exit(1);
-});
+if (isMainModule(import.meta.url)) {
+  main().catch((err) => {
+    console.error('[fetch-onnxruntime] FATAL:', err);
+    process.exit(1);
+  });
+}
