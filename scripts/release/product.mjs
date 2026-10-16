@@ -18,6 +18,9 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** `owner/repo` as GitHub accepts it. Rejects `.` / `..` path segments. */
+export const REPO_SLUG_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+
 /**
  * Product name used to build artifact filenames, e.g. `Varve-0.1.0-linux-x86_64.deb`.
  *
@@ -34,26 +37,42 @@ export function productSlug() {
   return name.replace(/\s+Desktop$/i, '').replace(/\s+/g, '-');
 }
 
+/** Throw unless `value` is a GitHub `owner/repo` slug. */
+export function assertRepoSlug(value) {
+  const slug = String(value ?? '');
+  if (
+    !REPO_SLUG_PATTERN.test(slug) ||
+    slug.split('/').some((segment) => segment === '.' || segment === '..')
+  ) {
+    throw new Error(`Invalid GitHub repository slug: ${value}`);
+  }
+  return slug;
+}
+
 /**
  * `owner/repo` for building release URLs.
  *
- * Order matters: CI's `GITHUB_REPOSITORY` is authoritative when present, then
- * the git remote — which GitHub updates automatically when a repository is
- * renamed, so this keeps working without anyone editing a constant.
+ * Order matches the model-asset resolver in `hostedReleaseUrl.ts`:
+ *   1. `VARVE_GITHUB_REPOSITORY` (explicit override)
+ *   2. `GITHUB_REPOSITORY` (Actions)
+ *   3. git `origin` remote (GitHub updates this on transfer/rename)
  */
-export function repoSlug() {
-  if (process.env.GITHUB_REPOSITORY) return process.env.GITHUB_REPOSITORY;
+export function repoSlug({ env = process.env, gitCwd = repoRoot } = {}) {
+  const override = String(env.VARVE_GITHUB_REPOSITORY ?? '').trim();
+  if (override) return assertRepoSlug(override);
+  const fromCi = String(env.GITHUB_REPOSITORY ?? '').trim();
+  if (fromCi) return assertRepoSlug(fromCi);
 
   let url;
   try {
     url = execFileSync('git', ['remote', 'get-url', 'origin'], {
-      cwd: repoRoot,
+      cwd: gitCwd,
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
   } catch {
     throw new Error(
-      'Cannot determine the repository: no GITHUB_REPOSITORY and no git remote "origin". ' +
+      'Cannot determine the repository: no VARVE_GITHUB_REPOSITORY, no GITHUB_REPOSITORY, and no git remote "origin". ' +
         'Pass --repo owner/name explicitly.',
     );
   }
@@ -61,7 +80,7 @@ export function repoSlug() {
   // git@github.com:owner/repo.git | https://github.com/owner/repo(.git)
   const match = url.match(/[:/]([^/:]+\/[^/]+?)(?:\.git)?$/);
   if (!match) throw new Error(`Could not parse a repository slug from remote URL: ${url}`);
-  return match[1];
+  return assertRepoSlug(match[1]);
 }
 
 /**

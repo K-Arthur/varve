@@ -24,7 +24,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { repoSlug } from './product.mjs';
+import { isMainModule } from '../is-main-module.mjs';
+import { assertRepoSlug, repoSlug } from './product.mjs';
 
 function parseArgs(argv) {
   const args = {};
@@ -43,149 +44,161 @@ function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { encoding: 'utf8', timeout: 120_000, ...opts }).trim();
 }
 
-const args = parseArgs(process.argv);
-const tag = args.tag;
-if (!tag) die('usage: --tag v0.2.0');
-
-const repoRoot = resolve(import.meta.dirname, '../..');
-const workDir = join(repoRoot, 'dist', 're-sign-work');
-const repo = args.repo ?? repoSlug();
-const downloadBase = `https://github.com/${repo}/releases/download/${tag}`;
-mkdirSync(workDir, { recursive: true });
-
-// ── 1. Determine which artifacts need re-signing ────────────────────────────
-
-const ARCHITECTURES = ['x86_64', 'aarch64'];
-const toResign = [];
-
-for (const arch of ARCHITECTURES) {
-  const filename = `Varve-${tag.slice(1)}-linux-${arch}.AppImage`;
-  try {
-    const view = run('gh', ['release', 'view', tag, '--repo', repo, '--json', 'assets']);
-    const assets = JSON.parse(view).assets ?? [];
-    if (assets.some((a) => a.name === filename)) toResign.push({ arch, filename });
-  } catch (e) {
-    process.stderr.write(`Warning: could not check asset ${filename}: ${e.message}\n`);
-  }
+export function resolveResignRepo(args, resolveSlug = repoSlug) {
+  return assertRepoSlug(args.repo ?? resolveSlug());
 }
 
-if (toResign.length === 0) die('no AppImage assets found to re-sign');
+function main() {
+  const args = parseArgs(process.argv);
+  const tag = args.tag;
+  if (!tag) die('usage: --tag v0.2.0');
 
-process.stdout.write(
-  `Re-signing ${toResign.length} AppImage artifact(s): ${toResign.map((a) => a.filename).join(', ')}\n`,
-);
+  const repoRoot = resolve(import.meta.dirname, '../..');
+  const workDir = join(repoRoot, 'dist', 're-sign-work');
+  const repo = resolveResignRepo(args);
+  const downloadBase = `https://github.com/${repo}/releases/download/${tag}`;
+  mkdirSync(workDir, { recursive: true });
 
-// ── 2. Download and re-sign each artifact ────────────────────────────────────
+  // ── 1. Determine which artifacts need re-signing ────────────────────────────
 
-const sigFilenames = [];
+  const ARCHITECTURES = ['x86_64', 'aarch64'];
+  const toResign = [];
 
-for (const { arch, filename } of toResign) {
-  process.stdout.write(`\n--- ${filename} ---\n`);
+  for (const arch of ARCHITECTURES) {
+    const filename = `Varve-${tag.slice(1)}-linux-${arch}.AppImage`;
+    try {
+      const view = run('gh', ['release', 'view', tag, '--repo', repo, '--json', 'assets']);
+      const assets = JSON.parse(view).assets ?? [];
+      if (assets.some((a) => a.name === filename)) toResign.push({ arch, filename });
+    } catch (e) {
+      process.stderr.write(`Warning: could not check asset ${filename}: ${e.message}\n`);
+    }
+  }
 
-  // Download AppImage
-  const localPath = join(workDir, filename);
-  run('gh', [
-    'release',
-    'download',
-    tag,
-    '--repo',
-    repo,
-    '--pattern',
-    filename,
-    '--dir',
-    workDir,
-    '--clobber',
-  ]);
+  if (toResign.length === 0) die('no AppImage assets found to re-sign');
 
-  if (!existsSync(localPath)) die(`download failed: ${filename}`);
-
-  // Re-sign. Tauri prompts for password on stdin when --password is
-  // omitted; in CI stdin is /dev/null which causes a read error. Pass
-  // --password with the env var (empty string for passwordless keys).
-  process.stdout.write(`Signing ${filename}...\n`);
-  const password = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? '';
-  run('pnpm', ['tauri', 'signer', 'sign', localPath, '--password', password], {
-    cwd: join(repoRoot, 'apps/desktop'),
-    env: { ...process.env, TAURI_SIGNING_PRIVATE_KEY: process.env.TAURI_SIGNING_PRIVATE_KEY },
-  });
-
-  const sigFile = `${localPath}.sig`;
-  if (!existsSync(sigFile)) die(`signing produced no .sig for ${filename}`);
-
-  // Verify locally
-  process.stdout.write(`Verifying signature for ${filename}...\n`);
-  const feedJson = join(workDir, 'verify-feed.json');
-  const sigContent = readFileSync(sigFile, 'utf8');
-  writeFileSync(
-    feedJson,
-    JSON.stringify({
-      version: tag.slice(1),
-      platforms: {
-        [`linux-${arch}`]: {
-          url: `${downloadBase}/${filename}`,
-          signature: sigContent,
-        },
-      },
-    }),
+  process.stdout.write(
+    `Re-signing ${toResign.length} AppImage artifact(s): ${toResign.map((a) => a.filename).join(', ')}\n`,
   );
 
-  try {
-    run('node', [
-      join(repoRoot, 'scripts/release/verify-updater-feed-signatures.mjs'),
-      '--feed',
-      feedJson,
-      '--release-dir',
+  // ── 2. Download and re-sign each artifact ────────────────────────────────────
+
+  const sigFilenames = [];
+
+  for (const { arch, filename } of toResign) {
+    process.stdout.write(`\n--- ${filename} ---\n`);
+
+    // Download AppImage
+    const localPath = join(workDir, filename);
+    run('gh', [
+      'release',
+      'download',
+      tag,
+      '--repo',
+      repo,
+      '--pattern',
+      filename,
+      '--dir',
       workDir,
-      '--tauri-conf',
-      join(repoRoot, 'apps/desktop/src-tauri/tauri.conf.json'),
+      '--clobber',
     ]);
-    process.stdout.write(`  Signature verified for ${filename}\n`);
-  } catch (e) {
-    die(`verification failed for ${filename}: ${e.stderr || e.message}`);
+
+    if (!existsSync(localPath)) die(`download failed: ${filename}`);
+
+    // Re-sign. Tauri prompts for password on stdin when --password is
+    // omitted; in CI stdin is /dev/null which causes a read error. Pass
+    // --password with the env var (empty string for passwordless keys).
+    process.stdout.write(`Signing ${filename}...\n`);
+    const password = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? '';
+    run('pnpm', ['tauri', 'signer', 'sign', localPath, '--password', password], {
+      cwd: join(repoRoot, 'apps/desktop'),
+      env: { ...process.env, TAURI_SIGNING_PRIVATE_KEY: process.env.TAURI_SIGNING_PRIVATE_KEY },
+    });
+
+    const sigFile = `${localPath}.sig`;
+    if (!existsSync(sigFile)) die(`signing produced no .sig for ${filename}`);
+
+    // Verify locally
+    process.stdout.write(`Verifying signature for ${filename}...\n`);
+    const feedJson = join(workDir, 'verify-feed.json');
+    const sigContent = readFileSync(sigFile, 'utf8');
+    writeFileSync(
+      feedJson,
+      JSON.stringify({
+        version: tag.slice(1),
+        platforms: {
+          [`linux-${arch}`]: {
+            url: `${downloadBase}/${filename}`,
+            signature: sigContent,
+          },
+        },
+      }),
+    );
+
+    try {
+      run('node', [
+        join(repoRoot, 'scripts/release/verify-updater-feed-signatures.mjs'),
+        '--feed',
+        feedJson,
+        '--release-dir',
+        workDir,
+        '--tauri-conf',
+        join(repoRoot, 'apps/desktop/src-tauri/tauri.conf.json'),
+      ]);
+      process.stdout.write(`  Signature verified for ${filename}\n`);
+    } catch (e) {
+      die(`verification failed for ${filename}: ${e.stderr || e.message}`);
+    }
+
+    sigFilenames.push(`${filename}.sig`);
   }
 
-  sigFilenames.push(`${filename}.sig`);
+  // ── 3. Upload fresh .sig files to the release ───────────────────────────────
+
+  process.stdout.write('\n--- Uploading fresh signatures ---\n');
+  for (const sigName of sigFilenames) {
+    const sigPath = join(workDir, sigName);
+    run('gh', ['release', 'upload', tag, '--repo', repo, sigPath, '--clobber']);
+    process.stdout.write(`  Uploaded ${sigName}\n`);
+  }
+
+  // ── 4. Regenerate the updater feed ──────────────────────────────────────────
+
+  process.stdout.write('\n--- Regenerating updater feed ---\n');
+  run('node', [
+    join(repoRoot, 'scripts/release/generate-updater-feed.mjs'),
+    '--dir',
+    workDir,
+    '--version',
+    tag.slice(1),
+    '--channel',
+    'stable',
+    '--base-url',
+    downloadBase,
+    '--out',
+    join(workDir, 'varve-update-stable.json'),
+  ]);
+
+  const feedPath = join(workDir, 'varve-update-stable.json');
+  const feed = JSON.parse(readFileSync(feedPath, 'utf8'));
+  process.stdout.write(
+    `Feed generated: ${Object.keys(feed.platforms).length} platform(s): ${Object.keys(feed.platforms).join(', ')}\n`,
+  );
+
+  // ── 5. Copy feed to website public directory ────────────────────────────────
+
+  const websiteFeed = join(repoRoot, 'apps/website/public/updates/stable.json');
+  writeFileSync(websiteFeed, `${JSON.stringify(feed, null, 2)}\n`);
+  process.stdout.write(`Feed written to ${websiteFeed}\n`);
+
+  // ── Done ────────────────────────────────────────────────────────────────────
+
+  process.stdout.write(`\nDone. ${sigFilenames.length} artifact(s) re-signed, feed regenerated.\n`);
+  process.stdout.write(
+    `Next: commit apps/website/public/updates/stable.json and push to deploy.\n`,
+  );
 }
 
-// ── 3. Upload fresh .sig files to the release ───────────────────────────────
-
-process.stdout.write('\n--- Uploading fresh signatures ---\n');
-for (const sigName of sigFilenames) {
-  const sigPath = join(workDir, sigName);
-  run('gh', ['release', 'upload', tag, '--repo', repo, sigPath, '--clobber']);
-  process.stdout.write(`  Uploaded ${sigName}\n`);
+if (isMainModule(import.meta.url)) {
+  main();
 }
-
-// ── 4. Regenerate the updater feed ──────────────────────────────────────────
-
-process.stdout.write('\n--- Regenerating updater feed ---\n');
-run('node', [
-  join(repoRoot, 'scripts/release/generate-updater-feed.mjs'),
-  '--dir',
-  workDir,
-  '--version',
-  tag.slice(1),
-  '--channel',
-  'stable',
-  '--base-url',
-  downloadBase,
-  '--out',
-  join(workDir, 'varve-update-stable.json'),
-]);
-
-const feedPath = join(workDir, 'varve-update-stable.json');
-const feed = JSON.parse(readFileSync(feedPath, 'utf8'));
-process.stdout.write(
-  `Feed generated: ${Object.keys(feed.platforms).length} platform(s): ${Object.keys(feed.platforms).join(', ')}\n`,
-);
-
-// ── 5. Copy feed to website public directory ────────────────────────────────
-
-const websiteFeed = join(repoRoot, 'apps/website/public/updates/stable.json');
-writeFileSync(websiteFeed, `${JSON.stringify(feed, null, 2)}\n`);
-process.stdout.write(`Feed written to ${websiteFeed}\n`);
-
-// ── Done ────────────────────────────────────────────────────────────────────
-
-process.stdout.write(`\nDone. ${sigFilenames.length} artifact(s) re-signed, feed regenerated.\n`);
-process.stdout.write(`Next: commit apps/website/public/updates/stable.json and push to deploy.\n`);

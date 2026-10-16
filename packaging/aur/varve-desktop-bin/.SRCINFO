@@ -21,13 +21,13 @@ pkgbase = varve-desktop-bin
 	provides = varve-desktop
 	conflicts = varve-desktop
 	conflicts = varve-desktop-git
-	noextract = Varve-0.5.0-linux-x86_64.AppImage
-	noextract = Varve-0.5.0-linux-aarch64.AppImage
+	noextract = Varve-0.5.1-linux-x86_64.AppImage
+	noextract = Varve-0.5.1-linux-aarch64.AppImage
 	options = !strip
 	options = !debug
-	source_x86_64 = Varve-0.5.0-linux-x86_64.AppImage::https://github.com/varvedesign/varve/releases/download/v0.5.0/Varve-0.5.0-linux-x86_64.AppImage
+	source_x86_64 = Varve-0.5.1-linux-x86_64.AppImage::https://github.com/K-Arthur/varve/releases/download/v0.5.1/Varve-0.5.1-linux-x86_64.AppImage
 	sha256sums_x86_64 = fb0c188286fbd92479f88dd0eefc4547d3544b33e7dc5120abd399bfdf2237af
-	source_aarch64 = Varve-0.5.0-linux-aarch64.AppImage::https://github.com/varvedesign/varve/releases/download/v0.5.0/Varve-0.5.0-linux-aarch64.AppImage
+	source_aarch64 = Varve-0.5.1-linux-aarch64.AppImage::https://github.com/K-Arthur/varve/releases/download/v0.5.1/Varve-0.5.1-linux-aarch64.AppImage
 	sha256sums_aarch64 = 4684fef861cdf3dd51cfd326f5a9452d29d733af9e9d4c53b18f06fc0ab8c404
 
 pkgname = varve-desktop-bin

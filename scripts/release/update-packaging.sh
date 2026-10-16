@@ -29,25 +29,42 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 AUR_DIR="$REPO_ROOT/packaging/aur/varve-desktop-bin"
 FLATPAK_DIR="$REPO_ROOT/packaging/flatpak"
 
-# Owner/repo follows CI (`GITHUB_REPOSITORY`), an explicit override, or the
-# git `origin` remote so a transfer does not require editing this script.
+# Owner/repo follows an explicit override, then CI (`GITHUB_REPOSITORY`), then
+# the git `origin` remote so a transfer does not require editing this script.
+# Precedence matches scripts/release/product.mjs.
+GITHUB_REPO_SLUG_RE='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+
+assert_github_repo_slug() {
+  local slug="$1"
+  local owner repo
+  owner="${slug%%/*}"
+  repo="${slug#*/}"
+  if [[ ! "$slug" =~ $GITHUB_REPO_SLUG_RE || "$owner" == '.' || "$owner" == '..' || "$repo" == '.' || "$repo" == '..' ]]; then
+    echo ":: ERROR: Invalid GitHub repository slug: '$slug'" >&2
+    exit 1
+  fi
+  printf '%s\n' "$slug"
+}
+
 resolve_github_repo() {
-  if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
-    printf '%s\n' "$GITHUB_REPOSITORY"
-    return
-  fi
+  local git_cwd="${1:-$REPO_ROOT}"
+  local slug=""
   if [[ -n "${VARVE_GITHUB_REPOSITORY:-}" ]]; then
-    printf '%s\n' "$VARVE_GITHUB_REPOSITORY"
-    return
+    slug="$VARVE_GITHUB_REPOSITORY"
+  elif [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    slug="$GITHUB_REPOSITORY"
+  else
+    local url
+    url="$(git -C "$git_cwd" remote get-url origin 2>/dev/null || true)"
+    if [[ "$url" =~ [:/]([^/:]+/[^/]+)$ ]]; then
+      slug="${BASH_REMATCH[1]%.git}"
+    fi
   fi
-  local url
-  url="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null || true)"
-  if [[ "$url" =~ [:/]([^/:]+/[^/]+)$ ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]%.git}"
-    return
+  if [[ -z "$slug" ]]; then
+    echo ":: ERROR: Cannot determine GitHub repository. Set VARVE_GITHUB_REPOSITORY or GITHUB_REPOSITORY, or add a git remote named origin." >&2
+    exit 1
   fi
-  echo ":: ERROR: Cannot determine GitHub repository. Set GITHUB_REPOSITORY or VARVE_GITHUB_REPOSITORY." >&2
-  exit 1
+  assert_github_repo_slug "$slug"
 }
 
 GITHUB_REPO="$(resolve_github_repo)"

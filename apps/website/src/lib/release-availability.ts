@@ -1,8 +1,14 @@
-import { VARVE_URLS } from '@varve/shared';
 import release from '../data/release-manifest.json';
 import { publishedFeatureVersion } from './feature-release';
 
 type PublishedRelease = { hasRelease: boolean; version?: string; updater?: boolean };
+
+/**
+ * GitHub owner that published historical tags (v0.5.0, v0.2.1, …).
+ * Those release URLs must keep resolving before a repository transfer;
+ * GitHub redirects the same paths after the move.
+ */
+export const PUBLISHED_RELEASE_REPOSITORY = 'https://github.com/K-Arthur/varve';
 
 /** Prepared changelog notes do not establish installer or release-link availability. */
 export function changelogReleaseState(version: string, manifest: PublishedRelease = release) {
@@ -10,7 +16,7 @@ export function changelogReleaseState(version: string, manifest: PublishedReleas
   return {
     published,
     latest: published && manifest.version === version,
-    releaseUrl: published ? `${VARVE_URLS.repository}/releases/tag/v${version}` : null,
+    releaseUrl: published ? `${PUBLISHED_RELEASE_REPOSITORY}/releases/tag/v${version}` : null,
   };
 }
 

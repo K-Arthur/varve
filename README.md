@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/varvedesign/varve/actions/workflows/ci.yml"><img src="https://github.com/varvedesign/varve/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <a href="https://varve.studio/download"><img src="https://img.shields.io/github/v/release/varvedesign/varve?label=release&amp;filter=v*" alt="Latest application release"></a>
+  <a href="https://varve.studio/download"><img src="https://img.shields.io/github/v/release/K-Arthur/varve?label=release&amp;filter=v*" alt="Latest application release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-3b82f6" alt="License: FSL-1.1-MIT"></a>
   <a href="#project-status"><img src="https://img.shields.io/badge/status-public%20beta-C54B3A" alt="Status: public beta"></a>
   <!-- Restored when SHOW_SUPPORT_PROJECT is true in apps/website/src/config/features.js:
