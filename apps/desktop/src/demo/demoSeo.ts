@@ -9,7 +9,7 @@ export const DEMO_CANONICAL_URL = 'https://varve.studio/try/';
 export const DEMO_SOCIAL_IMAGE_URL = 'https://varve.studio/og-image.png';
 export const DEMO_TITLE = 'Try Varve in your browser — Varve design suite';
 export const DEMO_DESCRIPTION =
-  'Try Varve, a local-first design suite for vector, layout, typography, and prototyping, directly in your browser. No account or download required.';
+  'Try Varve, a local-first design suite for vector, layout, comic lettering, drawing, photo and print, directly in your browser. No account or download required.';
 
 const DEMO_SEO_MARKER = '<meta name="varve-demo-seo" content="v1" />';
 
@@ -29,7 +29,7 @@ export function injectDemoSeo(html: string): string {
       '@type': 'SoftwareApplication',
       name: 'Varve',
       applicationCategory: 'DesignApplication',
-      operatingSystem: 'Linux, macOS, Windows',
+      operatingSystem: 'Linux, Windows, Apple Silicon Mac',
       url: 'https://varve.studio/',
       isAccessibleForFree: true,
     },
@@ -48,13 +48,13 @@ export function injectDemoSeo(html: string): string {
     `<meta property="og:image" content="${DEMO_SOCIAL_IMAGE_URL}" />`,
     '<meta property="og:image:width" content="1200" />',
     '<meta property="og:image:height" content="630" />',
-    '<meta property="og:image:alt" content="Varve — local-first design suite for vector, layout, typography, motion, prototyping, and print" />',
+    '<meta property="og:image:alt" content="Varve — local-first design suite for vector, layout, comic lettering, drawing, photo and print" />',
     '<meta property="og:locale" content="en_US" />',
     '<meta name="twitter:card" content="summary_large_image" />',
     `<meta name="twitter:title" content="${DEMO_TITLE}" />`,
     `<meta name="twitter:description" content="${DEMO_DESCRIPTION}" />`,
     `<meta name="twitter:image" content="${DEMO_SOCIAL_IMAGE_URL}" />`,
-    '<meta name="twitter:image:alt" content="Varve — local-first design suite for vector, layout, typography, motion, prototyping, and print" />',
+    '<meta name="twitter:image:alt" content="Varve — local-first design suite for vector, layout, comic lettering, drawing, photo and print" />',
     `<script type="application/ld+json">${structuredData}</script>`,
   ].join('\n    ');
 

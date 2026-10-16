@@ -20,6 +20,11 @@ describe('public browser demo metadata', () => {
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
     expect(html).toContain('<script type="application/ld+json">');
     expect(html).toContain('"@type":"WebPage"');
+    expect(html).toContain(DEMO_DESCRIPTION);
+    expect(DEMO_DESCRIPTION).toMatch(/vector, layout, comic lettering, drawing, photo and print/);
+    expect(DEMO_DESCRIPTION).not.toMatch(/prototyping/);
+    expect(DEMO_DESCRIPTION).not.toMatch(/motion, and print/);
+    expect(html).toContain('"operatingSystem":"Linux, Windows, Apple Silicon Mac"');
   });
 
   it('is idempotent when the HTML transform is called twice', () => {

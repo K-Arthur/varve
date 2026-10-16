@@ -6,7 +6,7 @@ import TrustStrip from '../components/TrustStrip.astro';
 import ProductShowcase from '../components/ProductShowcase.astro';
 import DisciplineTabs from '../components/DisciplineTabs.astro';
 import Reveal from '../components/Reveal.astro';
-import { sitePath, siteUrl } from '../lib/siteUrl';
+import { siteOrigin, sitePath, siteUrl } from '../lib/siteUrl';
 import { PRODUCT_STATUS } from '@varve/shared';
 import release from '../data/release-manifest.json';
 
@@ -26,6 +26,8 @@ const softwareSchema = {
   url: siteUrl('/'),
   downloadUrl: siteUrl('/download'),
   image: siteUrl('/brand/varve-icon.svg'),
+  sameAs: ['https://github.com/varvedesign/varve'],
+  publisher: { '@id': `${siteOrigin()}#organization` },
   isAccessibleForFree: true,
   offers: {
     '@type': 'Offer',
