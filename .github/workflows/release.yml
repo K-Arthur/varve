@@ -1330,7 +1330,10 @@ jobs:
             echo "::error::No AppImage found in staged/linux-${{ matrix.arch_slug }}"
             exit 1
           fi
-          node scripts/release/verify-appimage-permissions.mjs --appimage "$(realpath "${IMG}")"
+          IMG="$(realpath "${IMG}")"
+          # download-artifact writes 0644. --appimage-offset execs the image.
+          chmod +x "${IMG}"
+          node scripts/release/verify-appimage-permissions.mjs --appimage "${IMG}"
 
       - name: Launch smoke (AppImage under Xvfb)
         if: matrix.enabled

@@ -575,6 +575,7 @@ const openContext = vm.createContext({
   hittableElements: nativeControls,
   pointerClick: async (element) => openCalls.push(['pointer', element.elementId]),
   createDocumentFromHome: async () => openCalls.push(['new-editor']),
+  dismissFirstRunOverlay: async () => openCalls.push(['dismiss-overlay']),
   click: async (...args) => openCalls.push(['click', ...args]),
   panelPath: async (...args) => openCalls.push(['native-panel', ...args]),
   until: async (fn) => {
@@ -588,22 +589,25 @@ vm.runInContext(
   openContext,
 );
 await openContext.open('/actual/Migrated save β.varve');
-assert.deepEqual(openCalls.slice(0, 2), [
+assert.deepEqual(openCalls.slice(0, 3), [
   ['pointer', 'home-open'],
   ['native-panel', '/actual/Migrated save β.varve', 'Open'],
+  ['dismiss-overlay'],
 ]);
 openCalls.length = 0;
 openContext.v.seed = true;
 await openContext.open('/actual/Migrated save β.varve');
-assert.deepEqual(openCalls.slice(0, 4), [
+assert.deepEqual(openCalls.slice(0, 6), [
   ['new-editor'],
+  ['dismiss-overlay'],
   ['click', 'File'],
   ['click', 'Open…', true],
   ['native-panel', '/actual/Migrated save β.varve', 'Open'],
+  ['dismiss-overlay'],
 ]);
 assert.equal(
   openCalls.length,
-  4,
+  6,
   'Reopened editor readiness is checked through the actual AX controls',
 );
 recoveryDialogVisible = true;
@@ -640,6 +644,64 @@ assert.match(
   /label == 'Get started' OR title == 'Get started'/,
   'first-editor welcome uses its actual visible control',
 );
+assert.match(
+  source,
+  /Welcome to Varve/,
+  'actual first-run overlay is dismissed before File is required',
+);
+assert.match(source, /actual first-run overlay dismissed/);
+assert.match(
+  source,
+  /await dismissFirstRunOverlay\(\);\s+const welcome = await hittableElements/,
+  'createDocumentFromHome dismisses the overlay before later File clicks',
+);
+assert.match(
+  source,
+  /await dismissFirstRunOverlay\(\);\s+await click\('File'\)/,
+  'File is never clicked while the first-run overlay can cover it',
+);
+
+{
+  const overlayCalls = [];
+  let overlayVisible = true;
+  const overlayContext = vm.createContext({
+    assert,
+    literal: (s) => JSON.stringify(s),
+    receipt: { evidence: [] },
+    driver: {
+      findElements: async (_using, predicate) => {
+        overlayCalls.push(predicate);
+        assert.match(predicate, /Welcome to Varve/);
+        return overlayVisible ? [{ elementId: 'welcome-title' }] : [];
+      },
+    },
+    click: async (name) => {
+      overlayCalls.push(['click', name]);
+      assert.equal(name, 'Close');
+      overlayVisible = false;
+    },
+    until: async (fn) => {
+      const result = await fn();
+      if (!result) throw new Error('overlay remained');
+      return result;
+    },
+  });
+  const dismissSource = source.slice(
+    source.indexOf('async function dismissFirstRunOverlay('),
+    source.indexOf('async function createDocumentFromHome('),
+  );
+  vm.runInContext(
+    `${dismissSource}; globalThis.dismissFirstRunOverlay = dismissFirstRunOverlay;`,
+    overlayContext,
+  );
+  await overlayContext.dismissFirstRunOverlay();
+  assert.deepEqual(overlayCalls[1], ['click', 'Close']);
+  assert.equal(overlayContext.receipt.evidence[0].phase, 'actual first-run overlay dismissed');
+  overlayCalls.length = 0;
+  await overlayContext.dismissFirstRunOverlay();
+  assert.equal(overlayCalls.length, 1, 'Absent overlay never sends Close');
+  assert.match(overlayCalls[0], /Welcome to Varve/);
+}
 assert.match(source, /one\('Window', \['XCUIElementTypeMenuBarItem'\]\)/);
 assert.match(source, /one\('Fill', \['XCUIElementTypeMenuItem'\]\)/);
 assert.match(source, /await keys\('z', COMMAND\)/);

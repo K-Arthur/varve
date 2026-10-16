@@ -8,11 +8,20 @@
  */
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  ensureAppImageExecutable,
   findPermissionViolations,
   inspectAppImagePermissions,
   parseUnsquashfsListing,
@@ -149,6 +158,44 @@ lrwxrwxrwx 0/0              40 2026-10-09 04:41 squashfs-root/dev.varve.desktop.
   );
   assert.match(workflow, /verify-appimage-permissions\.mjs \\\n\s+--bundle-dir/);
   assert.match(workflow, /verify-appimage-permissions\.mjs --appimage/);
+  assert.match(
+    workflow,
+    /chmod \+x "\$\{IMG\}"\n\s+node scripts\/release\/verify-appimage-permissions\.mjs --appimage/,
+    'package-smoke must restore the exec bit download-artifact drops before --appimage-offset',
+  );
+}
+
+{
+  const work = mkdtempSync(join(tmpdir(), 'varve-appimage-eacces-'));
+  try {
+    const image = join(work, 'Varve-0.5.1-linux-x86_64.AppImage');
+    writeFileSync(image, '#!/bin/sh\necho 944632\n');
+    chmodSync(image, 0o644);
+    assert.equal(statSync(image).mode & 0o111, 0, 'fixture starts without an exec bit');
+
+    const result = inspectAppImagePermissions(image, {
+      execFile(cmd, args) {
+        if (args?.includes('--appimage-offset')) {
+          assert.equal(cmd, image);
+          assert.ok(statSync(image).mode & 0o111, 'must chmod +x before --appimage-offset');
+          return '944632\n';
+        }
+        if (cmd === 'unsquashfs') return PASSING;
+        throw new Error(`unexpected exec ${cmd} ${args}`);
+      },
+    });
+    assert.equal(result.offset, '944632');
+    assert.deepEqual(result.violations, []);
+
+    const already = join(work, 'already-executable.AppImage');
+    writeFileSync(already, 'x');
+    chmodSync(already, 0o755);
+    ensureAppImageExecutable(already);
+    assert.equal(statSync(already).mode & 0o111, 0o111);
+    ensureAppImageExecutable(join(work, 'missing.AppImage'));
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
 }
 
 function have(cmd) {

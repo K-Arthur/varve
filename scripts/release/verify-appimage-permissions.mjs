@@ -17,7 +17,7 @@
  *   node scripts/release/verify-appimage-permissions.mjs --listing-file listing.txt
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { chmodSync, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -116,6 +116,17 @@ function findAppImage(bundleDir) {
   return name ? join(appImageDir, name) : null;
 }
 
+/**
+ * download-artifact (and some extractors) drop the exec bit. `--appimage-offset`
+ * execs the image itself, so restore owner/group/other execute before spawn.
+ */
+export function ensureAppImageExecutable(appImagePath) {
+  if (!existsSync(appImagePath)) return;
+  const mode = statSync(appImagePath).mode;
+  if (mode & 0o111) return;
+  chmodSync(appImagePath, mode | 0o111);
+}
+
 export function inspectAppImagePermissions(
   appImagePath,
   { execFile = execFileSync, listingText = null } = {},
@@ -123,6 +134,7 @@ export function inspectAppImagePermissions(
   let listing = listingText;
   let offset = null;
   if (listing == null) {
+    ensureAppImageExecutable(appImagePath);
     offset = String(execFile(appImagePath, ['--appimage-offset'], { encoding: 'utf8' })).trim();
     if (!/^\d+$/.test(offset)) {
       throw new Error(`Invalid AppImage squashfs offset from ${appImagePath}: ${offset}`);

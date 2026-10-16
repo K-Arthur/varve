@@ -95,7 +95,19 @@ async function until(fn, timeout = 30_000) {
 function retained(doc) {
   assertRetainedDocument(doc, original, { schema: v.schema, seed: v.seed });
 }
+async function dismissFirstRunOverlay() {
+  // tauri-driver usually sets navigator.webdriver and hides this overlay.
+  // Dismiss it anyway if a fresh profile still presents it.
+  if (!(await page.locator('.first-run-overlay').isVisible())) return;
+  await page
+    .locator('.first-run-overlay')
+    .getByRole('button', { name: 'Close', exact: true })
+    .click();
+  await until(async () => !(await page.locator('.first-run-overlay').isVisible()));
+  receipt.evidence.push({ phase: 'actual first-run overlay dismissed' });
+}
 async function fileAction(name) {
+  await dismissFirstRunOverlay();
   await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
   await page.getByRole('menu').getByRole('menuitem', { name }).click();
 }
@@ -184,6 +196,7 @@ async function launch(documentPath) {
     window.__qualificationErrors = [];
     window.addEventListener('error', (event) => window.__qualificationErrors.push(event.message));
   });
+  await dismissFirstRunOverlay();
 }
 async function selectImage() {
   const image = page.locator('[role="treeitem"][data-node-id="published-embedded-image"]');
@@ -193,6 +206,7 @@ async function selectImage() {
   await image.click();
 }
 async function quit() {
+  await dismissFirstRunOverlay();
   await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
   const closedResponse = await page
     .getByRole('menu')

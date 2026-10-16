@@ -97,7 +97,17 @@ async function until(fn, timeout = 30_000) {
 function retained(doc) {
   assertRetainedDocument(doc, original, { schema: v.schema, seed: v.seed });
 }
+async function dismissFirstRunOverlay() {
+  // Fresh profiles show the 0.5.1 first-run overlay. Playwright CDP attach
+  // does not set navigator.webdriver, so the product correctly shows it.
+  const overlay = page.locator('.first-run-overlay');
+  if (!(await overlay.isVisible())) return;
+  await overlay.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(overlay).toBeHidden();
+  receipt.evidence.push({ phase: 'actual first-run overlay dismissed' });
+}
 async function fileAction(name) {
+  await dismissFirstRunOverlay();
   await page.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
   await page.getByRole('menu').getByRole('menuitem', { name }).click();
 }
@@ -179,6 +189,7 @@ async function launch(documentPath) {
       'Native profile retained after process restart',
     );
   receipt.appDataDirectory = appDataDirectory;
+  await dismissFirstRunOverlay();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   return errors;
