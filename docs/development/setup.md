@@ -37,7 +37,7 @@ See [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for other
 ## First-time setup
 
 ```bash
-git clone https://github.com/K-Arthur/varve
+git clone https://github.com/varvedesign/varve
 cd varve
 pnpm install              # Install JS dependencies
 just check-env            # Verify toolchain

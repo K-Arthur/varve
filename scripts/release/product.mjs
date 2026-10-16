@@ -65,6 +65,22 @@ export function repoSlug() {
 }
 
 /**
+ * HTTPS GitHub Releases download base for a tag (`v0.5.1` or `0.5.1`).
+ *
+ * Used by updater-feed generation and release hints so a transfer to another
+ * owner does not require editing a hardcoded `owner/repo` string.
+ */
+export function releaseDownloadBaseUrl(tagOrVersion) {
+  const tag = String(tagOrVersion).startsWith('v') ? tagOrVersion : `v${tagOrVersion}`;
+  return `https://github.com/${repoSlug()}/releases/download/${tag}`;
+}
+
+/** HTTPS GitHub repository URL (`https://github.com/owner/repo`). */
+export function repoHttpsUrl() {
+  return `https://github.com/${repoSlug()}`;
+}
+
+/**
  * Document file extension without the dot, e.g. `varve`.
  *
  * Read from `bundle.fileAssociations` so release notes describe the format the

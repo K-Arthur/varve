@@ -32,7 +32,7 @@ upscaling, tracing).
 ```bash
 # 1. Update pkgver in PKGBUILD
 # 2. Get the sha256 from the published SHA256SUMS.txt
-sha256=$(curl -sL https://github.com/K-Arthur/varve/releases/download/v$VERSION/SHA256SUMS.txt \
+sha256=$(curl -sL https://github.com/varvedesign/varve/releases/download/v$VERSION/SHA256SUMS.txt \
   | grep "linux-${arch}.AppImage$" | awk '{print $1}')
 # 3. Update sha256sums_x86_64 and sha256sums_aarch64 in PKGBUILD
 # 4. Regenerate .SRCINFO

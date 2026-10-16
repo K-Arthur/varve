@@ -40,7 +40,7 @@ describe('prepared notes versus published installers', () => {
       '0.2.1',
     ]);
     expect(history[0]).toMatchObject({ published: false, latest: false, releaseUrl: null });
-    expect(history[1]?.releaseUrl).toBe('https://github.com/K-Arthur/varve/releases/tag/v0.2.1');
+    expect(history[1]?.releaseUrl).toBe('https://github.com/varvedesign/varve/releases/tag/v0.2.1');
     expect(history[2]).toMatchObject({ published: true, latest: false });
   });
 
@@ -52,7 +52,7 @@ describe('prepared notes versus published installers', () => {
     expect(history.filter((entry) => entry.latest).map((entry) => entry.version)).toEqual([
       '0.5.0',
     ]);
-    expect(history[0]?.releaseUrl).toBe('https://github.com/K-Arthur/varve/releases/tag/v0.5.0');
+    expect(history[0]?.releaseUrl).toBe('https://github.com/varvedesign/varve/releases/tag/v0.5.0');
     expect(history[1]).toMatchObject({ published: true, latest: false });
   });
 

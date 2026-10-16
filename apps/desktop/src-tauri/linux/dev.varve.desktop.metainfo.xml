@@ -47,8 +47,8 @@
        step renames it to this reverse-DNS id before linuxdeploy repacks. -->
   <launchable type="desktop-id">dev.varve.desktop.desktop</launchable>
   <url type="homepage">https://varve.studio</url>
-  <url type="bugtracker">https://github.com/K-Arthur/varve/issues</url>
-  <url type="vcs-browser">https://github.com/K-Arthur/varve</url>
+  <url type="bugtracker">https://github.com/varvedesign/varve/issues</url>
+  <url type="vcs-browser">https://github.com/varvedesign/varve</url>
   <url type="faq">https://varve.studio/support/faq</url>
   <developer id="studio.varve">
     <name>Varve</name>

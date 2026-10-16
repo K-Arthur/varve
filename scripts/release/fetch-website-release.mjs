@@ -35,7 +35,7 @@
  *
  * Usage:
  *   node scripts/release/fetch-website-release.mjs \
- *     [--repo K-Arthur/varve] [--tag v0.1.0] [--token <github token>]
+ *     [--repo owner/varve] [--tag v0.1.0] [--token <github token>]
  *
  * GITHUB_TOKEN environment variable is used when --token is absent. A token is
  * strongly recommended: the unauthenticated rate limit (60 req/h) is

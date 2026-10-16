@@ -10,8 +10,8 @@
 <p align="center"><strong>Local-first design software for vector, layout, typography, motion, prototyping, and print — one application, no subscription, no cloud account.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/K-Arthur/varve/actions/workflows/ci.yml"><img src="https://github.com/K-Arthur/varve/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <a href="https://varve.studio/download"><img src="https://img.shields.io/github/v/release/K-Arthur/varve?label=release&amp;filter=v*" alt="Latest application release"></a>
+  <a href="https://github.com/varvedesign/varve/actions/workflows/ci.yml"><img src="https://github.com/varvedesign/varve/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://varve.studio/download"><img src="https://img.shields.io/github/v/release/varvedesign/varve?label=release&amp;filter=v*" alt="Latest application release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-3b82f6" alt="License: FSL-1.1-MIT"></a>
   <a href="#project-status"><img src="https://img.shields.io/badge/status-public%20beta-C54B3A" alt="Status: public beta"></a>
   <!-- Restored when SHOW_SUPPORT_PROJECT is true in apps/website/src/config/features.js:
@@ -29,15 +29,15 @@
 <p align="center">
   <a href="https://varve.studio/try/?ref=gh-readme-try"><img src="https://img.shields.io/badge/Try-Browser-3b82f6?style=flat&logo=webassembly&logoColor=white" alt="Try in Browser"></a>
   <a href="https://varve.studio/download?ref=gh-readme-download"><img src="https://img.shields.io/badge/Download-Latest-00c853?style=flat&logo=download&logoColor=white" alt="Download Latest"></a>
-  <a href="https://github.com/K-Arthur/varve/discussions"><img src="https://img.shields.io/badge/Feedback-Discussions-orange?style=flat&logo=github&logoColor=white" alt="Feedback"></a>
+  <a href="https://github.com/varvedesign/varve/discussions"><img src="https://img.shields.io/badge/Feedback-Discussions-orange?style=flat&logo=github&logoColor=white" alt="Feedback"></a>
 </p>
 
 <p align="center">
   <a href="https://varve.studio?ref=gh-readme-home"><strong>Website</strong></a> ·
   <a href="https://varve.studio/docs?ref=gh-readme-docs"><strong>Docs</strong></a> ·
   <a href="https://varve.studio/about/how-its-built?ref=gh-readme-about"><strong>How it's built</strong></a> ·
-  <a href="https://github.com/K-Arthur/varve/releases"><strong>Releases</strong></a> ·
-  <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a>
+  <a href="https://github.com/varvedesign/varve/releases"><strong>Releases</strong></a> ·
+  <a href="https://github.com/varvedesign/varve/discussions"><strong>Discussions</strong></a>
   <!-- Restored when SHOW_SUPPORT_PROJECT is true in apps/website/src/config/features.js:
   · <a href="https://github.com/sponsors/K-Arthur"><strong>Sponsor</strong></a>
   -->
@@ -212,7 +212,7 @@ Full instructions, prerequisites, and per-OS system packages:
 [docs/development/setup.md](docs/development/setup.md).
 
 ```bash
-git clone https://github.com/K-Arthur/varve
+git clone https://github.com/varvedesign/varve
 cd varve
 pnpm install
 just check-env             # verify Rust, pnpm, just, and WebKitGTK pkg-config
@@ -415,7 +415,7 @@ Chromebook</a> for the browser, installed-web-app, and ChromeOS Linux routes.
 <details>
 <summary><strong>How do I report a bug or a security vulnerability?</strong></summary>
 <br>
-Bugs and feature feedback: <a href="https://github.com/K-Arthur/varve/issues">GitHub Issues</a>.
+Bugs and feature feedback: <a href="https://github.com/varvedesign/varve/issues">GitHub Issues</a>.
 Security vulnerabilities: report privately per <a href="SECURITY.md">SECURITY.md</a>
 — do not open a public issue.
 </details>
@@ -427,21 +427,21 @@ stabilizes its build, release, and documentation foundations. See
 [CONTRIBUTING.md](CONTRIBUTING.md) and the [current contributor guide](docs/development/contributing.md)
 for the status and future PR workflow. Bug reports, feature ideas, testing,
 documentation, and design feedback are welcome now via
-[Issues](https://github.com/K-Arthur/varve/issues) and
-[Discussions](https://github.com/K-Arthur/varve/discussions).
+[Issues](https://github.com/varvedesign/varve/issues) and
+[Discussions](https://github.com/varvedesign/varve/discussions).
 
 ## Security
 
 Report vulnerabilities privately through
-[GitHub Security Advisories](https://github.com/K-Arthur/varve/security/advisories) —
+[GitHub Security Advisories](https://github.com/varvedesign/varve/security/advisories) —
 see [SECURITY.md](SECURITY.md) for scope and process. Do not file a public
 issue for a security report.
 
 ## Support
 
 [Product support](mailto:support@varve.studio) is available for private installation,
-download, troubleshooting, and usage questions. Use [GitHub Issues](https://github.com/K-Arthur/varve/issues)
-for reproducible non-sensitive bugs and [Discussions](https://github.com/K-Arthur/varve/discussions)
+download, troubleshooting, and usage questions. Use [GitHub Issues](https://github.com/varvedesign/varve/issues)
+for reproducible non-sensitive bugs and [Discussions](https://github.com/varvedesign/varve/discussions)
 for public questions and workflows. See [SUPPORT.md](SUPPORT.md) or the complete
 [contact directory](https://varve.studio/contact). This is an independently maintained project;
 availability and response times vary.
@@ -450,7 +450,7 @@ availability and response times vary.
 
 - General: [hello@varve.studio](mailto:hello@varve.studio)
 - Support: [support@varve.studio](mailto:support@varve.studio)
-- Security: [security@varve.studio](mailto:security@varve.studio), or GitHub [Private Vulnerability Reporting](https://github.com/K-Arthur/varve/security/advisories)
+- Security: [security@varve.studio](mailto:security@varve.studio), or GitHub [Private Vulnerability Reporting](https://github.com/varvedesign/varve/security/advisories)
 
 ## License
 

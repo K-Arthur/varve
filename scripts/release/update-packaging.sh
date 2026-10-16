@@ -28,7 +28,30 @@ VERSION="${1:?Usage: $0 <version> [--skip-sources|--regenerate-sources]}"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 AUR_DIR="$REPO_ROOT/packaging/aur/varve-desktop-bin"
 FLATPAK_DIR="$REPO_ROOT/packaging/flatpak"
-GITHUB_URL="https://github.com/K-Arthur/varve"
+
+# Owner/repo follows CI (`GITHUB_REPOSITORY`), an explicit override, or the
+# git `origin` remote so a transfer does not require editing this script.
+resolve_github_repo() {
+  if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    printf '%s\n' "$GITHUB_REPOSITORY"
+    return
+  fi
+  if [[ -n "${VARVE_GITHUB_REPOSITORY:-}" ]]; then
+    printf '%s\n' "$VARVE_GITHUB_REPOSITORY"
+    return
+  fi
+  local url
+  url="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null || true)"
+  if [[ "$url" =~ [:/]([^/:]+/[^/]+)$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]%.git}"
+    return
+  fi
+  echo ":: ERROR: Cannot determine GitHub repository. Set GITHUB_REPOSITORY or VARVE_GITHUB_REPOSITORY." >&2
+  exit 1
+}
+
+GITHUB_REPO="$(resolve_github_repo)"
+GITHUB_URL="https://github.com/$GITHUB_REPO"
 SHA256_URL="$GITHUB_URL/releases/download/v$VERSION/SHA256SUMS.txt"
 AUR_SOURCE_X86="Varve-${VERSION}-linux-x86_64.AppImage"
 AUR_SOURCE_ARM="Varve-${VERSION}-linux-aarch64.AppImage"
@@ -140,7 +163,7 @@ if [[ -f "$MANIFEST" ]]; then
 
   # Fetch the commit hash for the tag from GitHub
   TAG="v$VERSION"
-  COMMIT=$(curl -sfL --connect-timeout 20 --max-time 30 "https://api.github.com/repos/K-Arthur/varve/git/ref/tags/$TAG" 2>/dev/null | \
+  COMMIT=$(curl -sfL --connect-timeout 20 --max-time 30 "https://api.github.com/repos/$GITHUB_REPO/git/ref/tags/$TAG" 2>/dev/null | \
     grep '"sha"' | head -1 | sed 's/.*"sha": *"//;s/".*//' || true)
 
   if [[ -z "$COMMIT" ]]; then

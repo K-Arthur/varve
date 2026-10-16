@@ -8,10 +8,10 @@ set of GitHub settings that cannot be represented in git.
 
 | Field | Value |
 |---|---|
-| Repository | `K-Arthur/varve` |
+| Repository | `varvedesign/varve` |
 | Website | <https://varve.studio> |
-| Source repository | <https://github.com/K-Arthur/varve> |
-| Application release shortcut | <https://github.com/K-Arthur/varve/releases/latest> |
+| Source repository | <https://github.com/varvedesign/varve> |
+| Application release shortcut | <https://github.com/varvedesign/varve/releases/latest> |
 | Current public status | Public beta; latest published application release is `v0.5.0` (published 2026-10-09) |
 | License wording | Source-available under FSL-1.1-MIT; not OSI-approved open source |
 

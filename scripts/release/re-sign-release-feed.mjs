@@ -24,6 +24,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { repoSlug } from './product.mjs';
 
 function parseArgs(argv) {
   const args = {};
@@ -48,6 +49,8 @@ if (!tag) die('usage: --tag v0.2.0');
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const workDir = join(repoRoot, 'dist', 're-sign-work');
+const repo = args.repo ?? repoSlug();
+const downloadBase = `https://github.com/${repo}/releases/download/${tag}`;
 mkdirSync(workDir, { recursive: true });
 
 // ── 1. Determine which artifacts need re-signing ────────────────────────────
@@ -63,7 +66,7 @@ for (const arch of ARCHITECTURES) {
       'view',
       tag,
       '--repo',
-      'K-Arthur/varve',
+      repo,
       '--json',
       'assets',
     ]);
@@ -94,7 +97,7 @@ for (const { arch, filename } of toResign) {
     'download',
     tag,
     '--repo',
-    'K-Arthur/varve',
+    repo,
     '--pattern',
     filename,
     '--dir',
@@ -127,7 +130,7 @@ for (const { arch, filename } of toResign) {
       version: tag.slice(1),
       platforms: {
         [`linux-${arch}`]: {
-          url: `https://github.com/K-Arthur/varve/releases/download/${tag}/${filename}`,
+          url: `${downloadBase}/${filename}`,
           signature: sigContent,
         },
       },
@@ -157,7 +160,7 @@ for (const { arch, filename } of toResign) {
 process.stdout.write('\n--- Uploading fresh signatures ---\n');
 for (const sigName of sigFilenames) {
   const sigPath = join(workDir, sigName);
-  run('gh', ['release', 'upload', tag, '--repo', 'K-Arthur/varve', sigPath, '--clobber']);
+  run('gh', ['release', 'upload', tag, '--repo', repo, sigPath, '--clobber']);
   process.stdout.write(`  Uploaded ${sigName}\n`);
 }
 
@@ -173,7 +176,7 @@ run('node', [
   '--channel',
   'stable',
   '--base-url',
-  `https://github.com/K-Arthur/varve/releases/download/${tag}`,
+  downloadBase,
   '--out',
   join(workDir, 'varve-update-stable.json'),
 ]);

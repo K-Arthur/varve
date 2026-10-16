@@ -1,5 +1,8 @@
 # Varve code owners.
 #
+# Repository home: varvedesign/varve. Review ownership remains the founding
+# maintainer until an org team (for example @varvedesign/maintainers) exists.
+#
 # Single-maintainer repository: CODEOWNERS is advisory ownership visibility,
 # NOT enforced review (enabling "require review from code owners" would lock
 # the sole maintainer out of their own repository). Every change touching

@@ -8,7 +8,7 @@
 # NOTE: `sha256sums_x86_64` and `sha256sums_aarch64` must be updated on every
 # release. Get the values from the
 # published SHA256SUMS.txt, which the release pipeline generates:
-#   curl -sL https://github.com/K-Arthur/varve/releases/download/v$pkgver/SHA256SUMS.txt
+#   curl -sL https://github.com/varvedesign/varve/releases/download/v$pkgver/SHA256SUMS.txt
 
 pkgname=varve-desktop-bin
 _appname=varve-desktop
@@ -16,7 +16,7 @@ pkgver=0.5.1
 pkgrel=1
 pkgdesc="Local-first design suite for vector, layout, typography, motion and print"
 arch=('x86_64' 'aarch64')
-url="https://github.com/K-Arthur/varve"
+url="https://github.com/varvedesign/varve"
 license=('LicenseRef-FSL-1.1-MIT')
 # Runtime libraries the Tauri binary links against. Deliberately not the full
 # AppImage payload: on Arch these are all present as system packages, and using
@@ -168,7 +168,7 @@ MIME
 Varve stores documents as .varve files (legacy .strata files stay openable) and keeps everything on your machine.
 
 This build is not code-signed. Verify your download against the published
-SHA256SUMS.txt at https://github.com/K-Arthur/varve/releases
+SHA256SUMS.txt at https://github.com/varvedesign/varve/releases
 
 Optional AI models (colorization, font identification, depth, denoise) are
 downloaded on demand from within the app and verified by SHA-256. They are not

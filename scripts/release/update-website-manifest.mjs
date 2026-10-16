@@ -15,7 +15,7 @@
  *   node scripts/release/update-website-manifest.mjs \
  *     --manifest dist/release/release-manifest.json \
  *     --tag v0.1.0 \
- *     [--repo K-Arthur/varve]
+ *     [--repo owner/varve]
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
