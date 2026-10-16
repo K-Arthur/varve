@@ -46,8 +46,8 @@ options=('!strip' '!debug')
 # size from the source array"). This matches the dual-arch .SRCINFO.
 source_x86_64=("Varve-${pkgver}-linux-x86_64.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-x86_64.AppImage")
 source_aarch64=("Varve-${pkgver}-linux-aarch64.AppImage::${url}/releases/download/v${pkgver}/Varve-${pkgver}-linux-aarch64.AppImage")
-sha256sums_x86_64=('fb0c188286fbd92479f88dd0eefc4547d3544b33e7dc5120abd399bfdf2237af')
-sha256sums_aarch64=('4684fef861cdf3dd51cfd326f5a9452d29d733af9e9d4c53b18f06fc0ab8c404')
+sha256sums_x86_64=('af2d3fbc1bed1a4ae85c64e1fdd72e455f18e2a87564454251b5d696ed6d6c56')
+sha256sums_aarch64=('114add3f863f8edaf203b95ef4ca051c1b29432ca650a9b4c301c4b0e6080419')
 noextract=(
   "Varve-${pkgver}-linux-x86_64.AppImage"
   "Varve-${pkgver}-linux-aarch64.AppImage"
