@@ -92,7 +92,14 @@ patchedDependencies:
   # 2026-10-06 because 4.3.0 shipped the upstream fix.
   braces@3.0.3: patches/braces@3.0.3.patch
   extract-zip@2.0.1: patches/extract-zip@2.0.1.patch
-  jsdom@30.0.1: patches/jsdom@30.0.1.patch
+  # FileReader.readAsDataURL still feeds Blob._bytes to @exodus/bytes
+  # toBase64, which asserts Uint8Array. A Blob built from an ArrayBuffer
+  # can then throw "Expected an Uint8Array" after tests finish. 30.1.3
+  # still has that dataURL path; keep the wrap. Revisit when upstream
+  # accepts Uint8Array-or-ArrayBuffer (or always stores Uint8Array).
+  # The key is version-exact: a lockfile-only jsdom bump leaves this
+  # unused (ERR_PNPM_UNUSED_PATCH). Retarget the patch before upgrading.
+  jsdom@30.1.3: patches/jsdom@30.1.3.patch
 
 # These are narrow, tested compatibility allowances. Madge declares TypeScript
 # 5 as an optional peer; the architecture audit was exercised against this

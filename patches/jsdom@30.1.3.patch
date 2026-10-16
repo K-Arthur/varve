@@ -1,8 +1,8 @@
 diff --git a/lib/jsdom/living/file-api/FileReader-impl.js b/lib/jsdom/living/file-api/FileReader-impl.js
-index 6d1e5cb1ca10cb71f0a14b59aeaddbb54b574121..0792043cc4a0324ae0ef2703802ecd541712ffe0 100644
+index e9ea267..3782bc0 100644
 --- a/lib/jsdom/living/file-api/FileReader-impl.js
 +++ b/lib/jsdom/living/file-api/FileReader-impl.js
-@@ -128,7 +128,15 @@ class FileReaderImpl extends EventTargetImpl {
+@@ -129,7 +129,16 @@ class FileReaderImpl extends EventTargetImpl {
        case "dataURL": {
          // Spec seems very unclear here; see https://github.com/w3c/FileAPI/issues/104.
          const contentType = MIMEType.parse(file.type) || "application/octet-stream";
@@ -10,7 +10,8 @@ index 6d1e5cb1ca10cb71f0a14b59aeaddbb54b574121..0792043cc4a0324ae0ef2703802ecd54
 +        // Varve patch: @exodus/bytes' toBase64 asserts Uint8Array, but a Blob
 +        // constructed from an ArrayBuffer keeps _bytes as ArrayBuffer, which
 +        // throws "Expected an Uint8Array" asynchronously. Wrap non-Uint8Array
-+        // byte sources (upstream jsdom 30.0.1 regression; revisit on upgrade).
++        // byte sources (upstream jsdom 30.0.1 regression; still present in
++        // 30.1.3 FileReader dataURL path).
 +        const bytes =
 +          file._bytes instanceof Uint8Array
 +            ? file._bytes
