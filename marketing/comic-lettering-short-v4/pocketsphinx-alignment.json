@@ -1,0 +1,3119 @@
+[
+  {
+    "beat": 1,
+    "audio_duration": 4.488,
+    "normalized_text": "what if your comic dialogue was never baked into pixels",
+    "word_alignment": [
+      {
+        "word": "<s>",
+        "start": 0.0,
+        "end": 0.01,
+        "prob": 1.0001
+      },
+      {
+        "word": "<sil>",
+        "start": 0.0,
+        "end": 0.32,
+        "prob": 1.0001
+      },
+      {
+        "word": "what",
+        "start": 0.32,
+        "end": 0.53,
+        "prob": 1.0001
+      },
+      {
+        "word": "if",
+        "start": 0.53,
+        "end": 0.67,
+        "prob": 1.0001
+      },
+      {
+        "word": "your(2)",
+        "start": 0.67,
+        "end": 0.84,
+        "prob": 1.0001
+      },
+      {
+        "word": "comic",
+        "start": 0.84,
+        "end": 1.3,
+        "prob": 1.0001
+      },
+      {
+        "word": "dialogue",
+        "start": 1.3,
+        "end": 1.95,
+        "prob": 1.0001
+      },
+      {
+        "word": "<sil>",
+        "start": 1.95,
+        "end": 2.22,
+        "prob": 1.0001
+      },
+      {
+        "word": "was(2)",
+        "start": 2.22,
+        "end": 2.46,
+        "prob": 1.0001
+      },
+      {
+        "word": "never",
+        "start": 2.46,
+        "end": 2.85,
+        "prob": 1.0001
+      },
+      {
+        "word": "baked",
+        "start": 2.85,
+        "end": 3.18,
+        "prob": 1.0001
+      },
+      {
+        "word": "into(2)",
+        "start": 3.18,
+        "end": 3.38,
+        "prob": 0.7514236205473769
+      },
+      {
+        "word": "pixels",
+        "start": 3.38,
+        "end": 4.11,
+        "prob": 1.0001
+      },
+      {
+        "word": "<sil>",
+        "start": 4.11,
+        "end": 4.48,
+        "prob": 1.0
+      }
+    ],
+    "phone_alignment": [
+      {
+        "word": "<s>",
+        "start": 0.0,
+        "end": 0.01,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 0.0,
+            "end": 0.01,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 0.0,
+        "end": 0.32,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 0.0,
+            "end": 0.32,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "what",
+        "start": 0.32,
+        "end": 0.53,
+        "phones": [
+          {
+            "phone": "W",
+            "start": 0.32,
+            "end": 0.53,
+            "score": 0
+          },
+          {
+            "phone": "AH",
+            "start": 0.32,
+            "end": 0.53,
+            "score": 0
+          },
+          {
+            "phone": "T",
+            "start": 0.32,
+            "end": 0.53,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "if",
+        "start": 0.53,
+        "end": 0.67,
+        "phones": [
+          {
+            "phone": "IH",
+            "start": 0.53,
+            "end": 0.67,
+            "score": 0
+          },
+          {
+            "phone": "F",
+            "start": 0.53,
+            "end": 0.67,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "your(2)",
+        "start": 0.67,
+        "end": 0.84,
+        "phones": [
+          {
+            "phone": "Y",
+            "start": 0.67,
+            "end": 0.84,
+            "score": 0
+          },
+          {
+            "phone": "UH",
+            "start": 0.67,
+            "end": 0.84,
+            "score": 0
+          },
+          {
+            "phone": "R",
+            "start": 0.67,
+            "end": 0.84,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "comic",
+        "start": 0.84,
+        "end": 1.3,
+        "phones": [
+          {
+            "phone": "K",
+            "start": 0.84,
+            "end": 1.3,
+            "score": 0
+          },
+          {
+            "phone": "AA",
+            "start": 0.84,
+            "end": 1.3,
+            "score": 0
+          },
+          {
+            "phone": "M",
+            "start": 0.84,
+            "end": 1.3,
+            "score": 0
+          },
+          {
+            "phone": "IH",
+            "start": 0.84,
+            "end": 1.3,
+            "score": 0
+          },
+          {
+            "phone": "K",
+            "start": 0.84,
+            "end": 1.3,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "dialogue",
+        "start": 1.3,
+        "end": 1.95,
+        "phones": [
+          {
+            "phone": "D",
+            "start": 1.3,
+            "end": 1.95,
+            "score": 0
+          },
+          {
+            "phone": "AY",
+            "start": 1.3,
+            "end": 1.95,
+            "score": 0
+          },
+          {
+            "phone": "AH",
+            "start": 1.3,
+            "end": 1.95,
+            "score": 0
+          },
+          {
+            "phone": "L",
+            "start": 1.3,
+            "end": 1.95,
+            "score": 0
+          },
+          {
+            "phone": "AO",
+            "start": 1.3,
+            "end": 1.95,
+            "score": 0
+          },
+          {
+            "phone": "G",
+            "start": 1.3,
+            "end": 1.95,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 1.95,
+        "end": 2.22,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 1.95,
+            "end": 2.22,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "was(2)",
+        "start": 2.22,
+        "end": 2.46,
+        "phones": [
+          {
+            "phone": "W",
+            "start": 2.22,
+            "end": 2.46,
+            "score": 0
+          },
+          {
+            "phone": "AH",
+            "start": 2.22,
+            "end": 2.46,
+            "score": 0
+          },
+          {
+            "phone": "Z",
+            "start": 2.22,
+            "end": 2.46,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "never",
+        "start": 2.46,
+        "end": 2.85,
+        "phones": [
+          {
+            "phone": "N",
+            "start": 2.46,
+            "end": 2.85,
+            "score": 0
+          },
+          {
+            "phone": "EH",
+            "start": 2.46,
+            "end": 2.85,
+            "score": 0
+          },
+          {
+            "phone": "V",
+            "start": 2.46,
+            "end": 2.85,
+            "score": 0
+          },
+          {
+            "phone": "ER",
+            "start": 2.46,
+            "end": 2.85,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "baked",
+        "start": 2.85,
+        "end": 3.18,
+        "phones": [
+          {
+            "phone": "B",
+            "start": 2.85,
+            "end": 3.18,
+            "score": 0
+          },
+          {
+            "phone": "EY",
+            "start": 2.85,
+            "end": 3.18,
+            "score": 0
+          },
+          {
+            "phone": "K",
+            "start": 2.85,
+            "end": 3.18,
+            "score": 0
+          },
+          {
+            "phone": "T",
+            "start": 2.85,
+            "end": 3.18,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "into(2)",
+        "start": 3.18,
+        "end": 3.38,
+        "phones": [
+          {
+            "phone": "IH",
+            "start": 3.18,
+            "end": 3.38,
+            "score": 0
+          },
+          {
+            "phone": "N",
+            "start": 3.18,
+            "end": 3.38,
+            "score": 0
+          },
+          {
+            "phone": "T",
+            "start": 3.18,
+            "end": 3.38,
+            "score": 0
+          },
+          {
+            "phone": "AH",
+            "start": 3.18,
+            "end": 3.38,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "pixels",
+        "start": 3.38,
+        "end": 4.11,
+        "phones": [
+          {
+            "phone": "P",
+            "start": 3.38,
+            "end": 4.11,
+            "score": 0
+          },
+          {
+            "phone": "IH",
+            "start": 3.38,
+            "end": 4.11,
+            "score": 0
+          },
+          {
+            "phone": "K",
+            "start": 3.38,
+            "end": 4.11,
+            "score": 0
+          },
+          {
+            "phone": "S",
+            "start": 3.38,
+            "end": 4.11,
+            "score": 0
+          },
+          {
+            "phone": "AH",
+            "start": 3.38,
+            "end": 4.11,
+            "score": 0
+          },
+          {
+            "phone": "L",
+            "start": 3.38,
+            "end": 4.11,
+            "score": 0
+          },
+          {
+            "phone": "Z",
+            "start": 3.38,
+            "end": 4.11,
+            "score": 0
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 4.11,
+        "end": 4.48,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 4.11,
+            "end": 4.48,
+            "score": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "beat": 2,
+    "audio_duration": 6.792,
+    "normalized_text": "in varve dialogue lives inside the balloon rewrite the line as your scene develops",
+    "word_alignment": [
+      {
+        "word": "in",
+        "start": 0.0,
+        "end": 0.34,
+        "prob": 1.0
+      },
+      {
+        "word": "varve",
+        "start": 0.34,
+        "end": 0.88,
+        "prob": 1.0
+      },
+      {
+        "word": "<sil>",
+        "start": 0.88,
+        "end": 1.41,
+        "prob": 1.0
+      },
+      {
+        "word": "dialogue",
+        "start": 1.41,
+        "end": 1.95,
+        "prob": 1.0
+      },
+      {
+        "word": "lives",
+        "start": 1.95,
+        "end": 2.28,
+        "prob": 1.0
+      },
+      {
+        "word": "inside",
+        "start": 2.28,
+        "end": 2.74,
+        "prob": 1.0
+      },
+      {
+        "word": "the",
+        "start": 2.74,
+        "end": 2.81,
+        "prob": 0.9289537601039564
+      },
+      {
+        "word": "balloon",
+        "start": 2.81,
+        "end": 3.33,
+        "prob": 1.0
+      },
+      {
+        "word": "<sil>",
+        "start": 3.33,
+        "end": 4.05,
+        "prob": 1.0
+      },
+      {
+        "word": "rewrite",
+        "start": 4.05,
+        "end": 4.44,
+        "prob": 1.0
+      },
+      {
+        "word": "the",
+        "start": 4.44,
+        "end": 4.53,
+        "prob": 0.9083775386619042
+      },
+      {
+        "word": "line",
+        "start": 4.53,
+        "end": 4.95,
+        "prob": 1.0
+      },
+      {
+        "word": "as",
+        "start": 4.95,
+        "end": 5.31,
+        "prob": 1.0
+      },
+      {
+        "word": "your(2)",
+        "start": 5.31,
+        "end": 5.41,
+        "prob": 1.0
+      },
+      {
+        "word": "scene",
+        "start": 5.41,
+        "end": 5.72,
+        "prob": 1.0
+      },
+      {
+        "word": "develops",
+        "start": 5.72,
+        "end": 6.44,
+        "prob": 1.0
+      },
+      {
+        "word": "<sil>",
+        "start": 6.44,
+        "end": 6.78,
+        "prob": 1.0
+      }
+    ],
+    "phone_alignment": [
+      {
+        "word": "in",
+        "start": 0.0,
+        "end": 0.34,
+        "phones": [
+          {
+            "phone": "IH",
+            "start": 0.0,
+            "end": 0.25,
+            "score": -35
+          },
+          {
+            "phone": "N",
+            "start": 0.25,
+            "end": 0.34,
+            "score": -67
+          }
+        ]
+      },
+      {
+        "word": "varve",
+        "start": 0.34,
+        "end": 0.88,
+        "phones": [
+          {
+            "phone": "V",
+            "start": 0.34,
+            "end": 0.44,
+            "score": -317
+          },
+          {
+            "phone": "AA",
+            "start": 0.44,
+            "end": 0.63,
+            "score": -115
+          },
+          {
+            "phone": "R",
+            "start": 0.63,
+            "end": 0.75,
+            "score": -113
+          },
+          {
+            "phone": "V",
+            "start": 0.75,
+            "end": 0.88,
+            "score": -74
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 0.88,
+        "end": 1.41,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 0.88,
+            "end": 1.41,
+            "score": -469
+          }
+        ]
+      },
+      {
+        "word": "dialogue",
+        "start": 1.41,
+        "end": 1.95,
+        "phones": [
+          {
+            "phone": "D",
+            "start": 1.41,
+            "end": 1.47,
+            "score": -31
+          },
+          {
+            "phone": "AY",
+            "start": 1.47,
+            "end": 1.63,
+            "score": -108
+          },
+          {
+            "phone": "AH",
+            "start": 1.63,
+            "end": 1.68,
+            "score": -31
+          },
+          {
+            "phone": "L",
+            "start": 1.68,
+            "end": 1.73,
+            "score": -64
+          },
+          {
+            "phone": "AO",
+            "start": 1.73,
+            "end": 1.85,
+            "score": -295
+          },
+          {
+            "phone": "G",
+            "start": 1.85,
+            "end": 1.95,
+            "score": -59
+          }
+        ]
+      },
+      {
+        "word": "lives",
+        "start": 1.95,
+        "end": 2.28,
+        "phones": [
+          {
+            "phone": "L",
+            "start": 1.95,
+            "end": 2.05,
+            "score": -159
+          },
+          {
+            "phone": "IH",
+            "start": 2.05,
+            "end": 2.16,
+            "score": -208
+          },
+          {
+            "phone": "V",
+            "start": 2.16,
+            "end": 2.19,
+            "score": -61
+          },
+          {
+            "phone": "Z",
+            "start": 2.19,
+            "end": 2.28,
+            "score": -89
+          }
+        ]
+      },
+      {
+        "word": "inside",
+        "start": 2.28,
+        "end": 2.74,
+        "phones": [
+          {
+            "phone": "IH",
+            "start": 2.28,
+            "end": 2.32,
+            "score": -31
+          },
+          {
+            "phone": "N",
+            "start": 2.32,
+            "end": 2.41,
+            "score": -95
+          },
+          {
+            "phone": "S",
+            "start": 2.41,
+            "end": 2.55,
+            "score": -114
+          },
+          {
+            "phone": "AY",
+            "start": 2.55,
+            "end": 2.69,
+            "score": -178
+          },
+          {
+            "phone": "D",
+            "start": 2.69,
+            "end": 2.74,
+            "score": -37
+          }
+        ]
+      },
+      {
+        "word": "the",
+        "start": 2.74,
+        "end": 2.81,
+        "phones": [
+          {
+            "phone": "DH",
+            "start": 2.74,
+            "end": 2.77,
+            "score": -44
+          },
+          {
+            "phone": "AH",
+            "start": 2.77,
+            "end": 2.81,
+            "score": -19
+          }
+        ]
+      },
+      {
+        "word": "balloon",
+        "start": 2.81,
+        "end": 3.33,
+        "phones": [
+          {
+            "phone": "B",
+            "start": 2.81,
+            "end": 2.88,
+            "score": -73
+          },
+          {
+            "phone": "AH",
+            "start": 2.88,
+            "end": 2.91,
+            "score": -20
+          },
+          {
+            "phone": "L",
+            "start": 2.91,
+            "end": 3.03,
+            "score": -258
+          },
+          {
+            "phone": "UW",
+            "start": 3.03,
+            "end": 3.07,
+            "score": -251
+          },
+          {
+            "phone": "N",
+            "start": 3.07,
+            "end": 3.33,
+            "score": -773
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 3.33,
+        "end": 4.05,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 3.33,
+            "end": 4.05,
+            "score": -602
+          }
+        ]
+      },
+      {
+        "word": "rewrite",
+        "start": 4.05,
+        "end": 4.44,
+        "phones": [
+          {
+            "phone": "R",
+            "start": 4.05,
+            "end": 4.12,
+            "score": -119
+          },
+          {
+            "phone": "IY",
+            "start": 4.12,
+            "end": 4.21,
+            "score": -46
+          },
+          {
+            "phone": "R",
+            "start": 4.21,
+            "end": 4.28,
+            "score": -241
+          },
+          {
+            "phone": "AY",
+            "start": 4.28,
+            "end": 4.39,
+            "score": -106
+          },
+          {
+            "phone": "T",
+            "start": 4.39,
+            "end": 4.44,
+            "score": -134
+          }
+        ]
+      },
+      {
+        "word": "the",
+        "start": 4.44,
+        "end": 4.53,
+        "phones": [
+          {
+            "phone": "DH",
+            "start": 4.44,
+            "end": 4.49,
+            "score": -87
+          },
+          {
+            "phone": "AH",
+            "start": 4.49,
+            "end": 4.53,
+            "score": -51
+          }
+        ]
+      },
+      {
+        "word": "line",
+        "start": 4.53,
+        "end": 4.95,
+        "phones": [
+          {
+            "phone": "L",
+            "start": 4.53,
+            "end": 4.66,
+            "score": -143
+          },
+          {
+            "phone": "AY",
+            "start": 4.66,
+            "end": 4.87,
+            "score": -192
+          },
+          {
+            "phone": "N",
+            "start": 4.87,
+            "end": 4.95,
+            "score": -58
+          }
+        ]
+      },
+      {
+        "word": "as",
+        "start": 4.95,
+        "end": 5.31,
+        "phones": [
+          {
+            "phone": "AE",
+            "start": 4.95,
+            "end": 5.23,
+            "score": -793
+          },
+          {
+            "phone": "Z",
+            "start": 5.23,
+            "end": 5.31,
+            "score": -59
+          }
+        ]
+      },
+      {
+        "word": "your(2)",
+        "start": 5.31,
+        "end": 5.41,
+        "phones": [
+          {
+            "phone": "Y",
+            "start": 5.31,
+            "end": 5.35,
+            "score": -49
+          },
+          {
+            "phone": "UH",
+            "start": 5.35,
+            "end": 5.38,
+            "score": -188
+          },
+          {
+            "phone": "R",
+            "start": 5.38,
+            "end": 5.41,
+            "score": -150
+          }
+        ]
+      },
+      {
+        "word": "scene",
+        "start": 5.41,
+        "end": 5.72,
+        "phones": [
+          {
+            "phone": "S",
+            "start": 5.41,
+            "end": 5.57,
+            "score": -358
+          },
+          {
+            "phone": "IY",
+            "start": 5.57,
+            "end": 5.66,
+            "score": -429
+          },
+          {
+            "phone": "N",
+            "start": 5.66,
+            "end": 5.72,
+            "score": -272
+          }
+        ]
+      },
+      {
+        "word": "develops",
+        "start": 5.72,
+        "end": 6.44,
+        "phones": [
+          {
+            "phone": "D",
+            "start": 5.72,
+            "end": 5.77,
+            "score": -162
+          },
+          {
+            "phone": "IH",
+            "start": 5.77,
+            "end": 5.8,
+            "score": -155
+          },
+          {
+            "phone": "V",
+            "start": 5.8,
+            "end": 5.89,
+            "score": -199
+          },
+          {
+            "phone": "EH",
+            "start": 5.89,
+            "end": 5.97,
+            "score": -136
+          },
+          {
+            "phone": "L",
+            "start": 5.97,
+            "end": 6.07,
+            "score": -135
+          },
+          {
+            "phone": "AH",
+            "start": 6.07,
+            "end": 6.13,
+            "score": -194
+          },
+          {
+            "phone": "P",
+            "start": 6.13,
+            "end": 6.24,
+            "score": -239
+          },
+          {
+            "phone": "S",
+            "start": 6.24,
+            "end": 6.44,
+            "score": -330
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 6.44,
+        "end": 6.78,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 6.44,
+            "end": 6.78,
+            "score": -146
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "beat": 3,
+    "audio_duration": 8.4,
+    "normalized_text": "when a line gets longer the balloon fits itself around your words tails padding style all live",
+    "word_alignment": [
+      {
+        "word": "when(3)",
+        "start": 0.0,
+        "end": 0.27,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "a",
+        "start": 0.27,
+        "end": 0.31,
+        "prob": 0.8970043518608156
+      },
+      {
+        "word": "line",
+        "start": 0.31,
+        "end": 0.6,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "gets(2)",
+        "start": 0.6,
+        "end": 0.84,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "longer",
+        "start": 0.84,
+        "end": 1.35,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "<sil>",
+        "start": 1.35,
+        "end": 1.75,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "the",
+        "start": 1.75,
+        "end": 1.83,
+        "prob": 0.9606952910759239
+      },
+      {
+        "word": "balloon",
+        "start": 1.83,
+        "end": 2.18,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "fits",
+        "start": 2.18,
+        "end": 2.53,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "itself",
+        "start": 2.53,
+        "end": 2.95,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "around(2)",
+        "start": 2.95,
+        "end": 3.21,
+        "prob": 0.5848656116665006
+      },
+      {
+        "word": "your(2)",
+        "start": 3.21,
+        "end": 3.34,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "words",
+        "start": 3.34,
+        "end": 3.9,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "<sil>",
+        "start": 3.9,
+        "end": 4.44,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "tails",
+        "start": 4.44,
+        "end": 5.07,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "<sil>",
+        "start": 5.07,
+        "end": 5.34,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "padding",
+        "start": 5.34,
+        "end": 5.94,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "<sil>",
+        "start": 5.94,
+        "end": 6.21,
+        "prob": 0.5357600976691821
+      },
+      {
+        "word": "style",
+        "start": 6.21,
+        "end": 6.83,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "<sil>",
+        "start": 6.83,
+        "end": 7.29,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "all",
+        "start": 7.29,
+        "end": 7.53,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "live(2)",
+        "start": 7.53,
+        "end": 8.02,
+        "prob": 0.9999000099990001
+      },
+      {
+        "word": "<sil>",
+        "start": 8.02,
+        "end": 8.39,
+        "prob": 1.0
+      }
+    ],
+    "phone_alignment": [
+      {
+        "word": "when(3)",
+        "start": 0.0,
+        "end": 0.27,
+        "phones": [
+          {
+            "phone": "W",
+            "start": 0.0,
+            "end": 0.2,
+            "score": -20
+          },
+          {
+            "phone": "IH",
+            "start": 0.2,
+            "end": 0.24,
+            "score": -23
+          },
+          {
+            "phone": "N",
+            "start": 0.24,
+            "end": 0.27,
+            "score": -78
+          }
+        ]
+      },
+      {
+        "word": "a",
+        "start": 0.27,
+        "end": 0.31,
+        "phones": [
+          {
+            "phone": "AH",
+            "start": 0.27,
+            "end": 0.31,
+            "score": -51
+          }
+        ]
+      },
+      {
+        "word": "line",
+        "start": 0.31,
+        "end": 0.6,
+        "phones": [
+          {
+            "phone": "L",
+            "start": 0.31,
+            "end": 0.42,
+            "score": -57
+          },
+          {
+            "phone": "AY",
+            "start": 0.42,
+            "end": 0.54,
+            "score": -63
+          },
+          {
+            "phone": "N",
+            "start": 0.54,
+            "end": 0.6,
+            "score": -38
+          }
+        ]
+      },
+      {
+        "word": "gets(2)",
+        "start": 0.6,
+        "end": 0.84,
+        "phones": [
+          {
+            "phone": "G",
+            "start": 0.6,
+            "end": 0.66,
+            "score": -128
+          },
+          {
+            "phone": "IH",
+            "start": 0.66,
+            "end": 0.71,
+            "score": -40
+          },
+          {
+            "phone": "T",
+            "start": 0.71,
+            "end": 0.76,
+            "score": -34
+          },
+          {
+            "phone": "S",
+            "start": 0.76,
+            "end": 0.84,
+            "score": -61
+          }
+        ]
+      },
+      {
+        "word": "longer",
+        "start": 0.84,
+        "end": 1.35,
+        "phones": [
+          {
+            "phone": "L",
+            "start": 0.84,
+            "end": 0.91,
+            "score": -42
+          },
+          {
+            "phone": "AO",
+            "start": 0.91,
+            "end": 1.0,
+            "score": -50
+          },
+          {
+            "phone": "NG",
+            "start": 1.0,
+            "end": 1.07,
+            "score": -48
+          },
+          {
+            "phone": "G",
+            "start": 1.07,
+            "end": 1.13,
+            "score": -57
+          },
+          {
+            "phone": "ER",
+            "start": 1.13,
+            "end": 1.35,
+            "score": -133
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 1.35,
+        "end": 1.75,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 1.35,
+            "end": 1.75,
+            "score": -386
+          }
+        ]
+      },
+      {
+        "word": "the",
+        "start": 1.75,
+        "end": 1.83,
+        "phones": [
+          {
+            "phone": "DH",
+            "start": 1.75,
+            "end": 1.79,
+            "score": -30
+          },
+          {
+            "phone": "AH",
+            "start": 1.79,
+            "end": 1.83,
+            "score": -19
+          }
+        ]
+      },
+      {
+        "word": "balloon",
+        "start": 1.83,
+        "end": 2.18,
+        "phones": [
+          {
+            "phone": "B",
+            "start": 1.83,
+            "end": 1.89,
+            "score": -65
+          },
+          {
+            "phone": "AH",
+            "start": 1.89,
+            "end": 1.92,
+            "score": -55
+          },
+          {
+            "phone": "L",
+            "start": 1.92,
+            "end": 2.03,
+            "score": -108
+          },
+          {
+            "phone": "UW",
+            "start": 2.03,
+            "end": 2.1,
+            "score": -118
+          },
+          {
+            "phone": "N",
+            "start": 2.1,
+            "end": 2.18,
+            "score": -76
+          }
+        ]
+      },
+      {
+        "word": "fits",
+        "start": 2.18,
+        "end": 2.53,
+        "phones": [
+          {
+            "phone": "F",
+            "start": 2.18,
+            "end": 2.34,
+            "score": -95
+          },
+          {
+            "phone": "IH",
+            "start": 2.34,
+            "end": 2.42,
+            "score": -56
+          },
+          {
+            "phone": "T",
+            "start": 2.42,
+            "end": 2.49,
+            "score": -114
+          },
+          {
+            "phone": "S",
+            "start": 2.49,
+            "end": 2.53,
+            "score": -136
+          }
+        ]
+      },
+      {
+        "word": "itself",
+        "start": 2.53,
+        "end": 2.95,
+        "phones": [
+          {
+            "phone": "IH",
+            "start": 2.53,
+            "end": 2.58,
+            "score": -47
+          },
+          {
+            "phone": "T",
+            "start": 2.58,
+            "end": 2.67,
+            "score": -105
+          },
+          {
+            "phone": "S",
+            "start": 2.67,
+            "end": 2.76,
+            "score": -217
+          },
+          {
+            "phone": "EH",
+            "start": 2.76,
+            "end": 2.81,
+            "score": -34
+          },
+          {
+            "phone": "L",
+            "start": 2.81,
+            "end": 2.86,
+            "score": -36
+          },
+          {
+            "phone": "F",
+            "start": 2.86,
+            "end": 2.95,
+            "score": -76
+          }
+        ]
+      },
+      {
+        "word": "around(2)",
+        "start": 2.95,
+        "end": 3.21,
+        "phones": [
+          {
+            "phone": "ER",
+            "start": 2.95,
+            "end": 3.07,
+            "score": -193
+          },
+          {
+            "phone": "AW",
+            "start": 3.07,
+            "end": 3.14,
+            "score": -101
+          },
+          {
+            "phone": "N",
+            "start": 3.14,
+            "end": 3.21,
+            "score": -217
+          }
+        ]
+      },
+      {
+        "word": "your(2)",
+        "start": 3.21,
+        "end": 3.34,
+        "phones": [
+          {
+            "phone": "Y",
+            "start": 3.21,
+            "end": 3.27,
+            "score": -235
+          },
+          {
+            "phone": "UH",
+            "start": 3.27,
+            "end": 3.31,
+            "score": -24
+          },
+          {
+            "phone": "R",
+            "start": 3.31,
+            "end": 3.34,
+            "score": -31
+          }
+        ]
+      },
+      {
+        "word": "words",
+        "start": 3.34,
+        "end": 3.9,
+        "phones": [
+          {
+            "phone": "W",
+            "start": 3.34,
+            "end": 3.45,
+            "score": -55
+          },
+          {
+            "phone": "ER",
+            "start": 3.45,
+            "end": 3.66,
+            "score": -354
+          },
+          {
+            "phone": "D",
+            "start": 3.66,
+            "end": 3.75,
+            "score": -377
+          },
+          {
+            "phone": "Z",
+            "start": 3.75,
+            "end": 3.9,
+            "score": -171
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 3.9,
+        "end": 4.44,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 3.9,
+            "end": 4.44,
+            "score": -184
+          }
+        ]
+      },
+      {
+        "word": "tails",
+        "start": 4.44,
+        "end": 5.07,
+        "phones": [
+          {
+            "phone": "T",
+            "start": 4.44,
+            "end": 4.6,
+            "score": -106
+          },
+          {
+            "phone": "EY",
+            "start": 4.6,
+            "end": 4.76,
+            "score": -70
+          },
+          {
+            "phone": "L",
+            "start": 4.76,
+            "end": 4.92,
+            "score": -147
+          },
+          {
+            "phone": "Z",
+            "start": 4.92,
+            "end": 5.07,
+            "score": -183
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 5.07,
+        "end": 5.34,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 5.07,
+            "end": 5.34,
+            "score": -323
+          }
+        ]
+      },
+      {
+        "word": "padding",
+        "start": 5.34,
+        "end": 5.94,
+        "phones": [
+          {
+            "phone": "P",
+            "start": 5.34,
+            "end": 5.48,
+            "score": -130
+          },
+          {
+            "phone": "AE",
+            "start": 5.48,
+            "end": 5.61,
+            "score": -71
+          },
+          {
+            "phone": "D",
+            "start": 5.61,
+            "end": 5.64,
+            "score": -63
+          },
+          {
+            "phone": "IH",
+            "start": 5.64,
+            "end": 5.68,
+            "score": -41
+          },
+          {
+            "phone": "NG",
+            "start": 5.68,
+            "end": 5.94,
+            "score": -213
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 5.94,
+        "end": 6.21,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 5.94,
+            "end": 6.21,
+            "score": -346
+          }
+        ]
+      },
+      {
+        "word": "style",
+        "start": 6.21,
+        "end": 6.83,
+        "phones": [
+          {
+            "phone": "S",
+            "start": 6.21,
+            "end": 6.35,
+            "score": -175
+          },
+          {
+            "phone": "T",
+            "start": 6.35,
+            "end": 6.4,
+            "score": -114
+          },
+          {
+            "phone": "AY",
+            "start": 6.4,
+            "end": 6.65,
+            "score": -677
+          },
+          {
+            "phone": "L",
+            "start": 6.65,
+            "end": 6.83,
+            "score": -344
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 6.83,
+        "end": 7.29,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 6.83,
+            "end": 7.29,
+            "score": -276
+          }
+        ]
+      },
+      {
+        "word": "all",
+        "start": 7.29,
+        "end": 7.53,
+        "phones": [
+          {
+            "phone": "AO",
+            "start": 7.29,
+            "end": 7.46,
+            "score": -176
+          },
+          {
+            "phone": "L",
+            "start": 7.46,
+            "end": 7.53,
+            "score": -107
+          }
+        ]
+      },
+      {
+        "word": "live(2)",
+        "start": 7.53,
+        "end": 8.02,
+        "phones": [
+          {
+            "phone": "L",
+            "start": 7.53,
+            "end": 7.62,
+            "score": -64
+          },
+          {
+            "phone": "IH",
+            "start": 7.62,
+            "end": 7.84,
+            "score": -695
+          },
+          {
+            "phone": "V",
+            "start": 7.84,
+            "end": 8.02,
+            "score": -423
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 8.02,
+        "end": 8.39,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 8.02,
+            "end": 8.39,
+            "score": -269
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "beat": 4,
+    "audio_duration": 5.928,
+    "normalized_text": "speech thoughts shouts every balloon stays part of the design",
+    "word_alignment": [
+      {
+        "word": "<sil>",
+        "start": 0.0,
+        "end": 0.08,
+        "prob": 1.0
+      },
+      {
+        "word": "speech",
+        "start": 0.08,
+        "end": 0.83,
+        "prob": 1.0
+      },
+      {
+        "word": "<sil>",
+        "start": 0.83,
+        "end": 1.1,
+        "prob": 1.0
+      },
+      {
+        "word": "thoughts",
+        "start": 1.1,
+        "end": 1.72,
+        "prob": 1.0
+      },
+      {
+        "word": "<sil>",
+        "start": 1.72,
+        "end": 2.08,
+        "prob": 1.0
+      },
+      {
+        "word": "shouts",
+        "start": 2.08,
+        "end": 2.73,
+        "prob": 1.0
+      },
+      {
+        "word": "<sil>",
+        "start": 2.73,
+        "end": 3.53,
+        "prob": 1.0
+      },
+      {
+        "word": "every(2)",
+        "start": 3.53,
+        "end": 3.79,
+        "prob": 1.0
+      },
+      {
+        "word": "balloon",
+        "start": 3.79,
+        "end": 4.18,
+        "prob": 1.0
+      },
+      {
+        "word": "stays",
+        "start": 4.18,
+        "end": 4.55,
+        "prob": 1.0
+      },
+      {
+        "word": "part",
+        "start": 4.55,
+        "end": 4.79,
+        "prob": 1.0
+      },
+      {
+        "word": "of",
+        "start": 4.79,
+        "end": 4.88,
+        "prob": 1.0
+      },
+      {
+        "word": "the",
+        "start": 4.88,
+        "end": 4.97,
+        "prob": 0.6593642429975243
+      },
+      {
+        "word": "design",
+        "start": 4.97,
+        "end": 5.51,
+        "prob": 1.0
+      },
+      {
+        "word": "<sil>",
+        "start": 5.51,
+        "end": 5.92,
+        "prob": 1.0
+      }
+    ],
+    "phone_alignment": [
+      {
+        "word": "<sil>",
+        "start": 0.0,
+        "end": 0.08,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 0.0,
+            "end": 0.08,
+            "score": -165
+          }
+        ]
+      },
+      {
+        "word": "speech",
+        "start": 0.08,
+        "end": 0.83,
+        "phones": [
+          {
+            "phone": "S",
+            "start": 0.08,
+            "end": 0.26,
+            "score": -86
+          },
+          {
+            "phone": "P",
+            "start": 0.26,
+            "end": 0.34,
+            "score": -99
+          },
+          {
+            "phone": "IY",
+            "start": 0.34,
+            "end": 0.58,
+            "score": -155
+          },
+          {
+            "phone": "CH",
+            "start": 0.58,
+            "end": 0.83,
+            "score": -156
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 0.83,
+        "end": 1.1,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 0.83,
+            "end": 1.1,
+            "score": -293
+          }
+        ]
+      },
+      {
+        "word": "thoughts",
+        "start": 1.1,
+        "end": 1.72,
+        "phones": [
+          {
+            "phone": "TH",
+            "start": 1.1,
+            "end": 1.23,
+            "score": -109
+          },
+          {
+            "phone": "AO",
+            "start": 1.23,
+            "end": 1.45,
+            "score": -318
+          },
+          {
+            "phone": "T",
+            "start": 1.45,
+            "end": 1.53,
+            "score": -134
+          },
+          {
+            "phone": "S",
+            "start": 1.53,
+            "end": 1.72,
+            "score": -156
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 1.72,
+        "end": 2.08,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 1.72,
+            "end": 2.08,
+            "score": -446
+          }
+        ]
+      },
+      {
+        "word": "shouts",
+        "start": 2.08,
+        "end": 2.73,
+        "phones": [
+          {
+            "phone": "SH",
+            "start": 2.08,
+            "end": 2.25,
+            "score": -95
+          },
+          {
+            "phone": "AW",
+            "start": 2.25,
+            "end": 2.46,
+            "score": -387
+          },
+          {
+            "phone": "T",
+            "start": 2.46,
+            "end": 2.54,
+            "score": -82
+          },
+          {
+            "phone": "S",
+            "start": 2.54,
+            "end": 2.73,
+            "score": -246
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 2.73,
+        "end": 3.53,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 2.73,
+            "end": 3.53,
+            "score": -200
+          }
+        ]
+      },
+      {
+        "word": "every(2)",
+        "start": 3.53,
+        "end": 3.79,
+        "phones": [
+          {
+            "phone": "EH",
+            "start": 3.53,
+            "end": 3.61,
+            "score": -117
+          },
+          {
+            "phone": "V",
+            "start": 3.61,
+            "end": 3.66,
+            "score": -33
+          },
+          {
+            "phone": "R",
+            "start": 3.66,
+            "end": 3.72,
+            "score": -39
+          },
+          {
+            "phone": "IY",
+            "start": 3.72,
+            "end": 3.79,
+            "score": -49
+          }
+        ]
+      },
+      {
+        "word": "balloon",
+        "start": 3.79,
+        "end": 4.18,
+        "phones": [
+          {
+            "phone": "B",
+            "start": 3.79,
+            "end": 3.85,
+            "score": -102
+          },
+          {
+            "phone": "AH",
+            "start": 3.85,
+            "end": 3.89,
+            "score": -148
+          },
+          {
+            "phone": "L",
+            "start": 3.89,
+            "end": 3.98,
+            "score": -63
+          },
+          {
+            "phone": "UW",
+            "start": 3.98,
+            "end": 4.09,
+            "score": -78
+          },
+          {
+            "phone": "N",
+            "start": 4.09,
+            "end": 4.18,
+            "score": -58
+          }
+        ]
+      },
+      {
+        "word": "stays",
+        "start": 4.18,
+        "end": 4.55,
+        "phones": [
+          {
+            "phone": "S",
+            "start": 4.18,
+            "end": 4.29,
+            "score": -110
+          },
+          {
+            "phone": "T",
+            "start": 4.29,
+            "end": 4.34,
+            "score": -40
+          },
+          {
+            "phone": "EY",
+            "start": 4.34,
+            "end": 4.46,
+            "score": -122
+          },
+          {
+            "phone": "Z",
+            "start": 4.46,
+            "end": 4.55,
+            "score": -226
+          }
+        ]
+      },
+      {
+        "word": "part",
+        "start": 4.55,
+        "end": 4.79,
+        "phones": [
+          {
+            "phone": "P",
+            "start": 4.55,
+            "end": 4.66,
+            "score": -312
+          },
+          {
+            "phone": "AA",
+            "start": 4.66,
+            "end": 4.72,
+            "score": -71
+          },
+          {
+            "phone": "R",
+            "start": 4.72,
+            "end": 4.76,
+            "score": -30
+          },
+          {
+            "phone": "T",
+            "start": 4.76,
+            "end": 4.79,
+            "score": -59
+          }
+        ]
+      },
+      {
+        "word": "of",
+        "start": 4.79,
+        "end": 4.88,
+        "phones": [
+          {
+            "phone": "AH",
+            "start": 4.79,
+            "end": 4.82,
+            "score": -19
+          },
+          {
+            "phone": "V",
+            "start": 4.82,
+            "end": 4.88,
+            "score": -59
+          }
+        ]
+      },
+      {
+        "word": "the",
+        "start": 4.88,
+        "end": 4.97,
+        "phones": [
+          {
+            "phone": "DH",
+            "start": 4.88,
+            "end": 4.92,
+            "score": -177
+          },
+          {
+            "phone": "AH",
+            "start": 4.92,
+            "end": 4.97,
+            "score": -44
+          }
+        ]
+      },
+      {
+        "word": "design",
+        "start": 4.97,
+        "end": 5.51,
+        "phones": [
+          {
+            "phone": "D",
+            "start": 4.97,
+            "end": 5.03,
+            "score": -38
+          },
+          {
+            "phone": "IH",
+            "start": 5.03,
+            "end": 5.07,
+            "score": -29
+          },
+          {
+            "phone": "Z",
+            "start": 5.07,
+            "end": 5.16,
+            "score": -270
+          },
+          {
+            "phone": "AY",
+            "start": 5.16,
+            "end": 5.35,
+            "score": -270
+          },
+          {
+            "phone": "N",
+            "start": 5.35,
+            "end": 5.51,
+            "score": -168
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 5.51,
+        "end": 5.92,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 5.51,
+            "end": 5.92,
+            "score": -207
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "beat": 5,
+    "audio_duration": 5.832,
+    "normalized_text": "varve is free and local first your pages never leave your machine",
+    "word_alignment": [
+      {
+        "word": "<sil>",
+        "start": 0.0,
+        "end": 0.59,
+        "prob": 1.0
+      },
+      {
+        "word": "varve",
+        "start": 0.59,
+        "end": 0.96,
+        "prob": 1.0
+      },
+      {
+        "word": "is",
+        "start": 0.96,
+        "end": 1.18,
+        "prob": 1.0
+      },
+      {
+        "word": "free",
+        "start": 1.18,
+        "end": 1.69,
+        "prob": 1.0
+      },
+      {
+        "word": "<sil>",
+        "start": 1.69,
+        "end": 1.85,
+        "prob": 0.6775441676177125
+      },
+      {
+        "word": "and(2)",
+        "start": 1.85,
+        "end": 2.0,
+        "prob": 1.0
+      },
+      {
+        "word": "local",
+        "start": 2.0,
+        "end": 2.31,
+        "prob": 1.0
+      },
+      {
+        "word": "first",
+        "start": 2.31,
+        "end": 2.9,
+        "prob": 1.0
+      },
+      {
+        "word": "<sil>",
+        "start": 2.9,
+        "end": 3.38,
+        "prob": 1.0
+      },
+      {
+        "word": "your(2)",
+        "start": 3.38,
+        "end": 3.56,
+        "prob": 1.0
+      },
+      {
+        "word": "pages(2)",
+        "start": 3.56,
+        "end": 4.04,
+        "prob": 1.0
+      },
+      {
+        "word": "never",
+        "start": 4.04,
+        "end": 4.34,
+        "prob": 1.0
+      },
+      {
+        "word": "leave",
+        "start": 4.34,
+        "end": 4.61,
+        "prob": 1.0
+      },
+      {
+        "word": "your(2)",
+        "start": 4.61,
+        "end": 4.72,
+        "prob": 1.0
+      },
+      {
+        "word": "machine",
+        "start": 4.72,
+        "end": 5.22,
+        "prob": 1.0
+      },
+      {
+        "word": "<sil>",
+        "start": 5.22,
+        "end": 5.82,
+        "prob": 1.0
+      }
+    ],
+    "phone_alignment": [
+      {
+        "word": "<sil>",
+        "start": 0.0,
+        "end": 0.59,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 0.0,
+            "end": 0.59,
+            "score": -894
+          }
+        ]
+      },
+      {
+        "word": "varve",
+        "start": 0.59,
+        "end": 0.96,
+        "phones": [
+          {
+            "phone": "V",
+            "start": 0.59,
+            "end": 0.62,
+            "score": -261
+          },
+          {
+            "phone": "AA",
+            "start": 0.62,
+            "end": 0.78,
+            "score": -144
+          },
+          {
+            "phone": "R",
+            "start": 0.78,
+            "end": 0.88,
+            "score": -75
+          },
+          {
+            "phone": "V",
+            "start": 0.88,
+            "end": 0.96,
+            "score": -123
+          }
+        ]
+      },
+      {
+        "word": "is",
+        "start": 0.96,
+        "end": 1.18,
+        "phones": [
+          {
+            "phone": "IH",
+            "start": 0.96,
+            "end": 1.05,
+            "score": -248
+          },
+          {
+            "phone": "Z",
+            "start": 1.05,
+            "end": 1.18,
+            "score": -59
+          }
+        ]
+      },
+      {
+        "word": "free",
+        "start": 1.18,
+        "end": 1.69,
+        "phones": [
+          {
+            "phone": "F",
+            "start": 1.18,
+            "end": 1.31,
+            "score": -72
+          },
+          {
+            "phone": "R",
+            "start": 1.31,
+            "end": 1.38,
+            "score": -44
+          },
+          {
+            "phone": "IY",
+            "start": 1.38,
+            "end": 1.69,
+            "score": -139
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 1.69,
+        "end": 1.85,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 1.69,
+            "end": 1.85,
+            "score": -110
+          }
+        ]
+      },
+      {
+        "word": "and(2)",
+        "start": 1.85,
+        "end": 2.0,
+        "phones": [
+          {
+            "phone": "AE",
+            "start": 1.85,
+            "end": 1.93,
+            "score": -56
+          },
+          {
+            "phone": "N",
+            "start": 1.93,
+            "end": 1.96,
+            "score": -33
+          },
+          {
+            "phone": "D",
+            "start": 1.96,
+            "end": 2.0,
+            "score": -41
+          }
+        ]
+      },
+      {
+        "word": "local",
+        "start": 2.0,
+        "end": 2.31,
+        "phones": [
+          {
+            "phone": "L",
+            "start": 2.0,
+            "end": 2.09,
+            "score": -73
+          },
+          {
+            "phone": "OW",
+            "start": 2.09,
+            "end": 2.17,
+            "score": -69
+          },
+          {
+            "phone": "K",
+            "start": 2.17,
+            "end": 2.23,
+            "score": -41
+          },
+          {
+            "phone": "AH",
+            "start": 2.23,
+            "end": 2.27,
+            "score": -32
+          },
+          {
+            "phone": "L",
+            "start": 2.27,
+            "end": 2.31,
+            "score": -58
+          }
+        ]
+      },
+      {
+        "word": "first",
+        "start": 2.31,
+        "end": 2.9,
+        "phones": [
+          {
+            "phone": "F",
+            "start": 2.31,
+            "end": 2.44,
+            "score": -115
+          },
+          {
+            "phone": "ER",
+            "start": 2.44,
+            "end": 2.62,
+            "score": -194
+          },
+          {
+            "phone": "S",
+            "start": 2.62,
+            "end": 2.78,
+            "score": -136
+          },
+          {
+            "phone": "T",
+            "start": 2.78,
+            "end": 2.9,
+            "score": -170
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 2.9,
+        "end": 3.38,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 2.9,
+            "end": 3.38,
+            "score": -92
+          }
+        ]
+      },
+      {
+        "word": "your(2)",
+        "start": 3.38,
+        "end": 3.56,
+        "phones": [
+          {
+            "phone": "Y",
+            "start": 3.38,
+            "end": 3.5,
+            "score": -67
+          },
+          {
+            "phone": "UH",
+            "start": 3.5,
+            "end": 3.53,
+            "score": -18
+          },
+          {
+            "phone": "R",
+            "start": 3.53,
+            "end": 3.56,
+            "score": -63
+          }
+        ]
+      },
+      {
+        "word": "pages(2)",
+        "start": 3.56,
+        "end": 4.04,
+        "phones": [
+          {
+            "phone": "P",
+            "start": 3.56,
+            "end": 3.7,
+            "score": -89
+          },
+          {
+            "phone": "EY",
+            "start": 3.7,
+            "end": 3.81,
+            "score": -145
+          },
+          {
+            "phone": "JH",
+            "start": 3.81,
+            "end": 3.88,
+            "score": -46
+          },
+          {
+            "phone": "IH",
+            "start": 3.88,
+            "end": 3.94,
+            "score": -143
+          },
+          {
+            "phone": "Z",
+            "start": 3.94,
+            "end": 4.04,
+            "score": -122
+          }
+        ]
+      },
+      {
+        "word": "never",
+        "start": 4.04,
+        "end": 4.34,
+        "phones": [
+          {
+            "phone": "N",
+            "start": 4.04,
+            "end": 4.14,
+            "score": -64
+          },
+          {
+            "phone": "EH",
+            "start": 4.14,
+            "end": 4.22,
+            "score": -46
+          },
+          {
+            "phone": "V",
+            "start": 4.22,
+            "end": 4.27,
+            "score": -44
+          },
+          {
+            "phone": "ER",
+            "start": 4.27,
+            "end": 4.34,
+            "score": -62
+          }
+        ]
+      },
+      {
+        "word": "leave",
+        "start": 4.34,
+        "end": 4.61,
+        "phones": [
+          {
+            "phone": "L",
+            "start": 4.34,
+            "end": 4.44,
+            "score": -59
+          },
+          {
+            "phone": "IY",
+            "start": 4.44,
+            "end": 4.55,
+            "score": -95
+          },
+          {
+            "phone": "V",
+            "start": 4.55,
+            "end": 4.61,
+            "score": -60
+          }
+        ]
+      },
+      {
+        "word": "your(2)",
+        "start": 4.61,
+        "end": 4.72,
+        "phones": [
+          {
+            "phone": "Y",
+            "start": 4.61,
+            "end": 4.66,
+            "score": -87
+          },
+          {
+            "phone": "UH",
+            "start": 4.66,
+            "end": 4.69,
+            "score": -20
+          },
+          {
+            "phone": "R",
+            "start": 4.69,
+            "end": 4.72,
+            "score": -105
+          }
+        ]
+      },
+      {
+        "word": "machine",
+        "start": 4.72,
+        "end": 5.22,
+        "phones": [
+          {
+            "phone": "M",
+            "start": 4.72,
+            "end": 4.76,
+            "score": -91
+          },
+          {
+            "phone": "AH",
+            "start": 4.76,
+            "end": 4.81,
+            "score": -253
+          },
+          {
+            "phone": "SH",
+            "start": 4.81,
+            "end": 4.96,
+            "score": -76
+          },
+          {
+            "phone": "IY",
+            "start": 4.96,
+            "end": 5.12,
+            "score": -337
+          },
+          {
+            "phone": "N",
+            "start": 5.12,
+            "end": 5.22,
+            "score": -73
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 5.22,
+        "end": 5.82,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 5.22,
+            "end": 5.82,
+            "score": -153
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "beat": 6,
+    "audio_duration": 4.44,
+    "normalized_text": "what would your comic say follow for the next drop",
+    "word_alignment": [
+      {
+        "word": "<s>",
+        "start": 0.0,
+        "end": 0.01,
+        "prob": 1.0001
+      },
+      {
+        "word": "<sil>",
+        "start": 0.0,
+        "end": 0.45,
+        "prob": 1.0001
+      },
+      {
+        "word": "what",
+        "start": 0.45,
+        "end": 0.62,
+        "prob": 1.0001
+      },
+      {
+        "word": "would",
+        "start": 0.62,
+        "end": 0.75,
+        "prob": 1.0001
+      },
+      {
+        "word": "your(2)",
+        "start": 0.75,
+        "end": 0.86,
+        "prob": 1.0001
+      },
+      {
+        "word": "comic",
+        "start": 0.86,
+        "end": 1.25,
+        "prob": 1.0001
+      },
+      {
+        "word": "say",
+        "start": 1.25,
+        "end": 1.64,
+        "prob": 1.0001
+      },
+      {
+        "word": "<sil>",
+        "start": 1.64,
+        "end": 2.67,
+        "prob": 1.0001
+      },
+      {
+        "word": "follow",
+        "start": 2.67,
+        "end": 3.07,
+        "prob": 1.0001
+      },
+      {
+        "word": "for(2)",
+        "start": 3.07,
+        "end": 3.23,
+        "prob": 1.0001
+      },
+      {
+        "word": "the",
+        "start": 3.23,
+        "end": 3.32,
+        "prob": 0.7754689887767501
+      },
+      {
+        "word": "next(2)",
+        "start": 3.32,
+        "end": 3.61,
+        "prob": 0.6908161831996936
+      },
+      {
+        "word": "drop",
+        "start": 3.61,
+        "end": 4.08,
+        "prob": 1.0001
+      },
+      {
+        "word": "<sil>",
+        "start": 4.08,
+        "end": 4.43,
+        "prob": 1.0
+      }
+    ],
+    "phone_alignment": [
+      {
+        "word": "<s>",
+        "start": 0.0,
+        "end": 0.08,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 0.0,
+            "end": 0.08,
+            "score": -185
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 0.08,
+        "end": 0.45,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 0.08,
+            "end": 0.45,
+            "score": -81
+          }
+        ]
+      },
+      {
+        "word": "what",
+        "start": 0.45,
+        "end": 0.62,
+        "phones": [
+          {
+            "phone": "W",
+            "start": 0.45,
+            "end": 0.55,
+            "score": -56
+          },
+          {
+            "phone": "AH",
+            "start": 0.55,
+            "end": 0.59,
+            "score": -126
+          },
+          {
+            "phone": "T",
+            "start": 0.59,
+            "end": 0.62,
+            "score": -35
+          }
+        ]
+      },
+      {
+        "word": "would",
+        "start": 0.62,
+        "end": 0.75,
+        "phones": [
+          {
+            "phone": "W",
+            "start": 0.62,
+            "end": 0.66,
+            "score": -103
+          },
+          {
+            "phone": "UH",
+            "start": 0.66,
+            "end": 0.7,
+            "score": -23
+          },
+          {
+            "phone": "D",
+            "start": 0.7,
+            "end": 0.75,
+            "score": -35
+          }
+        ]
+      },
+      {
+        "word": "your(2)",
+        "start": 0.75,
+        "end": 0.86,
+        "phones": [
+          {
+            "phone": "Y",
+            "start": 0.75,
+            "end": 0.8,
+            "score": -33
+          },
+          {
+            "phone": "UH",
+            "start": 0.8,
+            "end": 0.83,
+            "score": -111
+          },
+          {
+            "phone": "R",
+            "start": 0.83,
+            "end": 0.86,
+            "score": -38
+          }
+        ]
+      },
+      {
+        "word": "comic",
+        "start": 0.86,
+        "end": 1.25,
+        "phones": [
+          {
+            "phone": "K",
+            "start": 0.86,
+            "end": 0.98,
+            "score": -82
+          },
+          {
+            "phone": "AA",
+            "start": 0.98,
+            "end": 1.06,
+            "score": -111
+          },
+          {
+            "phone": "M",
+            "start": 1.06,
+            "end": 1.12,
+            "score": -40
+          },
+          {
+            "phone": "IH",
+            "start": 1.12,
+            "end": 1.19,
+            "score": -46
+          },
+          {
+            "phone": "K",
+            "start": 1.19,
+            "end": 1.25,
+            "score": -41
+          }
+        ]
+      },
+      {
+        "word": "say",
+        "start": 1.25,
+        "end": 1.64,
+        "phones": [
+          {
+            "phone": "S",
+            "start": 1.25,
+            "end": 1.35,
+            "score": -56
+          },
+          {
+            "phone": "EY",
+            "start": 1.35,
+            "end": 1.64,
+            "score": -130
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 1.64,
+        "end": 2.67,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 1.64,
+            "end": 2.67,
+            "score": -356
+          }
+        ]
+      },
+      {
+        "word": "follow",
+        "start": 2.67,
+        "end": 3.07,
+        "phones": [
+          {
+            "phone": "F",
+            "start": 2.67,
+            "end": 2.82,
+            "score": -125
+          },
+          {
+            "phone": "AA",
+            "start": 2.82,
+            "end": 2.92,
+            "score": -120
+          },
+          {
+            "phone": "L",
+            "start": 2.92,
+            "end": 3.02,
+            "score": -55
+          },
+          {
+            "phone": "OW",
+            "start": 3.02,
+            "end": 3.07,
+            "score": -63
+          }
+        ]
+      },
+      {
+        "word": "for(2)",
+        "start": 3.07,
+        "end": 3.23,
+        "phones": [
+          {
+            "phone": "F",
+            "start": 3.07,
+            "end": 3.17,
+            "score": -75
+          },
+          {
+            "phone": "ER",
+            "start": 3.17,
+            "end": 3.23,
+            "score": -62
+          }
+        ]
+      },
+      {
+        "word": "the",
+        "start": 3.23,
+        "end": 3.32,
+        "phones": [
+          {
+            "phone": "DH",
+            "start": 3.23,
+            "end": 3.28,
+            "score": -42
+          },
+          {
+            "phone": "AH",
+            "start": 3.28,
+            "end": 3.32,
+            "score": -76
+          }
+        ]
+      },
+      {
+        "word": "next(2)",
+        "start": 3.32,
+        "end": 3.61,
+        "phones": [
+          {
+            "phone": "N",
+            "start": 3.32,
+            "end": 3.37,
+            "score": -31
+          },
+          {
+            "phone": "EH",
+            "start": 3.37,
+            "end": 3.44,
+            "score": -42
+          },
+          {
+            "phone": "K",
+            "start": 3.44,
+            "end": 3.52,
+            "score": -125
+          },
+          {
+            "phone": "S",
+            "start": 3.52,
+            "end": 3.61,
+            "score": -63
+          }
+        ]
+      },
+      {
+        "word": "drop",
+        "start": 3.61,
+        "end": 4.08,
+        "phones": [
+          {
+            "phone": "D",
+            "start": 3.61,
+            "end": 3.65,
+            "score": -25
+          },
+          {
+            "phone": "R",
+            "start": 3.65,
+            "end": 3.72,
+            "score": -43
+          },
+          {
+            "phone": "AA",
+            "start": 3.72,
+            "end": 3.88,
+            "score": -265
+          },
+          {
+            "phone": "P",
+            "start": 3.88,
+            "end": 4.08,
+            "score": -573
+          }
+        ]
+      },
+      {
+        "word": "<sil>",
+        "start": 4.08,
+        "end": 4.43,
+        "phones": [
+          {
+            "phone": "SIL",
+            "start": 4.08,
+            "end": 4.43,
+            "score": -163
+          }
+        ]
+      }
+    ]
+  }
+]

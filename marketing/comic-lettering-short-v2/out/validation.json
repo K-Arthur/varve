@@ -1,0 +1,96 @@
+{
+  "video": {
+    "codec_name": "h264",
+    "profile": "High",
+    "width": 1080,
+    "height": 1920,
+    "pix_fmt": "yuv420p",
+    "r_frame_rate": "30/1",
+    "avg_frame_rate": "30/1",
+    "nb_frames": "912",
+    "duration": "30.400000",
+    "color_space": "bt709",
+    "color_transfer": null,
+    "color_primaries": null
+  },
+  "audio": {
+    "codec_name": "aac",
+    "sample_rate": "48000",
+    "channels": 1,
+    "duration": "30.388000"
+  },
+  "formatDuration": "30.400000",
+  "decode": {
+    "returncode": 0,
+    "errors": ""
+  },
+  "blackdetect": {
+    "returncode": 0,
+    "segments": []
+  },
+  "loudness": {
+    "integratedLUFS": "-16.16",
+    "truePeakDBTP": "-1.43",
+    "rangeLU": "1.90",
+    "thresholdLUFS": "-26.65"
+  },
+  "loop": {
+    "firstFrame": 0,
+    "lastFrame": 911,
+    "meanAbsoluteRGBDifference": 0.5766224601337449,
+    "rmse": 1.6626512682968535,
+    "psnrDB": 43.71478024950048
+  },
+  "sixFrameGrabs": [
+    {
+      "file": "frame-01.png",
+      "size": [1080, 1920],
+      "expectedTimeSeconds": 2.533333333333333,
+      "expectedFrame": 76,
+      "matchesExpectedEncodedFrame": true
+    },
+    {
+      "file": "frame-02.png",
+      "size": [1080, 1920],
+      "expectedTimeSeconds": 7.599999999999999,
+      "expectedFrame": 228,
+      "matchesExpectedEncodedFrame": true
+    },
+    {
+      "file": "frame-03.png",
+      "size": [1080, 1920],
+      "expectedTimeSeconds": 12.666666666666666,
+      "expectedFrame": 380,
+      "matchesExpectedEncodedFrame": true
+    },
+    {
+      "file": "frame-04.png",
+      "size": [1080, 1920],
+      "expectedTimeSeconds": 17.73333333333333,
+      "expectedFrame": 532,
+      "matchesExpectedEncodedFrame": true
+    },
+    {
+      "file": "frame-05.png",
+      "size": [1080, 1920],
+      "expectedTimeSeconds": 22.799999999999997,
+      "expectedFrame": 684,
+      "matchesExpectedEncodedFrame": true
+    },
+    {
+      "file": "frame-06.png",
+      "size": [1080, 1920],
+      "expectedTimeSeconds": 27.866666666666664,
+      "expectedFrame": 836,
+      "matchesExpectedEncodedFrame": true
+    }
+  ],
+  "processReturncodes": {
+    "probe": 0,
+    "decode": 0,
+    "blackdetect": 0,
+    "loudness": 0,
+    "loopframes": 0,
+    "grabframes": 0
+  }
+}

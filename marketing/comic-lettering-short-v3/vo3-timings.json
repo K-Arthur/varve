@@ -1,0 +1,415 @@
+{
+  "voice": "Vanessa (avocado_v2:Vanessa)",
+  "method": "energy-segmented word alignment",
+  "total": 35.088,
+  "beats": [
+    {
+      "beat": 1,
+      "text": "What if your comic dialogue was never baked into pixels?",
+      "start": 0.0,
+      "duration": 3.99,
+      "words": [
+        {
+          "word": "What",
+          "start": 0.357,
+          "end": 0.882
+        },
+        {
+          "word": "if",
+          "start": 0.882,
+          "end": 1.323
+        },
+        {
+          "word": "your",
+          "start": 1.323,
+          "end": 1.961
+        },
+        {
+          "word": "comic",
+          "start": 1.961,
+          "end": 2.083
+        },
+        {
+          "word": "dialogue",
+          "start": 2.083,
+          "end": 2.196
+        },
+        {
+          "word": "was",
+          "start": 2.196,
+          "end": 2.943
+        },
+        {
+          "word": "never",
+          "start": 2.943,
+          "end": 3.145
+        },
+        {
+          "word": "baked",
+          "start": 3.145,
+          "end": 3.433
+        },
+        {
+          "word": "into",
+          "start": 3.433,
+          "end": 3.616
+        },
+        {
+          "word": "pixels?",
+          "start": 3.616,
+          "end": 3.99
+        }
+      ]
+    },
+    {
+      "beat": 2,
+      "text": "In Varve, dialogue lives inside the balloon. Rewrite the line as your scene develops.",
+      "start": 4.39,
+      "duration": 6.313,
+      "words": [
+        {
+          "word": "In",
+          "start": 4.575,
+          "end": 4.807
+        },
+        {
+          "word": "Varve,",
+          "start": 4.807,
+          "end": 5.279
+        },
+        {
+          "word": "dialogue",
+          "start": 5.279,
+          "end": 5.644
+        },
+        {
+          "word": "lives",
+          "start": 5.644,
+          "end": 6.297
+        },
+        {
+          "word": "inside",
+          "start": 6.297,
+          "end": 6.935
+        },
+        {
+          "word": "the",
+          "start": 6.935,
+          "end": 7.235
+        },
+        {
+          "word": "balloon.",
+          "start": 7.235,
+          "end": 7.583
+        },
+        {
+          "word": "Rewrite",
+          "start": 7.583,
+          "end": 7.922
+        },
+        {
+          "word": "the",
+          "start": 7.922,
+          "end": 8.265
+        },
+        {
+          "word": "line",
+          "start": 8.265,
+          "end": 8.834
+        },
+        {
+          "word": "as",
+          "start": 8.834,
+          "end": 9.516
+        },
+        {
+          "word": "your",
+          "start": 9.516,
+          "end": 10.26
+        },
+        {
+          "word": "scene",
+          "start": 10.26,
+          "end": 10.624
+        },
+        {
+          "word": "develops.",
+          "start": 10.624,
+          "end": 10.703
+        }
+      ]
+    },
+    {
+      "beat": 3,
+      "text": "When a line gets longer, the balloon fits itself around your words. Tails, padding, style, all live.",
+      "start": 11.103,
+      "duration": 7.855,
+      "words": [
+        {
+          "word": "When",
+          "start": 11.288,
+          "end": 11.845
+        },
+        {
+          "word": "a",
+          "start": 11.845,
+          "end": 12.432
+        },
+        {
+          "word": "line",
+          "start": 12.432,
+          "end": 12.603
+        },
+        {
+          "word": "gets",
+          "start": 12.603,
+          "end": 12.827
+        },
+        {
+          "word": "longer,",
+          "start": 12.827,
+          "end": 13.569
+        },
+        {
+          "word": "the",
+          "start": 13.569,
+          "end": 13.744
+        },
+        {
+          "word": "balloon",
+          "start": 13.744,
+          "end": 14.842
+        },
+        {
+          "word": "fits",
+          "start": 14.842,
+          "end": 14.99
+        },
+        {
+          "word": "itself",
+          "start": 14.99,
+          "end": 15.134
+        },
+        {
+          "word": "around",
+          "start": 15.134,
+          "end": 15.254
+        },
+        {
+          "word": "your",
+          "start": 15.254,
+          "end": 15.414
+        },
+        {
+          "word": "words.",
+          "start": 15.414,
+          "end": 15.55
+        },
+        {
+          "word": "Tails,",
+          "start": 15.55,
+          "end": 16.244
+        },
+        {
+          "word": "padding,",
+          "start": 16.244,
+          "end": 16.447
+        },
+        {
+          "word": "style,",
+          "start": 16.447,
+          "end": 18.306
+        },
+        {
+          "word": "all",
+          "start": 18.306,
+          "end": 18.425
+        },
+        {
+          "word": "live.",
+          "start": 18.425,
+          "end": 18.958
+        }
+      ]
+    },
+    {
+      "beat": 4,
+      "text": "Speech, thoughts, shouts. Every balloon stays part of the design.",
+      "start": 19.358,
+      "duration": 5.463,
+      "words": [
+        {
+          "word": "Speech,",
+          "start": 19.507,
+          "end": 19.68
+        },
+        {
+          "word": "thoughts,",
+          "start": 19.68,
+          "end": 19.961
+        },
+        {
+          "word": "shouts.",
+          "start": 19.961,
+          "end": 20.423
+        },
+        {
+          "word": "Every",
+          "start": 20.423,
+          "end": 20.524
+        },
+        {
+          "word": "balloon",
+          "start": 20.524,
+          "end": 20.87
+        },
+        {
+          "word": "stays",
+          "start": 20.87,
+          "end": 21.137
+        },
+        {
+          "word": "part",
+          "start": 21.137,
+          "end": 21.349
+        },
+        {
+          "word": "of",
+          "start": 21.349,
+          "end": 22.669
+        },
+        {
+          "word": "the",
+          "start": 22.669,
+          "end": 22.888
+        },
+        {
+          "word": "design.",
+          "start": 22.888,
+          "end": 24.821
+        }
+      ]
+    },
+    {
+      "beat": 5,
+      "text": "Varve is free and local-first. Your pages never leave your machine.",
+      "start": 25.221,
+      "duration": 5.186,
+      "words": [
+        {
+          "word": "Varve",
+          "start": 25.841,
+          "end": 26.199
+        },
+        {
+          "word": "is",
+          "start": 26.199,
+          "end": 26.532
+        },
+        {
+          "word": "free",
+          "start": 26.532,
+          "end": 26.895
+        },
+        {
+          "word": "and",
+          "start": 26.895,
+          "end": 27.054
+        },
+        {
+          "word": "local-first.",
+          "start": 27.054,
+          "end": 27.433
+        },
+        {
+          "word": "Your",
+          "start": 27.433,
+          "end": 27.622
+        },
+        {
+          "word": "pages",
+          "start": 27.622,
+          "end": 28.107
+        },
+        {
+          "word": "never",
+          "start": 28.107,
+          "end": 28.298
+        },
+        {
+          "word": "leave",
+          "start": 28.298,
+          "end": 28.581
+        },
+        {
+          "word": "your",
+          "start": 28.581,
+          "end": 28.824
+        },
+        {
+          "word": "machine.",
+          "start": 28.824,
+          "end": 30.407
+        }
+      ]
+    },
+    {
+      "beat": 6,
+      "text": "What would your comic say? Follow for the next drop.",
+      "start": 30.807,
+      "duration": 3.881,
+      "words": [
+        {
+          "word": "What",
+          "start": 31.291,
+          "end": 32.036
+        },
+        {
+          "word": "would",
+          "start": 32.036,
+          "end": 32.498
+        },
+        {
+          "word": "your",
+          "start": 32.498,
+          "end": 32.633
+        },
+        {
+          "word": "comic",
+          "start": 32.633,
+          "end": 32.82
+        },
+        {
+          "word": "say?",
+          "start": 32.82,
+          "end": 33.099
+        },
+        {
+          "word": "Follow",
+          "start": 33.099,
+          "end": 33.306
+        },
+        {
+          "word": "for",
+          "start": 33.306,
+          "end": 33.445
+        },
+        {
+          "word": "the",
+          "start": 33.445,
+          "end": 34.303
+        },
+        {
+          "word": "next",
+          "start": 34.303,
+          "end": 34.44
+        },
+        {
+          "word": "drop.",
+          "start": 34.44,
+          "end": 34.688
+        }
+      ]
+    }
+  ]
+}
