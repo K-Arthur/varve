@@ -38,18 +38,6 @@ export function defaultPanelWidth(side: PanelSide, viewport: number): number {
   return Math.min(320, Math.max(240, 208 + viewport * 0.08));
 }
 
-/** Clamp a panel width so the canvas column keeps CANVAS_MIN_WIDTH. */
-export function clampPanelWidthToViewport(
-  side: PanelSide,
-  width: number,
-  otherWidth: number,
-  viewport: number,
-): number {
-  const min = PANEL_LIMITS[side].min;
-  const available = Math.max(min, viewport - CANVAS_MIN_WIDTH - otherWidth);
-  return Math.min(clampPanelWidth(side, width), available);
-}
-
 /**
  * Resolve the widths actually rendered at a viewport.
  *
@@ -57,21 +45,35 @@ export function clampPanelWidthToViewport(
  * display value additionally yields to the canvas minimum. Keeping the two
  * apart is what stops a narrow window from permanently overwriting a desktop
  * arrangement.
+ *
+ * The shortfall is apportioned across both panels in proportion to how far
+ * each sits above its own minimum. A panel at its CSS default (`null`) is not
+ * ours to resize, so it counts as fixed. Clamping each panel against the
+ * *other's desired* width removed the same pixels twice and left canvas width
+ * unused.
  */
 export function resolveDisplayWidths(
   desired: { layers: number | null; inspector: number | null },
   viewport: number,
 ): { layers: number | null; inspector: number | null } {
-  const resolved = { ...desired };
-  if (desired.layers !== null) {
-    const other = desired.inspector ?? defaultPanelWidth('inspector', viewport);
-    resolved.layers = clampPanelWidthToViewport('layers', desired.layers, other, viewport);
-  }
-  if (desired.inspector !== null) {
-    const other = desired.layers ?? defaultPanelWidth('layers', viewport);
-    resolved.inspector = clampPanelWidthToViewport('inspector', desired.inspector, other, viewport);
-  }
-  return resolved;
+  const base = {
+    layers: desired.layers ?? defaultPanelWidth('layers', viewport),
+    inspector: desired.inspector ?? defaultPanelWidth('inspector', viewport),
+  };
+  const slack = {
+    layers: desired.layers === null ? 0 : Math.max(0, base.layers - PANEL_LIMITS.layers.min),
+    inspector:
+      desired.inspector === null ? 0 : Math.max(0, base.inspector - PANEL_LIMITS.inspector.min),
+  };
+  const shortfall = base.layers + base.inspector + CANVAS_MIN_WIDTH - viewport;
+  const totalSlack = slack.layers + slack.inspector;
+  const take = Math.min(Math.max(0, shortfall), totalSlack);
+  const shrink = (side: PanelSide): number | null => {
+    if (desired[side] === null) return null;
+    const share = totalSlack > 0 ? (take * slack[side]) / totalSlack : 0;
+    return Math.max(PANEL_LIMITS[side].min, Math.round(base[side] - share));
+  };
+  return { layers: shrink('layers'), inspector: shrink('inspector') };
 }
 
 /** Hook owning both panel widths (persisted in editor settings);

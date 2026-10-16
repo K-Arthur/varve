@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  CANVAS_MIN_WIDTH,
   defaultPanelWidth,
   PANEL_LIMITS,
   PanelResizeHandle,
@@ -22,6 +23,35 @@ describe('resolveDisplayWidths', () => {
     // yields. The point of the test is that `desired` is untouched.
     expect(resolved.layers).toBeLessThanOrEqual(desired.layers);
     expect(desired).toEqual({ layers: 480, inspector: 600 });
+  });
+
+  it('shares the shortfall between both panels instead of over-shrinking each', () => {
+    // 1000 - 320 canvas minimum leaves 680px. Two 400px panels need 800px, so
+    // 120px must come out in total. Clamping each against the other's desired
+    // width instead gave 280 + 280 = 560px and left 120px of canvas unused.
+    const resolved = resolveDisplayWidths({ layers: 400, inspector: 400 }, 1000);
+    // Slack above each minimum is 220 (layers) and 160 (inspector): 120px comes
+    // out 70 / 50.
+    expect(resolved).toEqual({ layers: 331, inspector: 349 });
+    expect((resolved.layers ?? 0) + (resolved.inspector ?? 0) + CANVAS_MIN_WIDTH).toBe(1000);
+  });
+
+  it('removes the shortfall in proportion to what each panel can give up', () => {
+    const resolved = resolveDisplayWidths({ layers: 480, inspector: 300 }, 1000);
+    // Shrinkable: layers 300, inspector 60. Shortfall 100 -> 83 / 17.
+    expect(resolved.layers).toBe(397);
+    expect(resolved.inspector).toBe(283);
+    expect((resolved.layers ?? 0) + (resolved.inspector ?? 0)).toBeLessThanOrEqual(680);
+  });
+
+  it('never goes below a panel minimum and keeps the default-width side fixed', () => {
+    const squeezed = resolveDisplayWidths({ layers: 480, inspector: 600 }, 900);
+    expect(squeezed.layers).toBeGreaterThanOrEqual(PANEL_LIMITS.layers.min);
+    expect(squeezed.inspector).toBeGreaterThanOrEqual(PANEL_LIMITS.inspector.min);
+    const oneSided = resolveDisplayWidths({ layers: 480, inspector: null }, 1000);
+    // The null inspector keeps its CSS default (288px at 1000px wide).
+    expect(oneSided.inspector).toBeNull();
+    expect(oneSided.layers).toBe(Math.round(1000 - 320 - defaultPanelWidth('inspector', 1000)));
   });
 
   it('passes nulls through (default CSS clamp owns those panels)', () => {

@@ -165,4 +165,18 @@ describe('dock geometry', () => {
       }),
     ]);
   });
+  it('reports a minimum the host cannot satisfy so callers can fall back to the drawer shell', () => {
+    // resolveDockTreeGeometry falls back to ratio allocation when minimums do
+    // not fit, which can yield a sliver of a panel. That is only safe because
+    // callers (useEditorDockGeometry) compare `minimumSize` with the host and
+    // decline the dock. This pins the signal they rely on.
+    const geometry = resolveDockTreeGeometry(node, 360, 300);
+    expect(geometry.minimumSize.width).toBeGreaterThan(360);
+    const layers = geometry.panels.find((panel) => panel.panelTypeId === 'layers');
+    expect(layers).toBeDefined();
+    const fits = resolveDockTreeGeometry(node, 1440, 900);
+    const fitted = fits.panels.find((panel) => panel.panelTypeId === 'layers');
+    expect(fits.minimumSize.width).toBeLessThanOrEqual(1440);
+    expect(fitted?.rect.width ?? 0).toBeGreaterThanOrEqual(180);
+  });
 });

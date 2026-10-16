@@ -95,6 +95,23 @@ The same containment is what keeps the rail honest under **text enlargement**
 root text size the rail's content painted over the document title instead of
 staying inside its own box.
 
+### Grid-fallback panel widths
+
+`resolveDisplayWidths` (`components/PanelResizeHandle.tsx`) projects the user's
+persisted Layers and Inspector widths into the current viewport without
+touching the saved intent. The canvas keeps `CANVAS_MIN_WIDTH` (320px); any
+shortfall is taken from both panels in proportion to how far each sits above
+its own minimum, and never below that minimum. A panel at its CSS default
+(`null`) is fixed. Clamping each panel against the other's *desired* width, as
+earlier code did, removed the same pixels twice (1000px with 400/400 desired
+gave 280/280 and left 120px of canvas budget unused).
+
+The dock-tree path (`useEditorDockGeometry`) is separate: when the registry
+minimums exceed the measured host, it returns empty geometry and the fixed-slot
+shell supplies the drawer projection. `resolveDockTreeGeometry` itself falls
+back to ratio allocation in that case, so its `minimumSize` is the signal
+callers must check before painting (pinned in `dockGeometry.test.ts`).
+
 ## Text enlargement (WCAG 2.2 SC 1.4.4)
 
 Interface type is rem-based and interface geometry is px-based (`tokens/`), so a
