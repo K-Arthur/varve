@@ -742,8 +742,9 @@ export function wrapTextInCallout(
 
   // Auto-width dialogue is a single long ribbon; a balloon wrapped around it
   // would be unreadable. Cap the line to a lettering-friendly measure and
-  // stack the text, then fit the body in one bounded pass. Authored area text
-  // keeps its box: only a node with no container is re-shaped.
+  // stack the text. Fixed dragged boxes keep their authored measure. Both
+  // then settle through one fit so short top-aligned lines cannot sit in
+  // the ellipse crown.
   const sourceText = next.nodes[textId] as TextNode;
   if (resolveTextGeometryMode(sourceText) === 'autoWidth') {
     const fontSize = sourceText.fontSize ?? 16;
@@ -770,37 +771,54 @@ export function wrapTextInCallout(
         },
       },
     };
-    next = fitCalloutToText(next, created.groupId);
-    const fittedGroup = next.nodes[created.groupId];
-    if (fittedGroup?.kind === 'group' && fittedGroup.callout) {
-      // Fit is a one-time sizing here, not a mode switch: the authored policy
-      // stays "reflow" until the author chooses otherwise.
-      next = {
-        ...next,
-        nodes: {
-          ...next.nodes,
-          [created.groupId]: {
-            ...fittedGroup,
-            callout: { ...fittedGroup.callout, fitToText: false, fitPolicy: 'reflow' },
-          },
-        },
-      };
-      const body = next.nodes[created.bodyId];
-      const firstTailId = fittedGroup.callout.tailNodeIds[0];
-      if (body?.kind === 'shape' && body.shape.kind === 'rect' && firstTailId) {
-        const anchorH = tailAnchorHeight(
-          fittedGroup as GroupNode & { callout: CalloutRecipe },
-          body,
-          next.nodes,
-        );
-        next = updateCalloutTailEndpoint(next, created.groupId, firstTailId, {
-          x: body.shape.w / 2,
-          y: anchorH + Math.max(24, options.tailLength ?? 32),
-        });
-      }
-    }
   }
+  const seated = next.nodes[textId] as TextNode;
+  next = {
+    ...next,
+    nodes: {
+      ...next.nodes,
+      [textId]: { ...seated, textAlignVertical: 'middle' },
+    },
+  };
+  next = settleWrappedCallout(next, created, options);
   return { ...created, document: next, textId };
+}
+
+/** Fit a newly wrapped balloon, then leave the authored policy on reflow. */
+function settleWrappedCallout(
+  doc: Document,
+  created: CalloutResult,
+  options: { tailLength?: number },
+): Document {
+  let next = fitCalloutToText(doc, created.groupId);
+  const fittedGroup = next.nodes[created.groupId];
+  if (fittedGroup?.kind !== 'group' || !fittedGroup.callout) return next;
+  // Fit is a one-time sizing here, not a mode switch: the authored policy
+  // stays "reflow" until the author chooses otherwise.
+  next = {
+    ...next,
+    nodes: {
+      ...next.nodes,
+      [created.groupId]: {
+        ...fittedGroup,
+        callout: { ...fittedGroup.callout, fitToText: false, fitPolicy: 'reflow' },
+      },
+    },
+  };
+  const body = next.nodes[created.bodyId];
+  const firstTailId = fittedGroup.callout.tailNodeIds[0];
+  if (body?.kind === 'shape' && body.shape.kind === 'rect' && firstTailId) {
+    const anchorH = tailAnchorHeight(
+      fittedGroup as GroupNode & { callout: CalloutRecipe },
+      body,
+      next.nodes,
+    );
+    next = updateCalloutTailEndpoint(next, created.groupId, firstTailId, {
+      x: body.shape.w / 2,
+      y: anchorH + Math.max(24, options.tailLength ?? 32),
+    });
+  }
+  return next;
 }
 
 function calloutGroup(
@@ -1510,7 +1528,7 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
   nodes = {
     ...nodes,
     [body.id]: { ...body, shape: { ...body.shape, w: localW, h: localH } },
-    [text.id]: setTextContainer(text, innerW, innerH, p),
+    [text.id]: { ...setTextContainer(text, innerW, innerH, p), textAlignVertical: 'middle' },
   };
   nodes = updateTailGeometry(nodes, calloutTails(group), localW, nextAnchorH, group.callout.kind);
   return {
