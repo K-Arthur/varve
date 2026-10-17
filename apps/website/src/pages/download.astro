@@ -73,6 +73,9 @@ function analyticsArchitecture(arch: string): 'x64' | 'arm64' | 'unknown' {
 
 function formatReleaseDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
+  // releaseDate is a calendar day (CHANGELOG, else America/Vancouver of the
+  // pipeline timestamp). Format it as UTC midnight so a date-only string does
+  // not shift with the viewer's local timezone.
   const parsed = new Date(`${dateStr}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return dateStr;
   return parsed.toLocaleDateString('en-US', {

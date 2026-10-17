@@ -149,6 +149,24 @@ describe('release data states (shared builder)', () => {
     expect(data.platforms.linux).toHaveLength(1);
   });
 
+  it('uses the Pacific calendar day when a release is published the next UTC day', () => {
+    const lateEveningPt = '2026-10-16T03:50:00.936Z';
+    const item = artifact();
+    const data = buildWebsiteReleaseData({
+      repo: 'K-Arthur/varve',
+      tag: 'v0.5.1',
+      manifest: {
+        ...manifest([item], '0.5.1'),
+        generatedAt: lateEveningPt,
+      },
+      checksumsText: checksums([item]),
+      sbomFilenames: [],
+      changelogText: '## [0.5.1] - 2026-10-15\n',
+    }) as ReleaseData;
+    expect(lateEveningPt.slice(0, 10)).toBe('2026-10-16');
+    expect(data.releaseDate).toBe('2026-10-15');
+  });
+
   it('prerelease state is labelled as such', () => {
     const data = buildWebsiteReleaseData({
       repo: 'K-Arthur/varve',

@@ -40,7 +40,10 @@ import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-
 import { incrementVersion } from './version.mjs';
 import {
   buildWebsiteReleaseData,
+  calendarDateInTimeZone,
+  changelogDateForVersion,
   formatCopy,
+  releaseCalendarDate,
   releaseUpdaterAvailability,
 } from './website-release-data.mjs';
 import { buildUpdaterConfig } from './write-updater-config.mjs';
@@ -1258,6 +1261,78 @@ assert.throws(
   /unknown format/,
   'unknown formats must be refused by the page builder',
 );
+
+// A late-evening Pacific publish is already the next calendar day in UTC.
+// The download page must show the release's intended day, not the UTC slice
+// of generatedAt / GitHub published_at. 0.5.1 was published
+// 2026-10-16T04:19:29Z (evening of 2026-10-15 America/Vancouver); CHANGELOG
+// records ## [0.5.1] - 2026-10-15.
+{
+  const lateEveningPt = '2026-10-16T03:50:00.936Z';
+  assert.equal(lateEveningPt.slice(0, 10), '2026-10-16');
+  assert.equal(calendarDateInTimeZone(lateEveningPt), '2026-10-15');
+  assert.equal(calendarDateInTimeZone('2026-10-16T04:19:29Z'), '2026-10-15');
+  assert.equal(
+    changelogDateForVersion('## [0.5.1] - 2026-10-15\n\nPatch over 0.5.0.\n', '0.5.1'),
+    '2026-10-15',
+  );
+  assert.equal(
+    releaseCalendarDate({
+      version: '0.5.1',
+      generatedAt: lateEveningPt,
+      changelogText: '## [0.5.1] - 2026-10-15\n',
+    }),
+    '2026-10-15',
+  );
+  assert.equal(
+    releaseCalendarDate({
+      version: '0.5.1',
+      generatedAt: '2026-10-16T12:00:00.000Z',
+      changelogText: '## [0.5.1] - 2026-10-15\n',
+    }),
+    '2026-10-15',
+    'CHANGELOG date wins even when the pipeline timestamp is the next Pacific day',
+  );
+  assert.equal(
+    releaseCalendarDate({ version: '0.5.1', generatedAt: lateEveningPt }),
+    '2026-10-15',
+    'without CHANGELOG, convert generatedAt to America/Vancouver',
+  );
+  assert.equal(
+    releaseCalendarDate({
+      version: '0.5.0',
+      generatedAt: '2026-10-09T08:21:27Z',
+    }),
+    '2026-10-09',
+    'a morning Pacific timestamp must not shift back a day',
+  );
+  assert.equal(
+    releaseCalendarDate({ version: '0.5.0', generatedAt: '2026-10-09' }),
+    '2026-10-09',
+    'an already-calendar YYYY-MM-DD must not be treated as UTC midnight',
+  );
+
+  const data = buildWebsiteReleaseData({
+    repo: 'K-Arthur/varve',
+    tag: 'v0.5.1',
+    manifest: {
+      ...JSON.parse(JSON.stringify(FIXTURE_MANIFEST).replaceAll('0.1.0', '0.5.1')),
+      generatedAt: lateEveningPt,
+    },
+    checksumsText: FIXTURE_CHECKSUMS.replaceAll('0.1.0', '0.5.1'),
+    sbomFilenames: [],
+    changelogText: '## [0.5.1] - 2026-10-15\n\nPatch.\n',
+  });
+  assert.equal(data.version, '0.5.1');
+  assert.equal(data.releaseDate, '2026-10-15');
+
+  const fetchSource = readFileSync('scripts/release/fetch-website-release.mjs', 'utf8');
+  const updateSource = readFileSync('scripts/release/update-website-manifest.mjs', 'utf8');
+  assert.match(fetchSource, /CHANGELOG\.md/);
+  assert.match(fetchSource, /changelogText/);
+  assert.match(updateSource, /CHANGELOG\.md/);
+  assert.match(updateSource, /changelogText/);
+}
 
 // ── formatCopy ───────────────────────────────────────────────────────────────
 {

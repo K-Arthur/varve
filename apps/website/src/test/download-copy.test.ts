@@ -15,7 +15,7 @@ describe('download page install routes', () => {
     expect(page).not.toMatch(/the repository PKGBUILD is fine to use/);
   });
 
-  it('shows the published snapshot as a UTC calendar date', () => {
+  it('formats the stored calendar date without a local timezone shift', () => {
     expect(page).toMatch(/formatReleaseDate\(release\.releaseDate\)/);
     expect(page).toMatch(/timeZone: 'UTC'/);
   });
