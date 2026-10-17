@@ -1,7 +1,7 @@
 {
   "name": "Varve",
   "short_name": "Varve",
-  "description": "A local-first design application for vector, raster, layout, typography, motion, and print",
+  "description": "A local-first design application for vector, layout, comic lettering, drawing, photo and print",
   "id": "./",
   "start_url": "./",
   "scope": "./",

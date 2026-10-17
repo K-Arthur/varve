@@ -71,6 +71,18 @@ function analyticsArchitecture(arch: string): 'x64' | 'arm64' | 'unknown' {
   return 'unknown';
 }
 
+function formatReleaseDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const parsed = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return dateStr;
+  return parsed.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 function architectureLabel(arch: string): string {
   const normalized = arch.toLowerCase();
   if (normalized.includes('arm') || normalized.includes('aarch')) return 'ARM64';
@@ -187,7 +199,7 @@ function platformTrustLabel(
 const REQUIREMENTS: Record<string, string[]> = {
   linux: [
     'OS: any distribution with glibc 2.35 or newer (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS)',
-    'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (DEB/RPM pull these in automatically; AppImage and PKGBUILD need them as system packages)',
+    'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig (DEB/RPM pull these in automatically; AppImage needs them as system packages)',
     'CPU: choose the download labeled x86_64 or ARM64 to match your Linux machine',
     'RAM: 4 GB minimum, 8 GB recommended',
     'Display: Wayland or X11',
@@ -652,8 +664,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                         </tr>
                         <tr>
                           <td><strong>Arch / CachyOS / Manjaro</strong></td>
-                          <td>PKGBUILD <span class="format-badge">recommended</span></td>
-                          <td><code>makepkg -si</code> from <code>packaging/aur/varve-desktop-bin</code></td>
+                          <td>AppImage <span class="format-badge">recommended</span></td>
+                          <td><code>chmod +x Varve-*.AppImage &amp;&amp; ./Varve-*.AppImage</code></td>
                         </tr>
                         <tr>
                           <td><strong>openSUSE / SUSE</strong></td>
@@ -672,10 +684,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     <p>
                       <strong>AppImage</strong> — a single portable file that runs on any distro
                       without root or a package manager. This is the universal option and the
-                      recommended default for openSUSE and other non-Debian/Fedora distros. On
-                      Arch and CachyOS the repository PKGBUILD is fine to use; the AppImage also
-                      works. Requires FUSE2 (or <code>--appimage-extract-and-run</code>) and the
-                      system WebKitGTK library.
+                      recommended default for Arch, CachyOS, openSUSE, and other
+                      non-Debian/Fedora distros. Requires FUSE2 (or
+                      <code>--appimage-extract-and-run</code>) and the system WebKitGTK library.
                     </p>
                     <p>
                       <strong>Debian package (.deb)</strong> — installs system-wide and pulls in
@@ -689,19 +700,6 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       dnf/yum repository for Varve, so <code>dnf upgrade</code> does not update
                       it; install the newer package file from the release page over it. For
                       Fedora, RHEL, and derivatives.
-                    </p>
-                    <p>
-                      <strong>Arch/CachyOS PKGBUILD</strong> — the{' '}
-                      <code>varve-desktop-bin</code> PKGBUILD in the{' '}
-                      <a href="https://github.com/varvedesign/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">
-                        repository
-                      </a>{' '}
-                      is fixed and fine to use. It builds from the released AppImage (extracts it
-                      at install time), providing a proper <code>.desktop</code> file, icons, MIME
-                      types, and clean uninstall via <code>pacman -R</code>. No FUSE dependency.
-                      Build with <code>makepkg -si</code> from the PKGBUILD directory. The
-                      AppImage also works on its own. An AUR package is coming; AUR registration
-                      is currently closed.
                     </p>
                     <p>
                       <strong>ChromeOS (Linux development environment)</strong> — install the{' '}
@@ -772,7 +770,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
           <div class="release-info">
             <h3>This release</h3>
             <p><strong>Version:</strong> {release.version}</p>
-            <p><strong>Released:</strong> {release.releaseDate}</p>
+            <p><strong>Released:</strong> {formatReleaseDate(release.releaseDate)}</p>
             <p><strong>Channel:</strong> {channelLabel}</p>
             <p>
               <a href={release.releaseUrl} target="_blank" rel="noopener noreferrer">
@@ -939,9 +937,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <code>libfuse2</code> on Debian 12 or Ubuntu 22.04
                 (<code>sudo apt install libfuse2</code>), or <code>libfuse2t64</code> on Debian 13
                 or Ubuntu 24.04 and later (<code>sudo apt install libfuse2t64</code>). You can
-                also run <code>./Varve-*.AppImage --appimage-extract-and-run</code>. The PKGBUILD
-                in the repository extracts the AppImage and does not need FUSE. An AUR package is
-                coming; AUR registration is currently closed. See the{' '}
+                also run <code>./Varve-*.AppImage --appimage-extract-and-run</code>. See the{' '}
                 <a href="https://github.com/AppImage/AppImageKit/wiki/FUSE" target="_blank" rel="noopener noreferrer">official AppImage FUSE guide</a> for other distributions.
               </li>
               <li>
@@ -960,16 +956,6 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 Linux development environment, keep projects in a shared My files/Drive folder
                 (container files are deleted with the environment), and expect software rendering.
                 See the <a href={sitePath('/docs/chromeos-linux')}>ChromeOS guide</a>.
-              </li>
-              <li>
-                <strong>Arch/CachyOS — the repository PKGBUILD is fine to use:</strong> the{' '}
-                <code>varve-desktop-bin</code> PKGBUILD in the{' '}
-                <a href="https://github.com/varvedesign/varve/tree/master/packaging/aur/varve-desktop-bin" target="_blank" rel="noopener noreferrer">repository</a>{' '}
-                is fixed. It builds from the AppImage — run{' '}
-                <code>makepkg -si</code> from the PKGBUILD directory — and installs desktop
-                integration without FUSE. The AppImage also works:{' '}
-                <code>chmod +x Varve-*.AppImage &amp;&amp; ./Varve-*.AppImage</code>.
-                An AUR package is coming; AUR registration is currently closed.
               </li>
               <li>
                 <strong>macOS — the app is blocked:</strong>{' '}
