@@ -90,3 +90,10 @@ custom-protocol = ["tauri/custom-protocol"]
 # correctly report unavailable so the app falls back to WASM/heuristic.
 ai = ["varve-bgremove/ai", "varve-upscale/ai"]
 wdio = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
+
+# Published tauri-plugin-updater still requires zip 4, which is the crate
+# named by RUSTSEC-2026-0367/0368/0369. The vendor patch only widens that
+# Windows pin to zip 9. Drop the patch when a crates.io updater release
+# depends on zip >= 9.
+[patch.crates-io]
+tauri-plugin-updater = { path = "../../../vendor/tauri-plugin-updater" }
