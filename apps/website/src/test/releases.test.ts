@@ -30,6 +30,7 @@ interface ReleaseData {
   hasRelease: boolean;
   prerelease: boolean;
   version: string | null;
+  releaseDate: string | null;
   integrity: string | null;
   platforms: Record<string, Array<Record<string, unknown>>>;
 }
