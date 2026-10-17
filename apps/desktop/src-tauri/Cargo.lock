@@ -6061,9 +6061,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-wdio"
-version = "1.2.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8aa9b559f110924b9897793767a3bb4880c195db75838030eb224f94d21565d9"
+checksum = "90a916fe563d141e4c1bf5010928478d0e70ca457d8ac97f80f7bf29e882b6c4"
 dependencies = [
  "log",
  "serde",
