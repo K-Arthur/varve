@@ -46,6 +46,14 @@ updates:
     open-pull-requests-limit: 8
     labels:
       - dependencies
+    ignore:
+      # patchedDependencies pins jsdom@30.1.3 for the FileReader
+      # readAsDataURL ArrayBuffer wrap. Dependabot's lockfile-only bump
+      # to a newer jsdom leaves that key unused and pnpm fails with
+      # ERR_PNPM_UNUSED_PATCH. Allow a newer version only after the
+      # patch is retargeted (or dropped if upstream fixed toBase64).
+      - dependency-name: jsdom
+        versions: ['> 30.1.3']
 
   - package-ecosystem: cargo
     directory: /
