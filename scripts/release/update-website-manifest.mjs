@@ -49,6 +49,13 @@ function main() {
     }
   }
 
+  let changelogText = '';
+  try {
+    changelogText = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8');
+  } catch {
+    changelogText = '';
+  }
+
   const website = buildWebsiteReleaseData({
     repo,
     tag,
@@ -56,6 +63,7 @@ function main() {
     checksumsText,
     sbomFilenames,
     integrity: 'verified',
+    changelogText,
   });
 
   writeFileSync(OUT, `${JSON.stringify(website, null, 2)}\n`);

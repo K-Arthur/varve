@@ -41,7 +41,7 @@
  * strongly recommended: the unauthenticated rate limit (60 req/h) is
  * insufficient for a busy release day.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchGitHubWithRetry, redactRequestUrl } from './github-fetch.mjs';
@@ -170,6 +170,13 @@ async function main() {
     process.exit(1);
   }
 
+  let changelogText = '';
+  try {
+    changelogText = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8');
+  } catch {
+    changelogText = '';
+  }
+
   const website = buildWebsiteReleaseData({
     repo,
     tag,
@@ -182,6 +189,7 @@ async function main() {
     checksumsText,
     sbomFilenames: verified.sbomAssets,
     integrity: 'verified',
+    changelogText,
   });
 
   mkdirSync(dirname(OUT), { recursive: true });
